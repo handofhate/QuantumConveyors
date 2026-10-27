@@ -335,6 +335,7 @@ public sealed class QuantumInteractionController : MonoBehaviour
     private static void HideStalePromptCards()
     {
         var cards = UnityEngine.Object.FindObjectsOfType(Il2CppType.Of<MoonActionPromptCard>());
+        if (cards == null) return;
         foreach (var item in cards)
         {
             if (item == null) continue;
