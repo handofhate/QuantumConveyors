@@ -1,19 +1,18 @@
 using System;
-using MoonCleaners;
-using MoonFramework;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
 namespace QuantumConveyors;
 
+/// <summary>
+/// Keyboard interaction for the adapter's stock Moon Framework machine panel.
+/// IMGUI is deliberately not used: the preview build does not unstrip Unity's
+/// IMGUI methods and would spam the BepInEx console with trampoline errors.
+/// </summary>
 public sealed class QuantumInteractionController : MonoBehaviour
 {
-    private MoonWalker walker;
     private QuantumEndpointView? target;
-    private bool menuOpen;
-    private Rect windowRect = new(0f, 0f, 440f, 540f);
     private bool updateReported;
-    private bool guiReported;
     private int lastViewCount = -1;
     private bool? cameraAvailable;
     private bool updateErrorReported;
@@ -35,17 +34,18 @@ public sealed class QuantumInteractionController : MonoBehaviour
                 updateReported = true;
                 QuantumNetwork.Diagnostic("Interaction host Update is running");
             }
-            if (walker == null) walker = UnityEngine.Object.FindObjectOfType<MoonWalker>();
+
             var camera = ActiveCamera();
             if (camera == null)
             {
                 if (cameraAvailable != false)
                 {
                     cameraAvailable = false;
-                    QuantumNetwork.Diagnostic($"No active camera found; walker={(walker != null)}");
+                    QuantumNetwork.Diagnostic("No active camera found");
                 }
                 return;
             }
+
             if (cameraAvailable != true)
             {
                 cameraAvailable = true;
@@ -56,28 +56,29 @@ public sealed class QuantumInteractionController : MonoBehaviour
             if (endpointViews.Count != lastViewCount)
             {
                 lastViewCount = endpointViews.Count;
-                QuantumNetwork.Diagnostic($"Interaction host sees {lastViewCount} endpoint view(s); camera={(camera != null)} walker={(walker != null)}");
+                QuantumNetwork.Diagnostic($"Interaction host sees {lastViewCount} endpoint view(s)");
             }
+
             target = FindTarget(camera, endpointViews);
-            if (!target.HasValue)
+            if (!target.HasValue || !InteractPressed()) return;
+
+            var interaction = target.Value;
+            if (IsRemovePressed())
             {
-                menuOpen = false;
+                QuantumNetwork.UnassignEndpoint(interaction.Id);
+                QuantumNetwork.Diagnostic($"Keyboard interaction: removed endpoint {interaction.Id} from its channel");
                 return;
             }
 
-            var uiBlocked = walker != null && walker.UIBlocked;
-            if (uiBlocked) return;
-            if (!InteractPressed()) return;
-
-            if (menuOpen)
+            if (IsNewChannelPressed())
             {
-                menuOpen = false;
+                if (QuantumNetwork.CreateAndAssign(interaction.Id, out var channelId))
+                    QuantumNetwork.Diagnostic($"Keyboard interaction: endpoint {interaction.Id} assigned to new channel {channelId}");
                 return;
             }
 
-            windowRect.x = (Screen.width - windowRect.width) * 0.5f;
-            windowRect.y = (Screen.height - windowRect.height) * 0.5f;
-            menuOpen = true;
+            if (QuantumNetwork.AssignNextChannel(interaction.Id))
+                QuantumNetwork.Diagnostic($"Keyboard interaction: endpoint {interaction.Id} advanced to the next channel");
         }
         catch (Exception exception)
         {
@@ -89,25 +90,27 @@ public sealed class QuantumInteractionController : MonoBehaviour
         }
     }
 
-    private bool InteractPressed()
+    private static bool InteractPressed()
     {
-        if (walker?.interact != null && walker.interact.WasPressedThisFrame()) return true;
-        if (Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame) return true;
-        return false;
+        return Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame;
     }
 
-    private Camera ActiveCamera()
+    private static bool IsRemovePressed()
     {
-        if (walker?.viewCamera != null) return walker.viewCamera;
-        if (Camera.main != null) return Camera.main;
+        var keyboard = Keyboard.current;
+        return keyboard != null && (keyboard.leftShiftKey.isPressed || keyboard.rightShiftKey.isPressed);
+    }
 
-        var cameras = Camera.allCameras;
-        for (var i = 0; i < cameras.Length; i++)
-        {
-            var camera = cameras[i];
-            if (camera != null && camera.isActiveAndEnabled) return camera;
-        }
-        return null;
+    private static bool IsNewChannelPressed()
+    {
+        var keyboard = Keyboard.current;
+        return keyboard != null && (keyboard.leftCtrlKey.isPressed || keyboard.rightCtrlKey.isPressed);
+    }
+
+    private static Camera ActiveCamera()
+    {
+        if (Camera.main != null) return Camera.main;
+        return Camera.current;
     }
 
     private static QuantumEndpointView? FindTarget(Camera camera, IReadOnlyList<QuantumEndpointView> endpoints)
@@ -133,86 +136,5 @@ public sealed class QuantumInteractionController : MonoBehaviour
         }
 
         return best;
-    }
-
-    public void OnGUI()
-    {
-        if (!guiReported)
-        {
-            guiReported = true;
-            QuantumNetwork.Diagnostic("Interaction host OnGUI is running");
-        }
-        var viewCount = QuantumNetwork.EndpointViews().Count;
-        GUI.Box(new Rect(10f, 10f, 430f, 30f), $"QC INTERACTION HOTFIX | views: {viewCount}");
-        if (!target.HasValue) return;
-        var endpoint = target.Value;
-        if (!menuOpen)
-        {
-            GUI.Box(new Rect(Screen.width * 0.5f - 110f, Screen.height * 0.62f, 220f, 32f), "[E]  Quantum Channel");
-            return;
-        }
-
-        windowRect = GUI.Window(GetInstanceID(), windowRect, (Action<int>)DrawWindow, "Quantum Channel");
-    }
-
-    private void DrawWindow(int windowId)
-    {
-        if (!target.HasValue) return;
-        var endpoint = target.Value;
-        var summaries = QuantumNetwork.Summaries();
-        var currentChannel = QuantumNetwork.ChannelFor(endpoint.Id);
-        var assigned = !string.IsNullOrWhiteSpace(currentChannel);
-        var y = 32f;
-
-        GUI.Label(new Rect(18f, y, 400f, 24f), endpoint.IsOutput
-            ? "This adapter sends into the wireless network."
-            : "This adapter receives from the wireless network.");
-        y += 28f;
-        GUI.Label(new Rect(18f, y, 400f, 24f), assigned
-            ? $"Current channel: {QuantumNetwork.ChannelName(currentChannel)}"
-            : "Current channel: Unassigned");
-        y += 34f;
-
-        if (!Moon.IsAuthority)
-        {
-            GUI.Label(new Rect(18f, y, 400f, 46f), "Only the host can change Quantum Conveyor channels.");
-            DrawCloseButton();
-            return;
-        }
-
-        if (GUI.Button(new Rect(18f, y, 192f, 30f), assigned ? "Move to new channel" : "Create new channel"))
-        {
-            if (QuantumNetwork.CreateAndAssign(endpoint.Id, out _)) menuOpen = false;
-        }
-
-        if (assigned && GUI.Button(new Rect(220f, y, 192f, 30f), "Remove from channel"))
-        {
-            if (QuantumNetwork.UnassignEndpoint(endpoint.Id)) menuOpen = false;
-        }
-
-        y += 44f;
-        GUI.Label(new Rect(18f, y, 400f, 24f), "Add this adapter to an existing channel:");
-        y += 28f;
-
-        if (summaries.Count == 0) GUI.Label(new Rect(18f, y, 400f, 24f), "No channels exist yet.");
-        foreach (var summary in summaries)
-        {
-            if (y > windowRect.height - 78f) break;
-            var label = $"{summary.Name}   ({summary.Outputs} out / {summary.Inputs} in)";
-            if (GUI.Button(new Rect(18f, y, 394f, 30f), label))
-            {
-                if (QuantumNetwork.AssignEndpoint(endpoint.Id, summary.Id)) menuOpen = false;
-            }
-            y += 36f;
-        }
-
-        GUI.Label(new Rect(18f, windowRect.height - 70f, 400f, 24f), "Press E again to close. Connect this adapter to a conveyor.");
-        DrawCloseButton();
-    }
-
-    private void DrawCloseButton()
-    {
-        if (GUI.Button(new Rect(18f, windowRect.height - 42f, 150f, 30f), "Close")) menuOpen = false;
-        GUI.DragWindow(new Rect(0f, 0f, 440f, 28f));
     }
 }

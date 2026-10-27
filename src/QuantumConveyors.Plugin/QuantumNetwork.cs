@@ -98,19 +98,6 @@ internal static class QuantumNetwork
         }
     }
 
-    public static void ConfigureInteraction(UnityEngine.GameObject view, QuantumEndpointInteraction interaction)
-    {
-        var output = Outputs.FirstOrDefault(machine => machine.View == view);
-        if (output != null)
-        {
-            interaction.Configure(output.Id, true);
-            return;
-        }
-
-        var input = Inputs.FirstOrDefault(machine => machine.View == view);
-        if (input != null) interaction.Configure(input.Id, false);
-    }
-
     public static IReadOnlyList<QuantumEndpointView> EndpointViews()
     {
         var views = new List<QuantumEndpointView>(Outputs.Count + Inputs.Count);
@@ -239,6 +226,16 @@ internal static class QuantumNetwork
     {
         channelId = CreateChannel();
         return AssignEndpoint(endpointId, channelId);
+    }
+
+    public static bool AssignNextChannel(int endpointId)
+    {
+        if (!Moon.IsAuthority || Channels.Count == 0) return false;
+        var channels = Channels.Values.OrderBy(channel => channel.Name, StringComparer.OrdinalIgnoreCase).ToList();
+        var current = ChannelFor(endpointId);
+        var currentIndex = channels.FindIndex(channel => channel.Id == current);
+        var nextIndex = (currentIndex + 1 + channels.Count) % channels.Count;
+        return AssignEndpoint(endpointId, channels[nextIndex].Id);
     }
 
     public static bool UnassignEndpoint(int endpointId)
@@ -402,8 +399,6 @@ internal sealed class QuantumOutputMachine : Machine
     public override void OnView(UnityEngine.GameObject view)
     {
         QuantumNetwork.BindView(Id, view);
-        var interaction = QuantumEndpointInteraction.Attach(view);
-        interaction.Configure(Id, true);
     }
 
     public override bool Accept(string port, Capsule capsule)
@@ -460,6 +455,7 @@ internal sealed class QuantumOutputMachine : Machine
         panel.Line("Quantum Output");
         panel.Line($"Channel: {QuantumNetwork.ChannelName(ChannelId)}");
         panel.Line($"{pending.Count} pending");
+        panel.Line("E: next channel | Ctrl+E: new channel | Shift+E: remove");
     }
 
     private void RefreshAttachment()
@@ -489,8 +485,6 @@ internal sealed class QuantumInputMachine : Machine
     public override void OnView(UnityEngine.GameObject view)
     {
         QuantumNetwork.BindView(Id, view);
-        var interaction = QuantumEndpointInteraction.Attach(view);
-        interaction.Configure(Id, false);
     }
 
     public override void Tick(float dt)
@@ -528,6 +522,7 @@ internal sealed class QuantumInputMachine : Machine
         panel.Line("Quantum Input");
         panel.Line($"Channel: {QuantumNetwork.ChannelName(ChannelId)}");
         panel.Line("Waiting for a connected output belt");
+        panel.Line("E: next channel | Ctrl+E: new channel | Shift+E: remove");
     }
 
     private void RefreshAttachment()
