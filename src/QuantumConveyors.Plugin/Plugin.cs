@@ -37,6 +37,7 @@ public sealed class Plugin : BasePlugin
             Ports = new[] { PortSpec.In("input", new Vector3(0f, 0.85f, 0f), Vector3.forward) },
             Model = EndpointAssets.OutputModel,
             Machine = () => new QuantumOutputMachine(),
+            OnView = view => { QuantumEndpointInteraction.Attach(view); },
             ListAfter = VanillaKinds.Splitter,
         });
 
@@ -55,6 +56,7 @@ public sealed class Plugin : BasePlugin
             Ports = new[] { PortSpec.Out("output", new Vector3(0f, 0.85f, 0f), Vector3.forward) },
             Model = EndpointAssets.InputModel,
             Machine = () => new QuantumInputMachine(),
+            OnView = view => { QuantumEndpointInteraction.Attach(view); },
             ListAfter = VanillaKinds.Splitter,
         });
 

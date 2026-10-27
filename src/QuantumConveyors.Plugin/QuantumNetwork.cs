@@ -39,6 +39,19 @@ internal static class QuantumNetwork
     public static void Remove(QuantumOutputMachine machine) => Outputs.Remove(machine);
     public static void Remove(QuantumInputMachine machine) => Inputs.Remove(machine);
 
+    public static void ConfigureInteraction(UnityEngine.GameObject view, QuantumEndpointInteraction interaction)
+    {
+        var output = Outputs.FirstOrDefault(machine => machine.View == view);
+        if (output != null)
+        {
+            interaction.Configure(output.Id, true);
+            return;
+        }
+
+        var input = Inputs.FirstOrDefault(machine => machine.View == view);
+        if (input != null) interaction.Configure(input.Id, false);
+    }
+
     public static void Tick()
     {
         if (!Moon.IsAuthority || Outputs.Count == 0 || Inputs.Count == 0) return;
@@ -303,7 +316,7 @@ internal sealed class QuantumOutputMachine : Machine
 
     public override void OnView(UnityEngine.GameObject view)
     {
-        var interaction = view.GetComponent<QuantumEndpointInteraction>() ?? view.AddComponent<QuantumEndpointInteraction>();
+        var interaction = QuantumEndpointInteraction.Attach(view);
         interaction.Configure(Id, true);
     }
 
@@ -389,7 +402,7 @@ internal sealed class QuantumInputMachine : Machine
 
     public override void OnView(UnityEngine.GameObject view)
     {
-        var interaction = view.GetComponent<QuantumEndpointInteraction>() ?? view.AddComponent<QuantumEndpointInteraction>();
+        var interaction = QuantumEndpointInteraction.Attach(view);
         interaction.Configure(Id, false);
     }
 
