@@ -521,46 +521,52 @@ public sealed class QuantumInteractionController : MonoBehaviour
 
     private static QuantumEndpointView? FindTarget(Camera camera, IReadOnlyList<QuantumEndpointView> endpoints)
     {
-        // The old aim-assist implementation selected the endpoint whose model
-        // was nearest to the crosshair in screen space.  That allowed a hidden
-        // endpoint to win even when the player was looking at another building
-        // in front of it.  Use the game's physics line of sight instead: an
-        // adapter can answer E only when its own collision is the first thing
-        // under the crosshair.
-        var ray = camera.ScreenPointToRay(new Vector3(Screen.width * 0.5f, Screen.height * 0.5f, 0f));
-        // The vanilla hover card uses a forgiving hit area around small
-        // interactable models.  A sphere cast gives the puck a similar amount
-        // of aim tolerance while still respecting physical occlusion.
-        var hits = Physics.SphereCastAll(ray, 0.20f, 8f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
-        if (hits == null || hits.Length == 0) return null;
+        if (endpoints == null || endpoints.Count == 0) return null;
 
-        QuantumEndpointView? endpointHit = null;
-        var endpointDistance = float.MaxValue;
-        var firstBlockingDistance = float.MaxValue;
-        foreach (var hit in hits.OrderBy(candidate => candidate.distance))
+        // Aim at the visible puck rather than the collision volume.  The
+        // collision volume overlaps the conveyor by design, which made a
+        // physics sphere cast trigger above the visible model.
+        var center = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
+        const float aimRadiusPixels = 180f;
+        var bestPixels = aimRadiusPixels;
+        QuantumEndpointView? best = null;
+
+        foreach (var endpoint in endpoints)
         {
-            var endpoint = EndpointForHit(hit, endpoints);
-            if (endpoint.HasValue)
-            {
-                endpointHit = endpoint;
-                endpointDistance = hit.distance;
-                break;
-            }
+            if (endpoint.View == null) continue;
+            var localTarget = new Vector3(0f, 0.90f, endpoint.IsOutput ? -0.15f : 0.15f);
+            var worldPoint = endpoint.View.transform.TransformPoint(localTarget);
+            var toTarget = worldPoint - camera.transform.position;
+            var distance = toTarget.magnitude;
+            if (distance > 8f || distance < 0.01f) continue;
 
-            if (hit.collider != null && hit.distance < firstBlockingDistance)
-                firstBlockingDistance = hit.distance;
+            var screenPoint = camera.WorldToScreenPoint(worldPoint);
+            if (screenPoint.z <= 0f) continue;
+            var guiPoint = new Vector2(screenPoint.x, Screen.height - screenPoint.y);
+            var pixels = Vector2.Distance(center, guiPoint);
+            if (pixels > bestPixels || !HasClearLineOfSight(camera, worldPoint, distance, endpoint, endpoints)) continue;
+
+            bestPixels = pixels;
+            best = endpoint;
         }
 
-        if (!endpointHit.HasValue) return null;
+        return best;
+    }
 
-        // The adapter intentionally overlaps the short conveyor beneath it.
-        // Ignore that small shared-depth overlap, but still reject an adapter
-        // that is genuinely behind a machine or other structure.
-        const float conveyorOverlapTolerance = 0.25f;
-        if (firstBlockingDistance < endpointDistance - conveyorOverlapTolerance)
-            return null;
+    private static bool HasClearLineOfSight(Camera camera, Vector3 target, float distance,
+        QuantumEndpointView endpoint, IReadOnlyList<QuantumEndpointView> endpoints)
+    {
+        var direction = (target - camera.transform.position).normalized;
+        if (!Physics.Raycast(camera.transform.position, direction, out var hit, distance + 0.05f,
+                Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore)) return true;
 
-        return endpointHit;
+        var hitEndpoint = EndpointForHit(hit, endpoints);
+        if (hitEndpoint.HasValue && hitEndpoint.Value.Id == endpoint.Id) return true;
+
+        // The endpoint intentionally shares space with the short conveyor
+        // beneath it.  Treat a hit at nearly the same depth as that overlap,
+        // but reject a real structure in front of the adapter.
+        return hit.distance >= distance - 0.25f;
     }
 
     private static QuantumEndpointView? EndpointForHit(RaycastHit hit, IReadOnlyList<QuantumEndpointView> endpoints)
