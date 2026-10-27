@@ -527,8 +527,8 @@ public sealed class QuantumInteractionController : MonoBehaviour
         // collision volume overlaps the conveyor by design, which made a
         // physics sphere cast trigger above the visible model.
         var center = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
-        const float aimRadiusPixels = 180f;
-        var bestPixels = aimRadiusPixels;
+        const float aimRadiusX = 140f;
+        const float aimRadiusY = 80f;
         QuantumEndpointView? best = null;
 
         foreach (var endpoint in endpoints)
@@ -543,10 +543,11 @@ public sealed class QuantumInteractionController : MonoBehaviour
             var screenPoint = camera.WorldToScreenPoint(worldPoint);
             if (screenPoint.z <= 0f) continue;
             var guiPoint = new Vector2(screenPoint.x, Screen.height - screenPoint.y);
-            var pixels = Vector2.Distance(center, guiPoint);
-            if (pixels > bestPixels || !HasClearLineOfSight(camera, worldPoint, distance, endpoint, endpoints)) continue;
+            var normalizedX = (guiPoint.x - center.x) / aimRadiusX;
+            var normalizedY = (guiPoint.y - center.y) / aimRadiusY;
+            var aimDistance = normalizedX * normalizedX + normalizedY * normalizedY;
+            if (aimDistance > 1f || !HasClearLineOfSight(camera, worldPoint, distance, endpoint, endpoints)) continue;
 
-            bestPixels = pixels;
             best = endpoint;
         }
 
