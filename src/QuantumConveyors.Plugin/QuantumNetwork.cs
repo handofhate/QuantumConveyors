@@ -45,8 +45,8 @@ internal static class QuantumNetwork
 
         foreach (var channel in Channels.Values)
         {
-            var outputs = Outputs.Where(output => output.ChannelId == channel.Id && output.HasPending).ToList();
-            var inputs = Inputs.Where(input => input.ChannelId == channel.Id).ToList();
+            var outputs = Outputs.Where(output => output.ChannelId == channel.Id && output.IsAttached && output.HasPending).ToList();
+            var inputs = Inputs.Where(input => input.ChannelId == channel.Id && input.IsAttached).ToList();
             if (outputs.Count == 0 || inputs.Count == 0) continue;
 
             channel.OutputCursor = Normalize(channel.OutputCursor, outputs.Count);
@@ -68,6 +68,29 @@ internal static class QuantumNetwork
                 }
             }
         }
+    }
+
+    public static bool TryTransmit(QuantumOutputMachine source, PendingCapsule capsule)
+    {
+        if (!Moon.IsAuthority || !source.IsAttached || string.IsNullOrWhiteSpace(source.ChannelId)) return false;
+        if (!Channels.TryGetValue(source.ChannelId, out var channel)) return false;
+
+        var inputs = Inputs
+            .Where(input => input.ChannelId == source.ChannelId && input.IsAttached)
+            .ToList();
+        if (inputs.Count == 0) return false;
+
+        channel.InputCursor = Normalize(channel.InputCursor, inputs.Count);
+        for (var inputOffset = 0; inputOffset < inputs.Count; inputOffset++)
+        {
+            var inputIndex = (channel.InputCursor + inputOffset) % inputs.Count;
+            if (!inputs[inputIndex].TryReceive(capsule)) continue;
+
+            channel.InputCursor = (inputIndex + 1) % inputs.Count;
+            return true;
+        }
+
+        return false;
     }
 
     public static string FormatStatus()
@@ -146,6 +169,14 @@ internal static class QuantumNetwork
         return !string.IsNullOrWhiteSpace(channelId) && Channels.TryGetValue(channelId, out var channel)
             ? channel.Name
             : "Unassigned";
+    }
+
+    public static bool IsEndpointAttached(int endpointId)
+    {
+        var output = Outputs.FirstOrDefault(machine => machine.Id == endpointId);
+        if (output != null) return output.IsAttached;
+        var input = Inputs.FirstOrDefault(machine => machine.Id == endpointId);
+        return input?.IsAttached ?? false;
     }
 
     public static void Report(Exception exception)
@@ -258,6 +289,7 @@ internal sealed class QuantumOutputMachine : Machine
     internal bool HasPending => pending.Count > 0;
     internal int PendingCount => pending.Count;
     internal string ChannelId { get; private set; } = string.Empty;
+    internal bool IsAttached { get; private set; }
 
     public override void OnStart()
     {
@@ -270,10 +302,12 @@ internal sealed class QuantumOutputMachine : Machine
                 if (QuantumNetwork.TryDecode(item, out var capsule)) pending.Enqueue(capsule);
             }
         }
-        Status = string.IsNullOrWhiteSpace(ChannelId) ? "Unassigned" : QuantumNetwork.ChannelName(ChannelId);
+        RefreshAttachment();
     }
 
     public override void OnStop() => QuantumNetwork.Remove(this);
+
+    public override void Tick(float dt) => RefreshAttachment();
 
     public override void OnView(UnityEngine.GameObject view)
     {
@@ -283,9 +317,19 @@ internal sealed class QuantumOutputMachine : Machine
 
     public override bool Accept(string port, Capsule capsule)
     {
-        if (!Moon.IsAuthority || port != "input" || string.IsNullOrWhiteSpace(ChannelId)) return false;
-        pending.Enqueue(new PendingCapsule(capsule.Cargo, capsule.Kilograms, capsule.Capacity, capsule.Owner));
-        Status = "Resource queued";
+        RefreshAttachment();
+        if (!Moon.IsAuthority || !IsAttached || port != "input" || string.IsNullOrWhiteSpace(ChannelId)) return false;
+        if (pending.Count > 0) return false;
+
+        var capsuleToSend = new PendingCapsule(capsule.Cargo, capsule.Kilograms, capsule.Capacity, capsule.Owner);
+        if (!QuantumNetwork.TryTransmit(this, capsuleToSend))
+        {
+            Status = "Waiting for output belt";
+            Tone = MachineTone.Idle;
+            return false;
+        }
+
+        Status = "Resource sent";
         Tone = MachineTone.Working;
         return true;
     }
@@ -306,7 +350,7 @@ internal sealed class QuantumOutputMachine : Machine
         ChannelId = channelId ?? string.Empty;
         if (string.IsNullOrWhiteSpace(ChannelId)) Data.Remove("channel");
         else Data["channel"] = ChannelId;
-        Status = string.IsNullOrWhiteSpace(ChannelId) ? "Unassigned" : QuantumNetwork.ChannelName(ChannelId);
+        RefreshAttachment();
     }
 
     public override void OnSave()
@@ -326,17 +370,26 @@ internal sealed class QuantumOutputMachine : Machine
         panel.Line($"Channel: {QuantumNetwork.ChannelName(ChannelId)}");
         panel.Line($"{pending.Count} pending");
     }
+
+    private void RefreshAttachment()
+    {
+        IsAttached = IsConnected("input");
+        if (!IsAttached) Status = "Disabled: connect a conveyor";
+        else if (string.IsNullOrWhiteSpace(ChannelId)) Status = "Unassigned";
+        else Status = QuantumNetwork.ChannelName(ChannelId);
+    }
 }
 
 internal sealed class QuantumInputMachine : Machine
 {
     internal string ChannelId { get; private set; } = string.Empty;
+    internal bool IsAttached { get; private set; }
 
     public override void OnStart()
     {
         ChannelId = Data.TryGetValue("channel", out var savedChannel) ? savedChannel : string.Empty;
         QuantumNetwork.Add(this);
-        Status = string.IsNullOrWhiteSpace(ChannelId) ? "Unassigned" : QuantumNetwork.ChannelName(ChannelId);
+        RefreshAttachment();
         Tone = MachineTone.Idle;
     }
 
@@ -350,12 +403,14 @@ internal sealed class QuantumInputMachine : Machine
 
     public override void Tick(float dt)
     {
+        RefreshAttachment();
         if (Moon.IsAuthority) QuantumNetwork.Tick();
     }
 
     internal bool TryReceive(PendingCapsule capsule)
     {
-        if (!IsConnected("output")) return false;
+        RefreshAttachment();
+        if (!IsAttached) return false;
         if (!Emit("output", capsule.Cargo, capsule.Kilograms)) return false;
         Status = "Resource delivered";
         Tone = MachineTone.Working;
@@ -367,7 +422,7 @@ internal sealed class QuantumInputMachine : Machine
         ChannelId = channelId ?? string.Empty;
         if (string.IsNullOrWhiteSpace(ChannelId)) Data.Remove("channel");
         else Data["channel"] = ChannelId;
-        Status = string.IsNullOrWhiteSpace(ChannelId) ? "Unassigned" : QuantumNetwork.ChannelName(ChannelId);
+        RefreshAttachment();
     }
 
     public override void OnSave()
@@ -381,5 +436,13 @@ internal sealed class QuantumInputMachine : Machine
         panel.Line("Quantum Input");
         panel.Line($"Channel: {QuantumNetwork.ChannelName(ChannelId)}");
         panel.Line("Waiting for a connected output belt");
+    }
+
+    private void RefreshAttachment()
+    {
+        IsAttached = IsConnected("output");
+        if (!IsAttached) Status = "Disabled: connect a conveyor";
+        else if (string.IsNullOrWhiteSpace(ChannelId)) Status = "Unassigned";
+        else Status = QuantumNetwork.ChannelName(ChannelId);
     }
 }

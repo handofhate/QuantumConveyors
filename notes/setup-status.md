@@ -17,6 +17,8 @@ The previous prototype build is installed and loaded by the game. The startup lo
 
 The next local build adds isolated, unbounded channels, a host-authoritative channel-assignment message for multiplayer, an E-to-interact setup window, and a black portal-square endpoint model with a top LED. It has passed a clean local compile. It has not been copied over the live game yet because the game is currently open.
 
+The current working update also applies belt backpressure: the output endpoint tries to send directly into an available destination belt before accepting a capsule. When destination belts are full, the origin capsule stays on its origin belt. Endpoints whose attached belt is deleted remain as disabled objects, preserving their channel assignment until a new belt is connected.
+
 ## External files prepared
 
 Nexus Mods requires an account before downloading. The relevant files are now prepared locally:

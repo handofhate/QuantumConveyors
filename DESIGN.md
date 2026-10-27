@@ -20,11 +20,13 @@ Quantum Conveyors does not share a single port with a stock conveyor. A compatib
 
 Removing an endpoint releases the port so a stock conveyor can be connected again.
 
+If the conveyor attached to an endpoint is deleted, the endpoint remains in place but disables itself. It is removed from routing, stops accepting or emitting resources, and hides its interaction prompt until a conveyor is connected again. This preserves the player's channel assignment without silently deleting a buildable object.
+
 ## Routing
 
 Each channel is an isolated network. The router treats every ready output and input in that channel as a shared pool. It allocates available cargo fairly, using round-robin selection with remembered cursors so one destination does not permanently starve another. This means output A can feed input A while output B feeds input B, even though both pairs use the same world.
 
-Resource type compatibility must be preserved. An input that cannot accept a cargo type is skipped, and cargo must not be silently destroyed when a destination is full or disconnected.
+Resource type compatibility must be preserved. An input that cannot accept a cargo type is skipped, and cargo must not be silently destroyed when a destination is full or disconnected. The output adapter now attempts a direct transfer before accepting a capsule from its origin belt; if every destination belt is full, the origin capsule remains on its belt and the origin belt's normal backpressure stops further transfer.
 
 Priority routing is planned as an opt-in mode. It should not change the default fair behavior and should be configurable per endpoint or per network.
 
