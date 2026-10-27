@@ -569,11 +569,8 @@ internal sealed class QuantumOutputMachine : Machine
 
     public override void Describe(MachinePanel panel)
     {
-        panel.Line("Quantum Output");
         panel.Line($"Ch: {QuantumNetwork.ChannelLabel(ChannelId)}");
-        panel.Line($"Pending: {pending.Count}");
-        panel.Line("E next | Ctrl+E new");
-        panel.Line("Shift+E clear");
+        panel.Line(pending.Count > 0 ? "Resources queued" : "Ready to send");
     }
 
     private void RefreshAttachment()
@@ -583,8 +580,9 @@ internal sealed class QuantumOutputMachine : Machine
         // Accept is only called when a real conveyor offers a capsule; do not
         // block that callback based on the one-sided helper.
         IsAttached = true;
-        if (string.IsNullOrWhiteSpace(ChannelId)) Status = "Unassigned";
-        else Status = QuantumNetwork.ChannelName(ChannelId);
+        Status = string.IsNullOrWhiteSpace(ChannelId)
+            ? "Disabled: Press E to configure"
+            : "Press E to configure";
     }
 }
 
@@ -648,18 +646,17 @@ internal sealed class QuantumInputMachine : Machine
 
     public override void Describe(MachinePanel panel)
     {
-        panel.Line("Quantum Input");
         panel.Line($"Ch: {QuantumNetwork.ChannelLabel(ChannelId)}");
-        panel.Line("Waiting for output");
-        panel.Line("E next | Ctrl+E new");
-        panel.Line("Shift+E clear");
+        panel.Line(!IsAttached
+            ? "Disabled: connect a conveyor"
+            : string.IsNullOrWhiteSpace(ChannelId) ? "Waiting for configuration" : "Waiting for output");
     }
 
     private void RefreshAttachment()
     {
         IsAttached = IsConnected("output");
-        if (!IsAttached) Status = "Disabled: connect a conveyor";
-        else if (string.IsNullOrWhiteSpace(ChannelId)) Status = "Unassigned";
-        else Status = QuantumNetwork.ChannelName(ChannelId);
+        Status = string.IsNullOrWhiteSpace(ChannelId)
+            ? "Disabled: Press E to configure"
+            : "Press E to configure";
     }
 }

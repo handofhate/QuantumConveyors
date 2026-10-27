@@ -20,7 +20,7 @@ public sealed class QuantumInteractionController : MonoBehaviour
     private QuantumEndpointView? target;
     private GameObject menuCanvas;
     private RectTransform channelContent;
-    private ScrollRect channelScroll;
+    private float channelScrollOffset;
     private string selectedChannelId = string.Empty;
     private string editingChannelId = string.Empty;
     private int menuEndpointId;
@@ -144,23 +144,16 @@ public sealed class QuantumInteractionController : MonoBehaviour
         root.gameObject.AddComponent<CanvasGroup>().blocksRaycasts = true;
         AddText(root, "Quantum Conveyors", new Vector2(0f, 220f), new Vector2(560f, 34f), 26, Color.white, TextAnchor.MiddleCenter);
         CreateButton(root, "New channel", new Vector2(-165f, 170f), new Vector2(150f, 34f), CreateNewChannel);
-        CreateButton(root, "×", new Vector2(250f, 220f), new Vector2(36f, 36f), CloseMenu);
+        CreateButton(root, "×", new Vector2(250f, 210f), new Vector2(36f, 36f), CloseMenu);
 
         var viewport = MakeRect("ChannelViewport", root, new Vector2(520f, 330f), new Vector2(0f, -35f), new Color(0.04f, 0.05f, 0.07f, 0.96f));
         var mask = viewport.gameObject.AddComponent<Mask>();
         mask.showMaskGraphic = true;
-        channelScroll = viewport.gameObject.AddComponent<ScrollRect>();
-        channelScroll.horizontal = false;
-        channelScroll.vertical = true;
-        channelScroll.movementType = ScrollRect.MovementType.Clamped;
         channelContent = MakeRect("ChannelContent", viewport, new Vector2(500f, 44f), Vector2.zero, null);
         channelContent.anchorMin = new Vector2(0.5f, 1f);
         channelContent.anchorMax = new Vector2(0.5f, 1f);
         channelContent.pivot = new Vector2(0.5f, 1f);
         channelContent.anchoredPosition = Vector2.zero;
-        channelScroll.viewport = viewport;
-        channelScroll.content = channelContent;
-
         RefreshChannelList();
         EnsureEventSystem();
 
@@ -186,9 +179,9 @@ public sealed class QuantumInteractionController : MonoBehaviour
 
         var summaries = QuantumNetwork.Summaries();
         var rowHeight = 44f;
-        channelContent.sizeDelta = new Vector2(0f, Math.Max(44f, summaries.Count * rowHeight));
+        channelContent.sizeDelta = new Vector2(500f, Math.Max(44f, summaries.Count * rowHeight));
+        channelScrollOffset = 0f;
         channelContent.anchoredPosition = Vector2.zero;
-        if (channelScroll != null) channelScroll.verticalNormalizedPosition = 1f;
         if (summaries.Count == 0)
         {
             AddText(channelContent, "No channels yet. Press New channel to create one.", new Vector2(0f, -24f),
@@ -222,11 +215,6 @@ public sealed class QuantumInteractionController : MonoBehaviour
                 () => DeleteChannel(summary.Id));
         }
 
-        if (channelScroll != null)
-        {
-            channelScroll.StopMovement();
-            channelScroll.verticalNormalizedPosition = 1f;
-        }
     }
 
     private void BeginRename(string channelId)
@@ -290,7 +278,6 @@ public sealed class QuantumInteractionController : MonoBehaviour
         if (previousInputModule != null) previousInputModule.enabled = previousInputModuleEnabled;
         previousInputModule = null;
         channelContent = null;
-        channelScroll = null;
         selectedChannelId = string.Empty;
         editingChannelId = string.Empty;
         RestorePlayerInput();
@@ -497,10 +484,15 @@ public sealed class QuantumInteractionController : MonoBehaviour
 
     private void HandleMenuScroll()
     {
-        if (channelScroll == null || Mouse.current == null) return;
+        if (channelContent == null || Mouse.current == null) return;
         var delta = Mouse.current.scroll.ReadValue().y;
         if (Math.Abs(delta) < 0.01f) return;
-        channelScroll.verticalNormalizedPosition = Mathf.Clamp01(channelScroll.verticalNormalizedPosition + delta / 600f);
+        var viewportHeight = 330f;
+        var maxOffset = Mathf.Max(0f, channelContent.rect.height - viewportHeight);
+        if (maxOffset <= 0f) return;
+        var step = Math.Abs(delta) > 10f ? delta / 6f : delta * 30f;
+        channelScrollOffset = Mathf.Clamp(channelScrollOffset - step, 0f, maxOffset);
+        channelContent.anchoredPosition = new Vector2(0f, channelScrollOffset);
     }
 
     private static QuantumEndpointView? FindTarget(Camera camera, IReadOnlyList<QuantumEndpointView> endpoints)
