@@ -383,13 +383,27 @@ public sealed class QuantumInteractionController : MonoBehaviour
         // Moon Sweepers' camera is not always parented under the player.  Walk
         // the active scene roots instead of Unity's global FindObjectOfType,
         // whose IL2CPP bridge is unavailable in Preview 1.0.5.
-        var roots = SceneManager.GetActiveScene().GetRootGameObjects();
-        foreach (var root in roots)
+        for (var sceneIndex = 0; sceneIndex < SceneManager.sceneCount; sceneIndex++)
         {
-            if (root == null) continue;
-            var found = root.GetComponentInChildren(Il2CppType.Of<MoonWalker>());
-            walker = found as MoonWalker;
-            if (walker != null) return walker;
+            var scene = SceneManager.GetSceneAt(sceneIndex);
+            if (!scene.isLoaded) continue;
+            var roots = scene.GetRootGameObjects();
+            foreach (var root in roots)
+            {
+                if (root == null) continue;
+                var found = root.GetComponentInChildren(Il2CppType.Of<MoonWalker>());
+                walker = found as MoonWalker;
+                if (walker != null) return walker;
+            }
+        }
+
+        // The player can also live in Unity's persistent scene, which is not
+        // returned by SceneManager.sceneCount.
+        var persistentObjects = Resources.FindObjectsOfTypeAll(Il2CppType.Of<MoonWalker>());
+        foreach (var item in persistentObjects)
+        {
+            walker = item as MoonWalker;
+            if (walker != null && walker.gameObject.scene.IsValid()) return walker;
         }
 
         return walker;
