@@ -188,7 +188,8 @@ internal static class QuantumNetwork
     public static IReadOnlyList<ChannelSummary> Summaries()
     {
         return Channels.Values
-            .OrderBy(channel => channel.Name, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(channel => string.Equals(channel.Name, "New Channel", StringComparison.OrdinalIgnoreCase) ? 0 : 1)
+            .ThenBy(channel => channel.Name, StringComparer.OrdinalIgnoreCase)
             .Select(channel => new ChannelSummary(
                 channel.Id,
                 channel.Name,
@@ -369,7 +370,9 @@ internal static class QuantumNetwork
     {
         if (string.IsNullOrWhiteSpace(channelId) || Channels.ContainsKey(channelId)) return;
 
-        var name = string.IsNullOrWhiteSpace(preferredName) ? DefaultChannelName(channelId) : preferredName;
+        var name = string.IsNullOrWhiteSpace(preferredName) || IsLegacyDefaultName(preferredName)
+            ? DefaultChannelName(channelId)
+            : preferredName;
         var world = Moon.WorldData(Plugin.PluginGuid);
         if (world != null && world.TryGetValue($"name.{channelId}", out var savedName) && !string.IsNullOrWhiteSpace(savedName))
             name = IsLegacyDefaultName(savedName) ? DefaultChannelName(channelId) : savedName;
@@ -380,17 +383,18 @@ internal static class QuantumNetwork
 
     private static string DefaultChannelName(string channelId)
     {
-        var dash = channelId.LastIndexOf('-');
-        return dash >= 0 && int.TryParse(channelId[(dash + 1)..], NumberStyles.Integer, CultureInfo.InvariantCulture, out var number)
-            ? $"Channel {number}"
-            : "Channel";
+        return "New Channel";
     }
 
     private static bool IsLegacyDefaultName(string name)
     {
         const string prefix = "Quantum Channel ";
-        return name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) &&
-            int.TryParse(name[prefix.Length..], NumberStyles.Integer, CultureInfo.InvariantCulture, out _);
+        if (name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) &&
+            int.TryParse(name[prefix.Length..], NumberStyles.Integer, CultureInfo.InvariantCulture, out _)) return true;
+
+        const string shortPrefix = "Channel ";
+        return name.StartsWith(shortPrefix, StringComparison.OrdinalIgnoreCase) &&
+            int.TryParse(name[shortPrefix.Length..], NumberStyles.Integer, CultureInfo.InvariantCulture, out _);
     }
 
     private static string CleanChannelName(string name)
