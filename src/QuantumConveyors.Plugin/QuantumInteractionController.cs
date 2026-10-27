@@ -16,6 +16,7 @@ public sealed class QuantumInteractionController : MonoBehaviour
     private bool guiReported;
     private int lastViewCount = -1;
     private bool? cameraAvailable;
+    private bool updateErrorReported;
 
     public QuantumInteractionController(IntPtr pointer) : base(pointer) { }
 
@@ -27,54 +28,65 @@ public sealed class QuantumInteractionController : MonoBehaviour
 
     public void Update()
     {
-        if (!updateReported)
+        try
         {
-            updateReported = true;
-            QuantumNetwork.Diagnostic("Interaction host Update is running");
-        }
-        if (walker == null) walker = UnityEngine.Object.FindObjectOfType<MoonWalker>();
-        var camera = ActiveCamera();
-        if (camera == null)
-        {
-            if (cameraAvailable != false)
+            if (!updateReported)
             {
-                cameraAvailable = false;
-                QuantumNetwork.Diagnostic($"No active camera found; walker={(walker != null)}");
+                updateReported = true;
+                QuantumNetwork.Diagnostic("Interaction host Update is running");
             }
-            return;
-        }
-        if (cameraAvailable != true)
-        {
-            cameraAvailable = true;
-            QuantumNetwork.Diagnostic($"Active camera found: {camera.name}");
-        }
+            if (walker == null) walker = UnityEngine.Object.FindObjectOfType<MoonWalker>();
+            var camera = ActiveCamera();
+            if (camera == null)
+            {
+                if (cameraAvailable != false)
+                {
+                    cameraAvailable = false;
+                    QuantumNetwork.Diagnostic($"No active camera found; walker={(walker != null)}");
+                }
+                return;
+            }
+            if (cameraAvailable != true)
+            {
+                cameraAvailable = true;
+                QuantumNetwork.Diagnostic($"Active camera found: {camera.name}");
+            }
 
-        var endpointViews = QuantumNetwork.EndpointViews();
-        if (endpointViews.Count != lastViewCount)
-        {
-            lastViewCount = endpointViews.Count;
-            QuantumNetwork.Diagnostic($"Interaction host sees {lastViewCount} endpoint view(s); camera={(camera != null)} walker={(walker != null)}");
-        }
-        target = FindTarget(camera, endpointViews);
-        if (!target.HasValue)
-        {
-            menuOpen = false;
-            return;
-        }
+            var endpointViews = QuantumNetwork.EndpointViews();
+            if (endpointViews.Count != lastViewCount)
+            {
+                lastViewCount = endpointViews.Count;
+                QuantumNetwork.Diagnostic($"Interaction host sees {lastViewCount} endpoint view(s); camera={(camera != null)} walker={(walker != null)}");
+            }
+            target = FindTarget(camera, endpointViews);
+            if (!target.HasValue)
+            {
+                menuOpen = false;
+                return;
+            }
 
-        var uiBlocked = walker != null && walker.UIBlocked;
-        if (uiBlocked) return;
-        if (!InteractPressed()) return;
+            var uiBlocked = walker != null && walker.UIBlocked;
+            if (uiBlocked) return;
+            if (!InteractPressed()) return;
 
-        if (menuOpen)
-        {
-            menuOpen = false;
-            return;
+            if (menuOpen)
+            {
+                menuOpen = false;
+                return;
+            }
+
+            windowRect.x = (Screen.width - windowRect.width) * 0.5f;
+            windowRect.y = (Screen.height - windowRect.height) * 0.5f;
+            menuOpen = true;
         }
-
-        windowRect.x = (Screen.width - windowRect.width) * 0.5f;
-        windowRect.y = (Screen.height - windowRect.height) * 0.5f;
-        menuOpen = true;
+        catch (Exception exception)
+        {
+            if (!updateErrorReported)
+            {
+                updateErrorReported = true;
+                QuantumNetwork.Diagnostic($"Interaction Update exception: {exception.GetType().Name}: {exception.Message}");
+            }
+        }
     }
 
     private bool InteractPressed()
@@ -89,8 +101,13 @@ public sealed class QuantumInteractionController : MonoBehaviour
         if (walker?.viewCamera != null) return walker.viewCamera;
         if (Camera.main != null) return Camera.main;
 
-        var cameras = UnityEngine.Object.FindObjectsOfType<Camera>();
-        return cameras.FirstOrDefault(camera => camera != null && camera.isActiveAndEnabled);
+        var cameras = Camera.allCameras;
+        for (var i = 0; i < cameras.Length; i++)
+        {
+            var camera = cameras[i];
+            if (camera != null && camera.isActiveAndEnabled) return camera;
+        }
+        return null;
     }
 
     private static QuantumEndpointView? FindTarget(Camera camera, IReadOnlyList<QuantumEndpointView> endpoints)
@@ -125,6 +142,8 @@ public sealed class QuantumInteractionController : MonoBehaviour
             guiReported = true;
             QuantumNetwork.Diagnostic("Interaction host OnGUI is running");
         }
+        var viewCount = QuantumNetwork.EndpointViews().Count;
+        GUI.Box(new Rect(10f, 10f, 430f, 30f), $"QC INTERACTION HOTFIX | views: {viewCount}");
         if (!target.HasValue) return;
         var endpoint = target.Value;
         if (!menuOpen)
