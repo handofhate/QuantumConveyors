@@ -20,6 +20,12 @@ if (Get-Process -Name 'MoonSweepers' -ErrorAction SilentlyContinue) {
 if ([string]::IsNullOrWhiteSpace($BepInExZip)) {
     $BepInExZip = Join-Path $projectRoot 'work\downloads\BepInEx-Unity.IL2CPP-win-x64-6.0.0-be.791+b782da4.zip'
 }
+if ([string]::IsNullOrWhiteSpace($PatcherZip)) {
+    $PatcherZip = Join-Path $projectRoot 'work\downloads\MoonSweepers.BepInExPatcher.zip'
+}
+if ([string]::IsNullOrWhiteSpace($MoonFrameworkZip)) {
+    $MoonFrameworkZip = Join-Path $projectRoot 'work\downloads\MoonFramework.zip'
+}
 
 foreach ($required in @($BepInExZip, $PatcherZip, $MoonFrameworkZip)) {
     if ([string]::IsNullOrWhiteSpace($required) -or -not (Test-Path -LiteralPath $required)) {

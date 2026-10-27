@@ -2,7 +2,9 @@
 
 ## Player experience
 
-The player opens the normal Building Tool, chooses **Quantum Endpoint**, and places a tiny endpoint directly on a compatible machine, depot, or conveyor port. The endpoint is assigned as an input or output during placement or through a small interaction panel.
+The player opens the normal Building Tool and chooses a tiny **Quantum Output** or **Quantum Input** endpoint card. Separate cards are the safest first implementation because MoonFramework registers each building's conveyor ports when the build menu is created; it also keeps the interaction obvious for a non-technical player. A later panel can add a mode switch if the framework and placement rules make that useful.
+
+Each endpoint is placed directly on a compatible machine, depot, or conveyor port. The visible model should be only a small port-mounted component, with no unnecessary floor footprint.
 
 The player then selects another endpoint to create a wireless link. A subtle line, pulse, or endpoint color can communicate the connection without filling the world with permanent belt geometry.
 
