@@ -20,7 +20,7 @@ Quantum Conveyors does not share a single port with a stock conveyor. A compatib
 
 Removing an endpoint releases the port so a stock conveyor can be connected again.
 
-If the conveyor attached to an endpoint is deleted, the endpoint remains in place but disables itself. It is removed from routing, stops accepting or emitting resources, and hides its interaction prompt until a conveyor is connected again. This preserves the player's channel assignment without silently deleting a buildable object.
+If the conveyor attached to an endpoint is deleted, the endpoint remains in place but disables its transfer behavior. It is removed from routing and stops accepting or emitting resources, while its setup prompt remains available so the player can inspect or change its channel. Reconnecting a conveyor re-enables it without losing the channel assignment.
 
 ## Routing
 

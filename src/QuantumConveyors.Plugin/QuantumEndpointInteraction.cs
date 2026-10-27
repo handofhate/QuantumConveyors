@@ -26,13 +26,6 @@ internal sealed class QuantumEndpointInteraction : MonoBehaviour
 
     private void Update()
     {
-        if (!QuantumNetwork.IsEndpointAttached(endpointId))
-        {
-            prompt?.Hide();
-            menuOpen = false;
-            return;
-        }
-
         if (walker == null) walker = UnityEngine.Object.FindObjectOfType<MoonWalker>();
         if (walker == null || walker.viewCamera == null || walker.interact == null) return;
 

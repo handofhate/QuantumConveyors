@@ -171,14 +171,6 @@ internal static class QuantumNetwork
             : "Unassigned";
     }
 
-    public static bool IsEndpointAttached(int endpointId)
-    {
-        var output = Outputs.FirstOrDefault(machine => machine.Id == endpointId);
-        if (output != null) return output.IsAttached;
-        var input = Inputs.FirstOrDefault(machine => machine.Id == endpointId);
-        return input?.IsAttached ?? false;
-    }
-
     public static void Report(Exception exception)
     {
         if (log != null) log.LogError(exception);

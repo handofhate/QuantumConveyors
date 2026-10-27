@@ -21,7 +21,7 @@ Quantum Conveyors adds small, placeable endpoints to the normal Building Tool. A
 - Endpoint hardware is deliberately small and visible: a black portal square sits on top of the conveyor, with a tiny colored LED on top.
 - Channels are unbounded and isolated. Each channel can contain multiple outputs and inputs, while separate channels remain separate.
 - New endpoints begin unassigned and show an in-game channel menu when interacted with.
-- If the attached conveyor is deleted, the endpoint safely disables itself instead of auto-deleting. Reconnecting a conveyor re-enables it and preserves its channel assignment.
+- If the attached conveyor is deleted, the endpoint safely disables transfers instead of auto-deleting. Its setup prompt remains available, and reconnecting a conveyor re-enables it while preserving its channel assignment.
 - Links and endpoint placement should persist with the world save.
 
 ## Development stages
