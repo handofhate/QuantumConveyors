@@ -13,15 +13,14 @@ public sealed class Plugin : BasePlugin
     public const string PluginGuid = "tylerun.moonsweepers.quantumconveyors";
     public const string PluginName = "Quantum Conveyors";
     public const string PluginVersion = "0.1.0-dev";
+    private static GameObject interactionHost;
 
     public override void Load()
     {
         ClassInjector.RegisterTypeInIl2Cpp<QuantumEndpointInteraction>();
         ClassInjector.RegisterTypeInIl2Cpp<QuantumInteractionController>();
-        var interactionObject = new GameObject("Quantum Conveyors Interaction");
-        UnityEngine.Object.DontDestroyOnLoad(interactionObject);
-        var controller = interactionObject.AddComponent<QuantumInteractionController>();
-        QuantumNetwork.Diagnostic($"Interaction host created: {controller != null}");
+        EnsureInteractionHost();
+        Moon.WorldLoaded += _ => EnsureInteractionHost();
         Log.LogInfo($"{PluginName} {PluginVersion} loaded.");
         Log.LogInfo($"MoonFramework {FrameworkPlugin.Version} is available.");
 
@@ -66,5 +65,14 @@ public sealed class Plugin : BasePlugin
         });
 
         Log.LogInfo("Registered Quantum Output and Quantum Input in the Logistics Building Tool.");
+    }
+
+    private static void EnsureInteractionHost()
+    {
+        if (interactionHost != null && interactionHost.GetComponent<QuantumInteractionController>() != null) return;
+        interactionHost = new GameObject("Quantum Conveyors Interaction");
+        UnityEngine.Object.DontDestroyOnLoad(interactionHost);
+        var controller = interactionHost.AddComponent<QuantumInteractionController>();
+        QuantumNetwork.Diagnostic($"Interaction host created: {controller != null}");
     }
 }

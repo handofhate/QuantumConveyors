@@ -8,7 +8,6 @@ namespace QuantumConveyors;
 
 public sealed class QuantumEndpointInteraction : MonoBehaviour
 {
-    private MoonActionPromptCard prompt;
     private MoonWalker walker;
     private BoxCollider interactionCollider;
     private Rect windowRect = new(0f, 0f, 420f, 520f);
@@ -45,16 +44,6 @@ public sealed class QuantumEndpointInteraction : MonoBehaviour
 
         aimed = IsAimed(camera);
         var uiBlocked = walker != null && walker.UIBlocked;
-        if (aimed && !menuOpen && !uiBlocked)
-        {
-            prompt ??= MoonActionPromptCard.Create(transform, "QuantumConveyorsPrompt", 600);
-            prompt.Show("E", "Quantum Channel", true, 1f, false);
-        }
-        else
-        {
-            prompt?.Hide();
-        }
-
         if (!InteractPressed()) return;
         if (menuOpen)
         {
