@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AssemblyName>QuantumConveyors</AssemblyName>
+    <RootNamespace>QuantumConveyors</RootNamespace>
+    <EnableDefaultItems>true</EnableDefaultItems>
+    <RestoreIgnoreFailedSources>true</RestoreIgnoreFailedSources>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <BepInExStage>$(MSBuildProjectDirectory)\..\..\work\staging\BepInEx</BepInExStage>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="BepInEx.Core" HintPath="$(BepInExStage)\BepInEx\core\BepInEx.Core.dll" Private="false" />
+    <Reference Include="BepInEx.Unity.IL2CPP" HintPath="$(BepInExStage)\BepInEx\core\BepInEx.Unity.IL2CPP.dll" Private="false" />
+    <Reference Include="Il2CppInterop.Runtime" HintPath="$(BepInExStage)\BepInEx\core\Il2CppInterop.Runtime.dll" Private="false" />
+  </ItemGroup>
+
+  <Target Name="CopyPluginToLocalRuntime" AfterTargets="Build" Condition="'$(CopyToLocalRuntime)' == 'true'">
+    <MakeDir Directories="$(BepInExStage)\BepInEx\plugins\QuantumConveyors" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(BepInExStage)\BepInEx\plugins\QuantumConveyors" />
+  </Target>
+</Project>
