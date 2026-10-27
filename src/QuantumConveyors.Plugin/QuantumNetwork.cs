@@ -574,7 +574,7 @@ internal sealed class QuantumOutputMachine : Machine
     public override void Describe(MachinePanel panel)
     {
         panel.Line($"Ch: {QuantumNetwork.ChannelLabel(ChannelId)}");
-        panel.Line(string.IsNullOrWhiteSpace(ChannelId) ? "Waiting for configuration" : operationalStatus);
+        panel.Line(string.IsNullOrWhiteSpace(ChannelId) ? "Waiting for setup" : operationalStatus);
     }
 
     private void RefreshAttachment()
@@ -659,7 +659,7 @@ internal sealed class QuantumInputMachine : Machine
         panel.Line($"Ch: {QuantumNetwork.ChannelLabel(ChannelId)}");
         panel.Line(!IsAttached
             ? "Disabled: connect a conveyor"
-            : string.IsNullOrWhiteSpace(ChannelId) ? "Waiting for configuration" : operationalStatus);
+            : string.IsNullOrWhiteSpace(ChannelId) ? "Waiting for setup" : operationalStatus);
     }
 
     private void RefreshAttachment()

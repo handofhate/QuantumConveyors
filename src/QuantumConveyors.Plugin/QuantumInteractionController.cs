@@ -180,7 +180,8 @@ public sealed class QuantumInteractionController : MonoBehaviour
 
         var summaries = QuantumNetwork.Summaries();
         var rowHeight = 44f;
-        channelContent.sizeDelta = new Vector2(500f, Math.Max(44f, summaries.Count * rowHeight));
+        var topPadding = 10f;
+        channelContent.sizeDelta = new Vector2(500f, Math.Max(44f, topPadding + summaries.Count * rowHeight));
         channelScrollOffset = 0f;
         channelContent.anchoredPosition = Vector2.zero;
         if (summaries.Count == 0)
@@ -193,12 +194,12 @@ public sealed class QuantumInteractionController : MonoBehaviour
         for (var i = 0; i < summaries.Count; i++)
         {
             var summary = summaries[i];
-            var row = MakeRect("ChannelRow", channelContent, new Vector2(500f, 38f), new Vector2(0f, -i * rowHeight - 3f),
+            var row = MakeRect("ChannelRow", channelContent, new Vector2(500f, 38f), new Vector2(0f, -topPadding - i * rowHeight),
                 new Color(0.10f, 0.12f, 0.16f, 1f));
             row.anchorMin = new Vector2(0.5f, 1f);
             row.anchorMax = new Vector2(0.5f, 1f);
             row.pivot = new Vector2(0.5f, 1f);
-            row.anchoredPosition = new Vector2(0f, -i * rowHeight - 3f);
+            row.anchoredPosition = new Vector2(0f, -topPadding - i * rowHeight);
             if (summary.Id == editingChannelId)
             {
                 var editor = CreateInputField(row, new Vector2(-112f, 0f), new Vector2(220f, 30f));
