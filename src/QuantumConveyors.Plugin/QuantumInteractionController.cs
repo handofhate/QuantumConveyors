@@ -531,15 +531,47 @@ public sealed class QuantumInteractionController : MonoBehaviour
         // The vanilla hover card uses a forgiving hit area around small
         // interactable models.  A sphere cast gives the puck a similar amount
         // of aim tolerance while still respecting physical occlusion.
-        if (!Physics.SphereCast(ray, 0.20f, out var hit, 8f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+        var hits = Physics.SphereCastAll(ray, 0.20f, 8f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+        if (hits == null || hits.Length == 0) return null;
+
+        QuantumEndpointView? endpointHit = null;
+        var endpointDistance = float.MaxValue;
+        var firstBlockingDistance = float.MaxValue;
+        foreach (var hit in hits.OrderBy(candidate => candidate.distance))
+        {
+            var endpoint = EndpointForHit(hit, endpoints);
+            if (endpoint.HasValue)
+            {
+                endpointHit = endpoint;
+                endpointDistance = hit.distance;
+                break;
+            }
+
+            if (hit.collider != null && hit.distance < firstBlockingDistance)
+                firstBlockingDistance = hit.distance;
+        }
+
+        if (!endpointHit.HasValue) return null;
+
+        // The adapter intentionally overlaps the short conveyor beneath it.
+        // Ignore that small shared-depth overlap, but still reject an adapter
+        // that is genuinely behind a machine or other structure.
+        const float conveyorOverlapTolerance = 0.25f;
+        if (firstBlockingDistance < endpointDistance - conveyorOverlapTolerance)
             return null;
+
+        return endpointHit;
+    }
+
+    private static QuantumEndpointView? EndpointForHit(RaycastHit hit, IReadOnlyList<QuantumEndpointView> endpoints)
+    {
+        var hitTransform = hit.collider == null ? null : hit.collider.transform;
+        if (hitTransform == null) return null;
 
         foreach (var endpoint in endpoints)
         {
             if (endpoint.View == null) continue;
             var endpointTransform = endpoint.View.transform;
-            var hitTransform = hit.collider == null ? null : hit.collider.transform;
-            if (hitTransform == null) continue;
             if (hitTransform == endpointTransform || hitTransform.IsChildOf(endpointTransform) || endpointTransform.IsChildOf(hitTransform))
                 return endpoint;
         }
