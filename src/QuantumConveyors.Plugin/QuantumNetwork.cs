@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.IO;
+using BepInEx;
 using BepInEx.Logging;
 using MoonCleaners;
 using MoonFramework;
@@ -20,7 +22,22 @@ internal static class QuantumNetwork
     public static void Initialize(ManualLogSource source)
     {
         log = source;
+        Diagnostic("QuantumNetwork initialized");
         Crew.On(ChannelMessage, (_, data) => ApplyNetworkMessage(data));
+    }
+
+    internal static void Diagnostic(string message)
+    {
+        log?.LogInfo($"[QuantumConveyors] {message}");
+        try
+        {
+            var path = Path.Combine(Paths.BepInExRootPath, "QuantumConveyors-diagnostic.log");
+            File.AppendAllText(path, $"{DateTime.UtcNow:O} {message}{Environment.NewLine}");
+        }
+        catch
+        {
+            // Diagnostics must never affect gameplay.
+        }
     }
 
     public static void Add(QuantumOutputMachine machine)
@@ -51,12 +68,17 @@ internal static class QuantumNetwork
 
     public static void BindView(int endpointId, UnityEngine.GameObject view)
     {
-        if (view != null) BoundViews[endpointId] = view;
+        if (view != null)
+        {
+            BoundViews[endpointId] = view;
+            Diagnostic($"Bound view for endpoint {endpointId}: {view.name}");
+        }
     }
 
     public static void BindUnidentifiedView(UnityEngine.GameObject view, bool isOutput)
     {
         if (view == null) return;
+        Diagnostic($"Building OnView callback: {(isOutput ? "output" : "input")} {view.name}");
         var position = view.transform.position;
         if (isOutput)
         {

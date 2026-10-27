@@ -12,16 +12,32 @@ public sealed class QuantumInteractionController : MonoBehaviour
     private QuantumEndpointView? target;
     private bool menuOpen;
     private Rect windowRect = new(0f, 0f, 440f, 540f);
+    private bool updateReported;
+    private bool guiReported;
+    private int lastViewCount = -1;
 
     public QuantumInteractionController(IntPtr pointer) : base(pointer) { }
 
+    public void Awake() => QuantumNetwork.Diagnostic("Interaction host Awake");
+
     public void Update()
     {
+        if (!updateReported)
+        {
+            updateReported = true;
+            QuantumNetwork.Diagnostic("Interaction host Update is running");
+        }
         if (walker == null) walker = UnityEngine.Object.FindObjectOfType<MoonWalker>();
         var camera = walker?.viewCamera ?? Camera.main;
         if (camera == null) return;
 
-        target = FindTarget(camera);
+        var endpointViews = QuantumNetwork.EndpointViews();
+        if (endpointViews.Count != lastViewCount)
+        {
+            lastViewCount = endpointViews.Count;
+            QuantumNetwork.Diagnostic($"Interaction host sees {lastViewCount} endpoint view(s); camera={(camera != null)} walker={(walker != null)}");
+        }
+        target = FindTarget(camera, endpointViews);
         if (!target.HasValue)
         {
             menuOpen = false;
@@ -50,13 +66,13 @@ public sealed class QuantumInteractionController : MonoBehaviour
         return false;
     }
 
-    private static QuantumEndpointView? FindTarget(Camera camera)
+    private static QuantumEndpointView? FindTarget(Camera camera, IReadOnlyList<QuantumEndpointView> endpoints)
     {
         var center = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
         var bestPixels = 300f;
         QuantumEndpointView? best = null;
 
-        foreach (var endpoint in QuantumNetwork.EndpointViews())
+        foreach (var endpoint in endpoints)
         {
             if (endpoint.View == null) continue;
             var worldPoint = endpoint.View.transform.TransformPoint(new Vector3(0f, 1.0f, 0f));
@@ -77,6 +93,11 @@ public sealed class QuantumInteractionController : MonoBehaviour
 
     public void OnGUI()
     {
+        if (!guiReported)
+        {
+            guiReported = true;
+            QuantumNetwork.Diagnostic("Interaction host OnGUI is running");
+        }
         if (!target.HasValue) return;
         var endpoint = target.Value;
         if (!menuOpen)

@@ -20,7 +20,8 @@ public sealed class Plugin : BasePlugin
         ClassInjector.RegisterTypeInIl2Cpp<QuantumInteractionController>();
         var interactionObject = new GameObject("Quantum Conveyors Interaction");
         UnityEngine.Object.DontDestroyOnLoad(interactionObject);
-        interactionObject.AddComponent<QuantumInteractionController>();
+        var controller = interactionObject.AddComponent<QuantumInteractionController>();
+        QuantumNetwork.Diagnostic($"Interaction host created: {controller != null}");
         Log.LogInfo($"{PluginName} {PluginVersion} loaded.");
         Log.LogInfo($"MoonFramework {FrameworkPlugin.Version} is available.");
 
