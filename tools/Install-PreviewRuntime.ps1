@@ -66,6 +66,8 @@ if (-not (Test-Path -LiteralPath $plugin)) {
 $pluginDestination = Join-Path $temp 'BepInEx\plugins\QuantumConveyors'
 New-Item -ItemType Directory -Force -Path $pluginDestination | Out-Null
 Copy-Item -LiteralPath $plugin -Destination $pluginDestination -Force
+Get-ChildItem -LiteralPath (Split-Path -Parent $plugin) -File -Include '*.obj', '*.mtl' |
+    Copy-Item -Destination $pluginDestination -Force
 
 Get-ChildItem -LiteralPath $temp -Force | Copy-Item -Destination $GamePath -Recurse -Force
 

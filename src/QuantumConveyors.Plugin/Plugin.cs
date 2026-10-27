@@ -1,10 +1,12 @@
-using System.Reflection;
 using BepInEx;
 using BepInEx.Unity.IL2CPP;
+using MoonFramework;
+using UnityEngine;
 
 namespace QuantumConveyors;
 
 [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
+[BepInDependency(FrameworkPlugin.Guid, BepInDependency.DependencyFlags.HardDependency)]
 public sealed class Plugin : BasePlugin
 {
     public const string PluginGuid = "tylerun.moonsweepers.quantumconveyors";
@@ -14,58 +16,46 @@ public sealed class Plugin : BasePlugin
     public override void Load()
     {
         Log.LogInfo($"{PluginName} {PluginVersion} loaded.");
-        Log.LogInfo("Prototype stage: runtime diagnostics only; no gameplay changes are enabled.");
+        Log.LogInfo($"MoonFramework {FrameworkPlugin.Version} is available.");
 
-        DumpRelevantTypes();
-    }
+        QuantumNetwork.Initialize(Log);
 
-    private void DumpRelevantTypes()
-    {
-        var matches = AppDomain.CurrentDomain
-            .GetAssemblies()
-            .SelectMany(GetTypesSafely)
-            .Where(type =>
-                type.FullName?.Contains("MoonConveyor", StringComparison.OrdinalIgnoreCase) == true ||
-                type.FullName?.Contains("MoonBuild", StringComparison.OrdinalIgnoreCase) == true ||
-                type.FullName?.Contains("MoonMachine", StringComparison.OrdinalIgnoreCase) == true ||
-                type.FullName?.Contains("MoonDepot", StringComparison.OrdinalIgnoreCase) == true)
-            .OrderBy(type => type.FullName)
-            .ToArray();
-
-        Log.LogInfo($"Diagnostic type scan found {matches.Length} relevant loaded types.");
-
-        foreach (var type in matches)
+        Moon.RegisterBuilding(new BuildingSpec
         {
-            Log.LogInfo($"TYPE {type.FullName}");
+            Id = "quantumconveyors.output",
+            Name = "Quantum Output",
+            Description = "Sends resources into the shared wireless Quantum Conveyors network.",
+            Category = "Logistics",
+            Price = 0,
+            Body = VanillaKinds.Splitter,
+            SaveAs = VanillaKinds.Splitter,
+            Tint = new Color(0.25f, 0.75f, 1f, 1f),
+            Footprint = new Vector2(0.32f, 0.32f),
+            Height = 1.05f,
+            Ports = new[] { PortSpec.In("input", new Vector3(0f, 0.85f, 0f), Vector3.forward) },
+            Model = EndpointAssets.OutputModel,
+            Machine = () => new QuantumOutputMachine(),
+            ListAfter = VanillaKinds.Splitter,
+        });
 
-            foreach (var field in type.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static))
-            {
-                Log.LogInfo($"  FIELD {field.FieldType.FullName} {field.Name}");
-            }
+        Moon.RegisterBuilding(new BuildingSpec
+        {
+            Id = "quantumconveyors.input",
+            Name = "Quantum Input",
+            Description = "Receives resources from the shared wireless Quantum Conveyors network.",
+            Category = "Logistics",
+            Price = 0,
+            Body = VanillaKinds.Splitter,
+            SaveAs = VanillaKinds.Splitter,
+            Tint = new Color(1f, 0.65f, 0.2f, 1f),
+            Footprint = new Vector2(0.32f, 0.32f),
+            Height = 1.05f,
+            Ports = new[] { PortSpec.Out("output", new Vector3(0f, 0.85f, 0f), Vector3.forward) },
+            Model = EndpointAssets.InputModel,
+            Machine = () => new QuantumInputMachine(),
+            ListAfter = VanillaKinds.Splitter,
+        });
 
-            foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static)
-                         .Where(method => !method.IsSpecialName)
-                         .OrderBy(method => method.Name))
-            {
-                var parameters = string.Join(", ", method.GetParameters().Select(parameter => $"{parameter.ParameterType.FullName} {parameter.Name}"));
-                Log.LogInfo($"  METHOD {method.ReturnType.FullName} {method.Name}({parameters})");
-            }
-        }
-    }
-
-    private static IEnumerable<Type> GetTypesSafely(Assembly assembly)
-    {
-        try
-        {
-            return assembly.GetTypes();
-        }
-        catch (ReflectionTypeLoadException exception)
-        {
-            return exception.Types.Where(type => type is not null)!;
-        }
-        catch
-        {
-            return Array.Empty<Type>();
-        }
+        Log.LogInfo("Registered Quantum Output and Quantum Input in the Logistics Building Tool.");
     }
 }

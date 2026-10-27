@@ -2,7 +2,7 @@
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
+    <Nullable>disable</Nullable>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <AssemblyName>QuantumConveyors</AssemblyName>
@@ -13,12 +13,22 @@
 
   <PropertyGroup>
     <BepInExStage>$(MSBuildProjectDirectory)\..\..\work\staging\BepInEx</BepInExStage>
+    <MoonSweepersGameRoot Condition="'$(MoonSweepersGameRoot)' == ''">C:\Program Files (x86)\Steam\steamapps\common\Moon Sweepers</MoonSweepersGameRoot>
+    <InteropDir>$(MoonSweepersGameRoot)\BepInEx\interop</InteropDir>
+    <PluginDir>$(MoonSweepersGameRoot)\BepInEx\plugins</PluginDir>
   </PropertyGroup>
 
   <ItemGroup>
     <Reference Include="BepInEx.Core" HintPath="$(BepInExStage)\BepInEx\core\BepInEx.Core.dll" Private="false" />
     <Reference Include="BepInEx.Unity.IL2CPP" HintPath="$(BepInExStage)\BepInEx\core\BepInEx.Unity.IL2CPP.dll" Private="false" />
     <Reference Include="Il2CppInterop.Runtime" HintPath="$(BepInExStage)\BepInEx\core\Il2CppInterop.Runtime.dll" Private="false" />
+    <Reference Include="MoonFramework" HintPath="$(PluginDir)\MoonFramework.dll" Private="false" />
+    <Reference Include="Assembly-CSharp" HintPath="$(InteropDir)\Assembly-CSharp.dll" Private="false" />
+    <Reference Include="UnityEngine.CoreModule" HintPath="$(InteropDir)\UnityEngine.CoreModule.dll" Private="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="*.obj;*.mtl" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
   <Target Name="CopyPluginToLocalRuntime" AfterTargets="Build" Condition="'$(CopyToLocalRuntime)' == 'true'">

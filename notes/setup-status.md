@@ -11,7 +11,9 @@
 
 ## Waiting on the game being closed
 
-Installing files into the game directory should happen only after Moon Sweepers is closed. The user is currently preparing a dedicated test save.
+The BepInEx runtime, MoonSweepers patcher, MoonFramework 0.6.0, and the first Quantum Conveyors prototype have now been installed successfully. The game reached the main menu and loaded both plugins without a Quantum Conveyors exception. The first prototype registered `Quantum Output` and `Quantum Input` in the Logistics Building Tool.
+
+The updated prototype build is compiled locally but is waiting for the user to close the game before it is copied over the currently loaded DLL. No buildings were placed and no save changes were made during this verification pass.
 
 ## External files prepared
 
