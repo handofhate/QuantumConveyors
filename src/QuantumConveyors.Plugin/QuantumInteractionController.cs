@@ -27,6 +27,8 @@ public sealed class QuantumInteractionController : MonoBehaviour
     private bool previousUiBlocked;
     private CursorLockMode previousCursorLock;
     private bool previousCursorVisible;
+    private UnityEngine.EventSystems.EventSystem previousEventSystem;
+    private GameObject menuEventSystem;
     private bool updateReported;
     private int lastViewCount = -1;
     private bool? cameraAvailable;
@@ -56,6 +58,7 @@ public sealed class QuantumInteractionController : MonoBehaviour
 
             if (menuCanvas != null)
             {
+                KeepCursorForMenu();
                 if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame) CloseMenu();
                 return;
             }
@@ -129,6 +132,8 @@ public sealed class QuantumInteractionController : MonoBehaviour
         root.anchorMax = new Vector2(0.5f, 0.5f);
         root.pivot = new Vector2(0.5f, 0.5f);
         root.anchoredPosition = Vector2.zero;
+        root.localScale = new Vector3(0.5f, 0.5f, 1f);
+        root.gameObject.AddComponent<CanvasGroup>().blocksRaycasts = true;
         AddText(root, "Quantum Conveyors", new Vector2(0f, 226f), new Vector2(560f, 34f), 26, Color.white, TextAnchor.MiddleCenter);
         AddText(root, isOutput ? "Configure this output adapter" : "Configure this input adapter",
             new Vector2(0f, 193f), new Vector2(560f, 26f), 16, new Color(0.55f, 0.85f, 1f), TextAnchor.MiddleCenter);
@@ -299,7 +304,11 @@ public sealed class QuantumInteractionController : MonoBehaviour
     private void CloseMenu()
     {
         if (menuCanvas != null) Destroy(menuCanvas);
+        if (menuEventSystem != null) Destroy(menuEventSystem);
+        if (previousEventSystem != null) previousEventSystem.enabled = true;
         menuCanvas = null;
+        menuEventSystem = null;
+        previousEventSystem = null;
         nameField = null;
         menuStatus = null;
         channelContent = null;
@@ -337,6 +346,17 @@ public sealed class QuantumInteractionController : MonoBehaviour
         Cursor.visible = previousCursorVisible;
     }
 
+    public void LateUpdate()
+    {
+        if (menuCanvas != null) KeepCursorForMenu();
+    }
+
+    private static void KeepCursorForMenu()
+    {
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+    }
+
     private MoonWalker FindWalker()
     {
         if (walker != null) return walker;
@@ -347,6 +367,7 @@ public sealed class QuantumInteractionController : MonoBehaviour
         var camera = ActiveCamera();
         if (camera == null) return null;
         var found = camera.GetComponentInParent(Il2CppType.Of<MoonWalker>());
+        if (found == null) found = camera.transform.root.GetComponentInChildren(Il2CppType.Of<MoonWalker>());
         walker = found as MoonWalker;
         return walker;
     }
@@ -398,21 +419,18 @@ public sealed class QuantumInteractionController : MonoBehaviour
         return button;
     }
 
-    private static void EnsureEventSystem()
+    private void EnsureEventSystem()
     {
-        var eventSystem = UnityEngine.EventSystems.EventSystem.current;
-        if (eventSystem == null)
-        {
-            var objectRoot = new GameObject("Quantum Conveyors EventSystem");
-            eventSystem = objectRoot.AddComponent<UnityEngine.EventSystems.EventSystem>();
-            DontDestroyOnLoad(objectRoot);
-        }
+        // Use a private event system while the menu is open.  The game's
+        // existing system is optimized for its own HUD and can leave these
+        // buttons without a pointer module, which makes clicks fall through.
+        previousEventSystem = UnityEngine.EventSystems.EventSystem.current;
+        if (previousEventSystem != null) previousEventSystem.enabled = false;
 
-        // Some Moon Sweepers scenes provide an EventSystem without a mouse
-        // input module.  In that case the canvas is visible but clicks fall
-        // through because Unity never dispatches pointer events to Buttons.
-        if (eventSystem.GetComponent<UnityEngine.EventSystems.BaseInputModule>() == null)
-            eventSystem.gameObject.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
+        menuEventSystem = new GameObject("Quantum Conveyors EventSystem");
+        menuEventSystem.AddComponent<UnityEngine.EventSystems.EventSystem>();
+        menuEventSystem.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
+        DontDestroyOnLoad(menuEventSystem);
     }
 
     private static QuantumEndpointView? FindTarget(Camera camera, IReadOnlyList<QuantumEndpointView> endpoints)
