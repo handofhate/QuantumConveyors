@@ -188,6 +188,7 @@ No. Launch Moon Sweepers normally through Steam after installing BepInEx and the
 ## Known issues and limitations
 
 - **Moving adapters:** The game's new move feature does not reliably resnap splitter/merger-style structures to a new conveyor location. If an adapter is moved away from its original conveyor, deleting and rebuilding it is currently the reliable workaround.
+- **Underlying splitter/merger clearance:** Although the visible Quantum endpoint is a small puck, the game evaluates its placement using the underlying splitter/merger footprint and overlap rules. An endpoint may not fit directly against a merger, machine, or another structure if there is not enough clearance. A short conveyor segment or stub may be needed to give the endpoint room to place. This can also occur when the conveyor segment being used at a machine is too short.
 - **Multiple outputs:** Multiple source belts can compete based on the game's update order. Fair round-robin source scheduling is planned.
 - **Preview-build compatibility:** Moon Sweepers updates can change internal APIs used by BepInEx, MoonFramework, conveyor handling, or save loading. A game update should be treated as untested until the mod is verified.
 - **Save compatibility without the mod:** The endpoints are stored using vanilla-compatible building identities. Without the mod, they may appear as ordinary splitter/merger structures and will not provide wireless behavior. Back up saves before disabling or uninstalling the mod.
