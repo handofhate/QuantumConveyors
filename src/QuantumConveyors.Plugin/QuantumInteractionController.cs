@@ -119,13 +119,13 @@ public sealed class QuantumInteractionController : MonoBehaviour
         menuCanvas.AddComponent<GraphicRaycaster>();
 
         var root = MakeRect("Window", menuCanvas.transform, new Vector2(620f, 520f), Vector2.zero, new Color(0.08f, 0.10f, 0.14f, 0.98f));
-        AddText(root, "Quantum Conveyors", new Vector2(0f, 226f), new Vector2(560f, 34f), 26, Color.white);
+        AddText(root, "Quantum Conveyors", new Vector2(0f, 226f), new Vector2(560f, 34f), 26, Color.white, TextAnchor.MiddleCenter);
         AddText(root, isOutput ? "Configure this output adapter" : "Configure this input adapter",
-            new Vector2(0f, 193f), new Vector2(560f, 26f), 16, new Color(0.55f, 0.85f, 1f));
+            new Vector2(0f, 193f), new Vector2(560f, 26f), 16, new Color(0.55f, 0.85f, 1f), TextAnchor.MiddleCenter);
         AddText(root, "Choose a channel, rename it, or delete it. Changes are host-authoritative.",
-            new Vector2(0f, 164f), new Vector2(570f, 24f), 13, new Color(0.72f, 0.75f, 0.82f));
+            new Vector2(0f, 164f), new Vector2(570f, 24f), 13, new Color(0.72f, 0.75f, 0.82f), TextAnchor.MiddleCenter);
 
-        AddText(root, "Selected channel name", new Vector2(-150f, 137f), new Vector2(250f, 22f), 14, Color.white);
+        AddText(root, "Selected channel name", new Vector2(-150f, 137f), new Vector2(250f, 22f), 14, Color.white, TextAnchor.MiddleLeft);
         nameField = CreateInputField(root, new Vector2(-40f, 105f), new Vector2(300f, 34f));
         nameField.text = SelectedChannelName();
         CreateButton(root, "Save name", new Vector2(185f, 105f), new Vector2(120f, 34f), SaveName);
@@ -133,7 +133,7 @@ public sealed class QuantumInteractionController : MonoBehaviour
         CreateButton(root, "New channel", new Vector2(-205f, 65f), new Vector2(150f, 34f), CreateNewChannel);
         CreateButton(root, "Close", new Vector2(205f, 65f), new Vector2(120f, 34f), CloseMenu);
         menuStatus = AddText(root, Moon.IsAuthority ? "Host controls enabled." : "Only the host can change channels.",
-            new Vector2(0f, 65f), new Vector2(230f, 34f), 13, new Color(0.72f, 0.75f, 0.82f));
+            new Vector2(0f, 65f), new Vector2(230f, 34f), 13, new Color(0.72f, 0.75f, 0.82f), TextAnchor.MiddleCenter);
 
         var viewport = MakeRect("ChannelViewport", root, new Vector2(570f, 270f), new Vector2(0f, -100f), new Color(0.04f, 0.05f, 0.07f, 0.96f));
         var mask = viewport.gameObject.AddComponent<Mask>();
@@ -169,7 +169,7 @@ public sealed class QuantumInteractionController : MonoBehaviour
         if (summaries.Count == 0)
         {
             AddText(channelContent, "No channels yet. Create one for this adapter.", new Vector2(0f, -24f),
-                new Vector2(520f, 34f), 16, new Color(0.72f, 0.75f, 0.82f));
+                new Vector2(520f, 34f), 16, new Color(0.72f, 0.75f, 0.82f), TextAnchor.MiddleCenter);
             return;
         }
 
@@ -180,7 +180,7 @@ public sealed class QuantumInteractionController : MonoBehaviour
             var row = MakeRect("ChannelRow", channelContent, new Vector2(540f, 36f), new Vector2(0f, y),
                 new Color(0.10f, 0.12f, 0.16f, 1f));
             AddText(row, $"{summary.Name}  ({summary.Outputs} out / {summary.Inputs} in)",
-                new Vector2(-118f, 0f), new Vector2(280f, 32f), 14, Color.white);
+                new Vector2(-118f, 0f), new Vector2(280f, 32f), 14, Color.white, TextAnchor.MiddleLeft);
             CreateButton(row, "Use", new Vector2(100f, 0f), new Vector2(72f, 28f),
                 () => UseChannel(summary.Id));
             CreateButton(row, "Rename", new Vector2(185f, 0f), new Vector2(88f, 28f),
@@ -293,7 +293,7 @@ public sealed class QuantumInteractionController : MonoBehaviour
         return rect;
     }
 
-    private static Text AddText(Transform parent, string text, Vector2 position, Vector2 size, int fontSize, Color color)
+    private static Text AddText(Transform parent, string text, Vector2 position, Vector2 size, int fontSize, Color color, TextAnchor alignment)
     {
         var rect = MakeRect("Text", parent, size, position, null);
         var label = rect.gameObject.AddComponent<Text>();
@@ -301,6 +301,7 @@ public sealed class QuantumInteractionController : MonoBehaviour
         label.text = text;
         label.fontSize = fontSize;
         label.color = color;
+        label.alignment = alignment;
         label.horizontalOverflow = HorizontalWrapMode.Wrap;
         label.verticalOverflow = VerticalWrapMode.Truncate;
         return label;
@@ -310,7 +311,7 @@ public sealed class QuantumInteractionController : MonoBehaviour
     {
         var root = MakeRect("NameField", parent, size, position, new Color(0.18f, 0.20f, 0.24f, 1f));
         var field = root.gameObject.AddComponent<InputField>();
-        field.textComponent = AddText(root, string.Empty, Vector2.zero, size - new Vector2(16f, 4f), 16, Color.white);
+        field.textComponent = AddText(root, string.Empty, Vector2.zero, size - new Vector2(16f, 4f), 16, Color.white, TextAnchor.MiddleLeft);
         field.textComponent.rectTransform.anchoredPosition = new Vector2(8f, 0f);
         field.characterLimit = 24;
         return field;
@@ -324,7 +325,7 @@ public sealed class QuantumInteractionController : MonoBehaviour
         button.targetGraphic = image;
         UnityAction unityAction = action;
         button.onClick.AddListener(unityAction);
-        AddText(root, label, Vector2.zero, size - new Vector2(8f, 4f), 14, Color.white);
+        AddText(root, label, Vector2.zero, size - new Vector2(8f, 4f), 14, Color.white, TextAnchor.MiddleCenter);
         return button;
     }
 
