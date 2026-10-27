@@ -17,6 +17,8 @@ public sealed class Plugin : BasePlugin
     public override void Load()
     {
         ClassInjector.RegisterTypeInIl2Cpp<QuantumEndpointInteraction>();
+        ClassInjector.RegisterTypeInIl2Cpp<QuantumInteractionController>();
+        AddComponent<QuantumInteractionController>();
         Log.LogInfo($"{PluginName} {PluginVersion} loaded.");
         Log.LogInfo($"MoonFramework {FrameworkPlugin.Version} is available.");
 

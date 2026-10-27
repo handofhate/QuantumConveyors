@@ -52,6 +52,16 @@ internal static class QuantumNetwork
         if (input != null) interaction.Configure(input.Id, false);
     }
 
+    public static IReadOnlyList<QuantumEndpointView> EndpointViews()
+    {
+        var views = new List<QuantumEndpointView>(Outputs.Count + Inputs.Count);
+        views.AddRange(Outputs.Where(machine => machine.View != null)
+            .Select(machine => new QuantumEndpointView(machine.Id, true, machine.View)));
+        views.AddRange(Inputs.Where(machine => machine.View != null)
+            .Select(machine => new QuantumEndpointView(machine.Id, false, machine.View)));
+        return views;
+    }
+
     public static void Tick()
     {
         if (!Moon.IsAuthority || Outputs.Count == 0 || Inputs.Count == 0) return;
@@ -284,6 +294,8 @@ internal static class QuantumNetwork
 }
 
 internal readonly record struct ChannelSummary(string Id, string Name, int Outputs, int Inputs);
+
+internal readonly record struct QuantumEndpointView(int Id, bool IsOutput, UnityEngine.GameObject View);
 
 internal readonly record struct PendingCapsule(MoonCargo Cargo, double Kilograms, double Capacity, string Owner);
 
