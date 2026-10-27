@@ -481,6 +481,7 @@ internal sealed class QuantumOutputMachine : Machine
 {
     private readonly Queue<PendingCapsule> pending = new();
     private bool? indicatorPaired;
+    private string operationalStatus = "Ready to send";
 
     internal bool HasPending => pending.Count > 0;
     internal int PendingCount => pending.Count;
@@ -526,12 +527,14 @@ internal sealed class QuantumOutputMachine : Machine
         var capsuleToSend = new PendingCapsule(capsule.Cargo, capsule.Kilograms, capsule.Capacity, capsule.Owner);
         if (!QuantumNetwork.TryTransmit(this, capsuleToSend))
         {
+            operationalStatus = "Waiting for output belt";
             Status = "Waiting for output belt";
             Tone = MachineTone.Idle;
             return false;
         }
 
         IsAttached = true;
+        operationalStatus = "Resource sent";
         Status = "Resource sent";
         Tone = MachineTone.Working;
         return true;
@@ -543,7 +546,8 @@ internal sealed class QuantumOutputMachine : Machine
         var next = pending.Peek();
         if (!input.TryReceive(next)) return false;
         pending.Dequeue();
-        Status = pending.Count == 0 ? "Ready to send" : "Resources queued";
+        operationalStatus = pending.Count == 0 ? "Ready to send" : "Resources queued";
+        Status = operationalStatus;
         Tone = pending.Count == 0 ? MachineTone.Idle : MachineTone.Working;
         return true;
     }
@@ -570,7 +574,7 @@ internal sealed class QuantumOutputMachine : Machine
     public override void Describe(MachinePanel panel)
     {
         panel.Line($"Ch: {QuantumNetwork.ChannelLabel(ChannelId)}");
-        panel.Line(pending.Count > 0 ? "Resources queued" : "Ready to send");
+        panel.Line(string.IsNullOrWhiteSpace(ChannelId) ? "Waiting for configuration" : operationalStatus);
     }
 
     private void RefreshAttachment()
@@ -589,6 +593,7 @@ internal sealed class QuantumOutputMachine : Machine
 internal sealed class QuantumInputMachine : Machine
 {
     private bool? indicatorPaired;
+    private string operationalStatus = "Waiting for output";
     internal string ChannelId { get; private set; } = string.Empty;
     internal bool IsAttached { get; private set; }
 
@@ -624,7 +629,12 @@ internal sealed class QuantumInputMachine : Machine
     {
         RefreshAttachment();
         if (!IsAttached) return false;
-        if (!Emit("output", capsule.Cargo, capsule.Kilograms)) return false;
+        if (!Emit("output", capsule.Cargo, capsule.Kilograms))
+        {
+            operationalStatus = "Waiting for output space";
+            return false;
+        }
+        operationalStatus = "Resource delivered";
         Status = "Resource delivered";
         Tone = MachineTone.Working;
         return true;
@@ -649,7 +659,7 @@ internal sealed class QuantumInputMachine : Machine
         panel.Line($"Ch: {QuantumNetwork.ChannelLabel(ChannelId)}");
         panel.Line(!IsAttached
             ? "Disabled: connect a conveyor"
-            : string.IsNullOrWhiteSpace(ChannelId) ? "Waiting for configuration" : "Waiting for output");
+            : string.IsNullOrWhiteSpace(ChannelId) ? "Waiting for configuration" : operationalStatus);
     }
 
     private void RefreshAttachment()

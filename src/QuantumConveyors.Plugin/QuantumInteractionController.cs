@@ -175,7 +175,8 @@ public sealed class QuantumInteractionController : MonoBehaviour
     private void RefreshChannelList()
     {
         if (channelContent == null) return;
-        for (var i = channelContent.childCount - 1; i >= 0; i--) Destroy(channelContent.GetChild(i).gameObject);
+        for (var i = channelContent.childCount - 1; i >= 0; i--)
+            UnityEngine.Object.DestroyImmediate(channelContent.GetChild(i).gameObject);
 
         var summaries = QuantumNetwork.Summaries();
         var rowHeight = 44f;
@@ -192,9 +193,12 @@ public sealed class QuantumInteractionController : MonoBehaviour
         for (var i = 0; i < summaries.Count; i++)
         {
             var summary = summaries[i];
-            var y = -(i * rowHeight + rowHeight * 0.5f);
-            var row = MakeRect("ChannelRow", channelContent, new Vector2(500f, 38f), new Vector2(0f, y),
+            var row = MakeRect("ChannelRow", channelContent, new Vector2(500f, 38f), new Vector2(0f, -i * rowHeight - 3f),
                 new Color(0.10f, 0.12f, 0.16f, 1f));
+            row.anchorMin = new Vector2(0.5f, 1f);
+            row.anchorMax = new Vector2(0.5f, 1f);
+            row.pivot = new Vector2(0.5f, 1f);
+            row.anchoredPosition = new Vector2(0f, -i * rowHeight - 3f);
             if (summary.Id == editingChannelId)
             {
                 var editor = CreateInputField(row, new Vector2(-112f, 0f), new Vector2(220f, 30f));
@@ -206,8 +210,9 @@ public sealed class QuantumInteractionController : MonoBehaviour
             {
                 AddText(row, $"{summary.Name}  ({summary.Outputs} outputs / {summary.Inputs} inputs)",
                     new Vector2(-112f, 0f), new Vector2(220f, 32f), 14, Color.white, TextAnchor.MiddleLeft);
-                CreateButton(row, "Assign", new Vector2(38f, 0f), new Vector2(62f, 28f),
-                    () => UseChannel(summary.Id));
+                var assigned = QuantumNetwork.ChannelFor(menuEndpointId) == summary.Id;
+                CreateButton(row, assigned ? "Unassign" : "Assign", new Vector2(38f, 0f), new Vector2(72f, 28f),
+                    () => ToggleChannel(summary.Id));
                 CreateButton(row, "Rename", new Vector2(115f, 0f), new Vector2(82f, 28f),
                     () => BeginRename(summary.Id));
             }
@@ -223,15 +228,20 @@ public sealed class QuantumInteractionController : MonoBehaviour
         RefreshChannelList();
     }
 
-    private void UseChannel(string channelId)
+    private void ToggleChannel(string channelId)
     {
         if (!Moon.IsAuthority)
             return;
 
-        if (QuantumNetwork.AssignEndpoint(menuEndpointId, channelId))
+        if (QuantumNetwork.ChannelFor(menuEndpointId) == channelId)
+        {
+            if (QuantumNetwork.UnassignEndpoint(menuEndpointId)) selectedChannelId = string.Empty;
+        }
+        else if (QuantumNetwork.AssignEndpoint(menuEndpointId, channelId))
         {
             selectedChannelId = channelId;
         }
+        RefreshChannelList();
     }
 
     private void CreateNewChannel()
@@ -389,6 +399,9 @@ public sealed class QuantumInteractionController : MonoBehaviour
         var objectRoot = new GameObject(name);
         var rect = objectRoot.AddComponent<RectTransform>();
         rect.SetParent(parent, false);
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
         rect.sizeDelta = size;
         rect.anchoredPosition = position;
         if (background.HasValue) objectRoot.AddComponent<Image>().color = background.Value;
