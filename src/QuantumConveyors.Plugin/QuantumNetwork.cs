@@ -15,6 +15,7 @@ internal static class QuantumNetwork
     private static readonly Dictionary<string, ChannelState> Channels = new(StringComparer.Ordinal);
     private static readonly Dictionary<int, string> PendingRemoteAssignments = new();
     private static readonly Dictionary<int, UnityEngine.GameObject> BoundViews = new();
+    private static readonly Dictionary<string, float> DiagnosticThrottle = new(StringComparer.Ordinal);
     private static ManualLogSource log;
 
     private const string ChannelMessage = Plugin.PluginGuid + ".assignment";
@@ -44,9 +45,18 @@ internal static class QuantumNetwork
         }
     }
 
+    internal static void DiagnosticThrottled(string key, string message, float intervalSeconds = 5f)
+    {
+        var now = Time.unscaledTime;
+        if (DiagnosticThrottle.TryGetValue(key, out var last) && now - last < intervalSeconds) return;
+        DiagnosticThrottle[key] = now;
+        Diagnostic(message);
+    }
+
     public static void Add(QuantumOutputMachine machine)
     {
         if (!Outputs.Contains(machine)) Outputs.Add(machine);
+        Diagnostic($"Output OnStart id={machine.Id} channel={machine.ChannelId} viewAlive={machine.View != null} outputs={Outputs.Count} inputs={Inputs.Count}");
         if (!string.IsNullOrWhiteSpace(machine.ChannelId)) EnsureChannel(machine.ChannelId);
         if (PendingRemoteAssignments.Remove(machine.Id, out var remoteChannel)) machine.SetChannel(remoteChannel);
     }
@@ -54,6 +64,7 @@ internal static class QuantumNetwork
     public static void Add(QuantumInputMachine machine)
     {
         if (!Inputs.Contains(machine)) Inputs.Add(machine);
+        Diagnostic($"Input OnStart id={machine.Id} channel={machine.ChannelId} viewAlive={machine.View != null} outputs={Outputs.Count} inputs={Inputs.Count}");
         if (!string.IsNullOrWhiteSpace(machine.ChannelId)) EnsureChannel(machine.ChannelId);
         if (PendingRemoteAssignments.Remove(machine.Id, out var remoteChannel)) machine.SetChannel(remoteChannel);
     }
@@ -62,12 +73,14 @@ internal static class QuantumNetwork
     {
         Outputs.Remove(machine);
         BoundViews.Remove(machine.Id);
+        Diagnostic($"Output OnStop id={machine.Id} channel={machine.ChannelId} viewAlive={machine.View != null} outputs={Outputs.Count} inputs={Inputs.Count}");
     }
 
     public static void Remove(QuantumInputMachine machine)
     {
         Inputs.Remove(machine);
         BoundViews.Remove(machine.Id);
+        Diagnostic($"Input OnStop id={machine.Id} channel={machine.ChannelId} viewAlive={machine.View != null} outputs={Outputs.Count} inputs={Inputs.Count}");
     }
 
     public static void BindView(int endpointId, UnityEngine.GameObject view)
@@ -75,7 +88,7 @@ internal static class QuantumNetwork
         if (view != null)
         {
             BoundViews[endpointId] = view;
-            Diagnostic($"Bound view for endpoint {endpointId}: {view.name}");
+            Diagnostic($"Bound view for endpoint {endpointId}: {view.name} instance={view.GetInstanceID()} alive={view != null}");
         }
     }
 
@@ -90,7 +103,12 @@ internal static class QuantumNetwork
                 .Where(machine => !BoundViews.ContainsKey(machine.Id))
                 .OrderBy(machine => DistanceSquared(machine.Record, position))
                 .FirstOrDefault();
-            if (match != null) BoundViews[match.Id] = view;
+            if (match != null)
+            {
+                BoundViews[match.Id] = view;
+                Diagnostic($"Unidentified output view matched endpoint {match.Id} instance={view.GetInstanceID()}");
+            }
+            else Diagnostic("Unidentified output view had no unbound endpoint match");
         }
         else
         {
@@ -98,7 +116,12 @@ internal static class QuantumNetwork
                 .Where(machine => !BoundViews.ContainsKey(machine.Id))
                 .OrderBy(machine => DistanceSquared(machine.Record, position))
                 .FirstOrDefault();
-            if (match != null) BoundViews[match.Id] = view;
+            if (match != null)
+            {
+                BoundViews[match.Id] = view;
+                Diagnostic($"Unidentified input view matched endpoint {match.Id} instance={view.GetInstanceID()}");
+            }
+            else Diagnostic("Unidentified input view had no unbound endpoint match");
         }
     }
 
@@ -130,10 +153,13 @@ internal static class QuantumNetwork
     {
         if (!Moon.IsAuthority || Outputs.Count == 0 || Inputs.Count == 0) return;
 
+        DiagnosticThrottled("network-tick", $"Network Tick authority={Moon.IsAuthority} outputs={Outputs.Count} inputs={Inputs.Count} channels={Channels.Count} boundViews={BoundViews.Count} endpointViews={EndpointViews().Count}");
+
         foreach (var channel in Channels.Values)
         {
             var outputs = Outputs.Where(output => output.ChannelId == channel.Id && output.IsAttached && output.HasPending).ToList();
             var inputs = Inputs.Where(input => input.ChannelId == channel.Id && input.IsAttached).ToList();
+            DiagnosticThrottled($"channel-{channel.Id}", $"Channel {channel.Id} name={channel.Name} pendingOutputs={outputs.Count} attachedInputs={inputs.Count}");
             if (outputs.Count == 0 || inputs.Count == 0) continue;
 
             channel.OutputCursor = Normalize(channel.OutputCursor, outputs.Count);
@@ -159,24 +185,46 @@ internal static class QuantumNetwork
 
     public static QuantumTransferResult TryTransmit(QuantumOutputMachine source, PendingCapsule capsule)
     {
-        if (!Moon.IsAuthority || string.IsNullOrWhiteSpace(source.ChannelId)) return QuantumTransferResult.NoMatchingAdapter;
-        if (!Channels.TryGetValue(source.ChannelId, out var channel)) return QuantumTransferResult.NoMatchingAdapter;
+        if (!Moon.IsAuthority || string.IsNullOrWhiteSpace(source.ChannelId))
+        {
+            DiagnosticThrottled($"tx-{source.Id}", $"Transmit blocked source={source.Id} authority={Moon.IsAuthority} channel={source.ChannelId ?? "<null>"} viewAlive={source.View != null}");
+            return QuantumTransferResult.NoMatchingAdapter;
+        }
+        if (!Channels.TryGetValue(source.ChannelId, out var channel))
+        {
+            DiagnosticThrottled($"tx-{source.Id}", $"Transmit missing channel source={source.Id} channel={source.ChannelId} channels={Channels.Count} viewAlive={source.View != null}");
+            return QuantumTransferResult.NoMatchingAdapter;
+        }
 
         var matchingInputs = Inputs.Where(input => input.ChannelId == source.ChannelId).ToList();
-        if (matchingInputs.Count == 0) return QuantumTransferResult.NoMatchingAdapter;
+        if (matchingInputs.Count == 0)
+        {
+            DiagnosticThrottled($"tx-{source.Id}", $"Transmit no matching inputs source={source.Id} channel={source.ChannelId} outputs={Outputs.Count} inputs={Inputs.Count}");
+            return QuantumTransferResult.NoMatchingAdapter;
+        }
         var inputs = matchingInputs.Where(input => input.IsAttached).ToList();
-        if (inputs.Count == 0) return QuantumTransferResult.DestinationUnavailable;
+        if (inputs.Count == 0)
+        {
+            DiagnosticThrottled($"tx-{source.Id}", $"Transmit destination unavailable source={source.Id} channel={source.ChannelId} matchingInputs={matchingInputs.Count} attachedInputs=0");
+            return QuantumTransferResult.DestinationUnavailable;
+        }
 
         channel.InputCursor = Normalize(channel.InputCursor, inputs.Count);
         for (var inputOffset = 0; inputOffset < inputs.Count; inputOffset++)
         {
             var inputIndex = (channel.InputCursor + inputOffset) % inputs.Count;
-            if (!inputs[inputIndex].TryReceive(capsule)) continue;
+            if (!inputs[inputIndex].TryReceive(capsule))
+            {
+                DiagnosticThrottled($"rx-{inputs[inputIndex].Id}", $"Input rejected transfer input={inputs[inputIndex].Id} source={source.Id} channel={source.ChannelId} attached={inputs[inputIndex].IsAttached} viewAlive={inputs[inputIndex].View != null}");
+                continue;
+            }
 
             channel.InputCursor = (inputIndex + 1) % inputs.Count;
+            DiagnosticThrottled($"tx-{source.Id}", $"Transmit sent source={source.Id} input={inputs[inputIndex].Id} channel={source.ChannelId}", 1f);
             return QuantumTransferResult.Sent;
         }
 
+        DiagnosticThrottled($"tx-{source.Id}", $"Transmit all destinations rejected source={source.Id} channel={source.ChannelId} attachedInputs={inputs.Count}");
         return QuantumTransferResult.DestinationUnavailable;
     }
 
@@ -525,9 +573,14 @@ internal sealed class QuantumOutputMachine : Machine
             }
         }
         RefreshAttachment();
+        QuantumNetwork.Diagnostic($"Output ready id={Id} channel={ChannelId} attached={IsAttached} pending={pending.Count} viewAlive={View != null}");
     }
 
-    public override void OnStop() => QuantumNetwork.Remove(this);
+    public override void OnStop()
+    {
+        QuantumNetwork.Diagnostic($"Output OnStop callback id={Id} channel={ChannelId} viewAlive={View != null}");
+        QuantumNetwork.Remove(this);
+    }
 
     public override void Tick(float dt) => RefreshAttachment();
 
@@ -544,8 +597,16 @@ internal sealed class QuantumOutputMachine : Machine
     public override bool Accept(string port, Capsule capsule)
     {
         RefreshAttachment();
-        if (!Moon.IsAuthority || port != "input" || string.IsNullOrWhiteSpace(ChannelId)) return false;
-        if (pending.Count > 0) return false;
+        if (!Moon.IsAuthority || port != "input" || string.IsNullOrWhiteSpace(ChannelId))
+        {
+            QuantumNetwork.DiagnosticThrottled($"accept-{Id}", $"Output Accept blocked id={Id} port={port} authority={Moon.IsAuthority} channel={ChannelId} attached={IsAttached} viewAlive={View != null}");
+            return false;
+        }
+        if (pending.Count > 0)
+        {
+            QuantumNetwork.DiagnosticThrottled($"accept-{Id}", $"Output Accept blocked by pending queue id={Id} pending={pending.Count} channel={ChannelId}");
+            return false;
+        }
 
         var capsuleToSend = new PendingCapsule(capsule.Cargo, capsule.Kilograms, capsule.Capacity, capsule.Owner);
         var result = QuantumNetwork.TryTransmit(this, capsuleToSend);
@@ -555,6 +616,7 @@ internal sealed class QuantumOutputMachine : Machine
                 beltFullSince = Time.unscaledTime;
             if (result == QuantumTransferResult.NoMatchingAdapter) beltFullSince = -1f;
             Tone = MachineTone.Idle;
+            QuantumNetwork.DiagnosticThrottled($"accept-{Id}", $"Output Accept rejected id={Id} channel={ChannelId} result={result} attached={IsAttached} viewAlive={View != null}");
             return false;
         }
 
@@ -563,6 +625,7 @@ internal sealed class QuantumOutputMachine : Machine
         activeUntil = Time.unscaledTime + ActivityDisplaySeconds;
         Status = "Sending";
         Tone = MachineTone.Working;
+        QuantumNetwork.DiagnosticThrottled($"accept-{Id}", $"Output Accept sent id={Id} channel={ChannelId} viewAlive={View != null}", 1f);
         return true;
     }
 
@@ -600,6 +663,7 @@ internal sealed class QuantumOutputMachine : Machine
 
     public override void Describe(MachinePanel panel)
     {
+        QuantumNetwork.DiagnosticThrottled($"describe-{Id}", $"Output Describe called id={Id} channel={ChannelId} status={Status} state={CurrentIndicatorState()} viewAlive={View != null}", 1f);
         panel.Line($"Ch: {QuantumNetwork.ChannelLabel(ChannelId)}");
         panel.Line(StatusText(CurrentIndicatorState(), true));
     }
@@ -656,9 +720,14 @@ internal sealed class QuantumInputMachine : Machine
         QuantumNetwork.Add(this);
         RefreshAttachment();
         Tone = MachineTone.Idle;
+        QuantumNetwork.Diagnostic($"Input ready id={Id} channel={ChannelId} attached={IsAttached} viewAlive={View != null}");
     }
 
-    public override void OnStop() => QuantumNetwork.Remove(this);
+    public override void OnStop()
+    {
+        QuantumNetwork.Diagnostic($"Input OnStop callback id={Id} channel={ChannelId} viewAlive={View != null}");
+        QuantumNetwork.Remove(this);
+    }
 
     public override void OnView(UnityEngine.GameObject view)
     {
@@ -679,16 +748,22 @@ internal sealed class QuantumInputMachine : Machine
     internal bool TryReceive(PendingCapsule capsule)
     {
         RefreshAttachment();
-        if (!IsAttached) return false;
+        if (!IsAttached)
+        {
+            QuantumNetwork.DiagnosticThrottled($"receive-{Id}", $"Input receive blocked id={Id} channel={ChannelId} attached=false viewAlive={View != null}");
+            return false;
+        }
         if (!Emit("output", capsule.Cargo, capsule.Kilograms))
         {
             if (beltFullSince < 0f) beltFullSince = Time.unscaledTime;
+            QuantumNetwork.DiagnosticThrottled($"receive-{Id}", $"Input Emit rejected id={Id} channel={ChannelId} attached={IsAttached} viewAlive={View != null}");
             return false;
         }
         beltFullSince = -1f;
         activeUntil = Time.unscaledTime + ActivityDisplaySeconds;
         Status = "Receiving";
         Tone = MachineTone.Working;
+        QuantumNetwork.DiagnosticThrottled($"receive-{Id}", $"Input Emit accepted id={Id} channel={ChannelId} viewAlive={View != null}", 1f);
         return true;
     }
 
@@ -709,6 +784,7 @@ internal sealed class QuantumInputMachine : Machine
 
     public override void Describe(MachinePanel panel)
     {
+        QuantumNetwork.DiagnosticThrottled($"describe-{Id}", $"Input Describe called id={Id} channel={ChannelId} status={Status} state={CurrentIndicatorState()} attached={IsAttached} viewAlive={View != null}", 1f);
         panel.Line($"Ch: {QuantumNetwork.ChannelLabel(ChannelId)}");
         panel.Line(StatusText(CurrentIndicatorState()));
     }
