@@ -11,6 +11,7 @@ internal static class QuantumNetwork
     private static readonly List<QuantumInputMachine> Inputs = new();
     private static readonly Dictionary<string, ChannelState> Channels = new(StringComparer.Ordinal);
     private static readonly Dictionary<int, string> PendingRemoteAssignments = new();
+    private static readonly Dictionary<int, UnityEngine.GameObject> BoundViews = new();
     private static ManualLogSource log;
     private static int fallbackChannelNumber;
 
@@ -36,8 +37,22 @@ internal static class QuantumNetwork
         if (PendingRemoteAssignments.Remove(machine.Id, out var remoteChannel)) machine.SetChannel(remoteChannel);
     }
 
-    public static void Remove(QuantumOutputMachine machine) => Outputs.Remove(machine);
-    public static void Remove(QuantumInputMachine machine) => Inputs.Remove(machine);
+    public static void Remove(QuantumOutputMachine machine)
+    {
+        Outputs.Remove(machine);
+        BoundViews.Remove(machine.Id);
+    }
+
+    public static void Remove(QuantumInputMachine machine)
+    {
+        Inputs.Remove(machine);
+        BoundViews.Remove(machine.Id);
+    }
+
+    public static void BindView(int endpointId, UnityEngine.GameObject view)
+    {
+        if (view != null) BoundViews[endpointId] = view;
+    }
 
     public static void ConfigureInteraction(UnityEngine.GameObject view, QuantumEndpointInteraction interaction)
     {
@@ -55,11 +70,17 @@ internal static class QuantumNetwork
     public static IReadOnlyList<QuantumEndpointView> EndpointViews()
     {
         var views = new List<QuantumEndpointView>(Outputs.Count + Inputs.Count);
-        views.AddRange(Outputs.Where(machine => machine.View != null)
-            .Select(machine => new QuantumEndpointView(machine.Id, true, machine.View)));
-        views.AddRange(Inputs.Where(machine => machine.View != null)
-            .Select(machine => new QuantumEndpointView(machine.Id, false, machine.View)));
+        views.AddRange(Outputs.Select(machine => new QuantumEndpointView(machine.Id, true, ViewFor(machine.Id, machine.View)))
+            .Where(endpoint => endpoint.View != null));
+        views.AddRange(Inputs.Select(machine => new QuantumEndpointView(machine.Id, false, ViewFor(machine.Id, machine.View)))
+            .Where(endpoint => endpoint.View != null));
         return views;
+    }
+
+    private static UnityEngine.GameObject ViewFor(int endpointId, UnityEngine.GameObject fallback)
+    {
+        if (BoundViews.TryGetValue(endpointId, out var view) && view != null) return view;
+        return fallback;
     }
 
     public static void Tick()
@@ -328,6 +349,7 @@ internal sealed class QuantumOutputMachine : Machine
 
     public override void OnView(UnityEngine.GameObject view)
     {
+        QuantumNetwork.BindView(Id, view);
         var interaction = QuantumEndpointInteraction.Attach(view);
         interaction.Configure(Id, true);
     }
@@ -414,6 +436,7 @@ internal sealed class QuantumInputMachine : Machine
 
     public override void OnView(UnityEngine.GameObject view)
     {
+        QuantumNetwork.BindView(Id, view);
         var interaction = QuantumEndpointInteraction.Attach(view);
         interaction.Configure(Id, false);
     }

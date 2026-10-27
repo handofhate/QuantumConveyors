@@ -37,7 +37,7 @@ public sealed class QuantumEndpointInteraction : MonoBehaviour
         EnsureInteractionCollider();
     }
 
-    private void Update()
+    public void Update()
     {
         if (walker == null) walker = UnityEngine.Object.FindObjectOfType<MoonWalker>();
         var camera = walker?.viewCamera ?? Camera.main;
@@ -102,7 +102,7 @@ public sealed class QuantumEndpointInteraction : MonoBehaviour
         interactionCollider.isTrigger = false;
     }
 
-    private void OnGUI()
+    public void OnGUI()
     {
         if (aimed && !menuOpen) GUI.Label(new Rect(Screen.width * 0.5f - 110f, Screen.height * 0.62f, 220f, 30f), "[E]  Quantum Channel");
         if (!menuOpen) return;

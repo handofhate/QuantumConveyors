@@ -15,7 +15,7 @@ public sealed class QuantumInteractionController : MonoBehaviour
 
     public QuantumInteractionController(IntPtr pointer) : base(pointer) { }
 
-    private void Update()
+    public void Update()
     {
         if (walker == null) walker = UnityEngine.Object.FindObjectOfType<MoonWalker>();
         var camera = walker?.viewCamera ?? Camera.main;
@@ -53,19 +53,21 @@ public sealed class QuantumInteractionController : MonoBehaviour
     private static QuantumEndpointView? FindTarget(Camera camera)
     {
         var center = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
-        var bestPixels = 150f;
+        var bestPixels = 300f;
         QuantumEndpointView? best = null;
 
         foreach (var endpoint in QuantumNetwork.EndpointViews())
         {
             if (endpoint.View == null) continue;
             var worldPoint = endpoint.View.transform.TransformPoint(new Vector3(0f, 1.0f, 0f));
+            var toTarget = worldPoint - camera.transform.position;
+            if (toTarget.magnitude > 6f || Vector3.Angle(camera.transform.forward, toTarget) > 18f) continue;
             var screenPoint = camera.WorldToScreenPoint(worldPoint);
             if (screenPoint.z <= 0f) continue;
 
             var guiPoint = new Vector2(screenPoint.x, Screen.height - screenPoint.y);
             var pixels = Vector2.Distance(center, guiPoint);
-            if (pixels > bestPixels || Vector3.Distance(camera.transform.position, worldPoint) > 5f) continue;
+            if (pixels > bestPixels) continue;
             bestPixels = pixels;
             best = endpoint;
         }
@@ -73,7 +75,7 @@ public sealed class QuantumInteractionController : MonoBehaviour
         return best;
     }
 
-    private void OnGUI()
+    public void OnGUI()
     {
         if (!target.HasValue) return;
         var endpoint = target.Value;
