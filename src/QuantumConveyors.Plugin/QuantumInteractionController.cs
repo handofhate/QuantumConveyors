@@ -528,7 +528,10 @@ public sealed class QuantumInteractionController : MonoBehaviour
         // adapter can answer E only when its own collision is the first thing
         // under the crosshair.
         var ray = camera.ScreenPointToRay(new Vector3(Screen.width * 0.5f, Screen.height * 0.5f, 0f));
-        if (!Physics.Raycast(ray, out var hit, 8f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+        // The vanilla hover card uses a forgiving hit area around small
+        // interactable models.  A sphere cast gives the puck a similar amount
+        // of aim tolerance while still respecting physical occlusion.
+        if (!Physics.SphereCast(ray, 0.20f, out var hit, 8f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
             return null;
 
         foreach (var endpoint in endpoints)
