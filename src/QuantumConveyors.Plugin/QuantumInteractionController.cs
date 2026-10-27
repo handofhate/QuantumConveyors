@@ -5,6 +5,7 @@ using MoonFramework;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.InputSystem;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 namespace QuantumConveyors;
@@ -370,11 +371,27 @@ public sealed class QuantumInteractionController : MonoBehaviour
         // FindObjectOfType bridge.  The player camera is parented to the
         // player, so resolve MoonWalker from that hierarchy instead.
         var camera = ActiveCamera();
-        if (camera == null) return null;
-        var found = camera.GetComponent(Il2CppType.Of<MoonWalker>());
-        if (found == null) found = camera.GetComponentInParent(Il2CppType.Of<MoonWalker>());
-        if (found == null) found = camera.transform.root.GetComponentInChildren(Il2CppType.Of<MoonWalker>());
-        walker = found as MoonWalker;
+        if (camera != null)
+        {
+            var found = camera.GetComponent(Il2CppType.Of<MoonWalker>());
+            if (found == null) found = camera.GetComponentInParent(Il2CppType.Of<MoonWalker>());
+            if (found == null) found = camera.transform.root.GetComponentInChildren(Il2CppType.Of<MoonWalker>());
+            walker = found as MoonWalker;
+            if (walker != null) return walker;
+        }
+
+        // Moon Sweepers' camera is not always parented under the player.  Walk
+        // the active scene roots instead of Unity's global FindObjectOfType,
+        // whose IL2CPP bridge is unavailable in Preview 1.0.5.
+        var roots = SceneManager.GetActiveScene().GetRootGameObjects();
+        foreach (var root in roots)
+        {
+            if (root == null) continue;
+            var found = root.GetComponentInChildren(Il2CppType.Of<MoonWalker>());
+            walker = found as MoonWalker;
+            if (walker != null) return walker;
+        }
+
         return walker;
     }
 
