@@ -230,7 +230,8 @@ internal static class QuantumNetwork
 
     public static bool AssignNextChannel(int endpointId)
     {
-        if (!Moon.IsAuthority || Channels.Count == 0) return false;
+        if (!Moon.IsAuthority) return false;
+        if (Channels.Count == 0) return CreateAndAssign(endpointId, out _);
         var channels = Channels.Values.OrderBy(channel => channel.Name, StringComparer.OrdinalIgnoreCase).ToList();
         var current = ChannelFor(endpointId);
         var currentIndex = channels.FindIndex(channel => channel.Id == current);
