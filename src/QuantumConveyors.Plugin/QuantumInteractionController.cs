@@ -27,6 +27,8 @@ public sealed class QuantumInteractionController : MonoBehaviour
     private MoonWalker walker;
     private bool previousUiBlocked;
     private bool previousWalkerEnabled;
+    private UnityEngine.InputSystem.InputActionAsset playerInputAsset;
+    private bool previousPlayerInputEnabled;
     private CursorLockMode previousCursorLock;
     private bool previousCursorVisible;
     private GraphicRaycaster menuRaycaster;
@@ -303,6 +305,12 @@ public sealed class QuantumInteractionController : MonoBehaviour
         {
             previousUiBlocked = found.UIBlocked;
             previousWalkerEnabled = found.enabled;
+            playerInputAsset = found.inputTemplate;
+            if (playerInputAsset != null)
+            {
+                previousPlayerInputEnabled = playerInputAsset.enabled;
+                playerInputAsset.Disable();
+            }
             found.UIBlocked = true;
             found.enabled = false;
         }
@@ -322,6 +330,8 @@ public sealed class QuantumInteractionController : MonoBehaviour
                 found.UIBlocked = previousUiBlocked;
                 found.enabled = previousWalkerEnabled;
             }
+            if (playerInputAsset != null && previousPlayerInputEnabled) playerInputAsset.Enable();
+            playerInputAsset = null;
         }
         catch (Exception exception)
         {
