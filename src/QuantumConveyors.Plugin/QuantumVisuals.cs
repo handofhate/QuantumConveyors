@@ -26,6 +26,7 @@ internal static class QuantumVisuals
         light.color = color;
         light.range = 0.45f;
         light.intensity = paired ? 0.8f : 0.45f;
+        light.transform.localPosition = new Vector3(0f, 0.11f, 0f);
         return true;
     }
 }

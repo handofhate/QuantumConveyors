@@ -1,4 +1,6 @@
 using System;
+using Il2CppInterop.Runtime;
+using MoonCleaners;
 using MoonFramework;
 using UnityEngine;
 using UnityEngine.Events;
@@ -21,6 +23,11 @@ public sealed class QuantumInteractionController : MonoBehaviour
     private RectTransform channelContent;
     private string selectedChannelId = string.Empty;
     private int menuEndpointId;
+    private MoonWalker walker;
+    private bool previousUiBlocked;
+    private CursorLockMode previousCursorLock;
+    private bool previousCursorVisible;
+    private float nextPromptCleanup;
     private bool updateReported;
     private int lastViewCount = -1;
     private bool? cameraAvailable;
@@ -52,6 +59,12 @@ public sealed class QuantumInteractionController : MonoBehaviour
             {
                 if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame) CloseMenu();
                 return;
+            }
+
+            if (Time.unscaledTime >= nextPromptCleanup)
+            {
+                nextPromptCleanup = Time.unscaledTime + 1f;
+                HideStalePromptCards();
             }
 
             var camera = ActiveCamera();
@@ -109,6 +122,7 @@ public sealed class QuantumInteractionController : MonoBehaviour
     {
         menuEndpointId = endpointId;
         selectedChannelId = QuantumNetwork.ChannelFor(endpointId) ?? string.Empty;
+        FreezePlayerInput();
 
         menuCanvas = new GameObject("Quantum Conveyors Configuration");
         DontDestroyOnLoad(menuCanvas);
@@ -118,7 +132,11 @@ public sealed class QuantumInteractionController : MonoBehaviour
         menuCanvas.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
         menuCanvas.AddComponent<GraphicRaycaster>();
 
-        var root = MakeRect("Window", menuCanvas.transform, new Vector2(620f, 520f), Vector2.zero, new Color(0.08f, 0.10f, 0.14f, 0.98f));
+        var root = MakeRect("Window", menuCanvas.transform, new Vector2(560f, 480f), Vector2.zero, new Color(0.08f, 0.10f, 0.14f, 0.98f));
+        root.anchorMin = new Vector2(0.5f, 0.5f);
+        root.anchorMax = new Vector2(0.5f, 0.5f);
+        root.pivot = new Vector2(0.5f, 0.5f);
+        root.anchoredPosition = Vector2.zero;
         AddText(root, "Quantum Conveyors", new Vector2(0f, 226f), new Vector2(560f, 34f), 26, Color.white, TextAnchor.MiddleCenter);
         AddText(root, isOutput ? "Configure this output adapter" : "Configure this input adapter",
             new Vector2(0f, 193f), new Vector2(560f, 26f), 16, new Color(0.55f, 0.85f, 1f), TextAnchor.MiddleCenter);
@@ -280,6 +298,49 @@ public sealed class QuantumInteractionController : MonoBehaviour
         menuStatus = null;
         channelContent = null;
         selectedChannelId = string.Empty;
+        RestorePlayerInput();
+    }
+
+    private void FreezePlayerInput()
+    {
+        previousCursorLock = Cursor.lockState;
+        previousCursorVisible = Cursor.visible;
+        var found = FindWalker();
+        if (found != null)
+        {
+            previousUiBlocked = found.UIBlocked;
+            found.UIBlocked = true;
+        }
+
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+    }
+
+    private void RestorePlayerInput()
+    {
+        var found = FindWalker();
+        if (found != null) found.UIBlocked = previousUiBlocked;
+        Cursor.lockState = previousCursorLock;
+        Cursor.visible = previousCursorVisible;
+    }
+
+    private MoonWalker FindWalker()
+    {
+        if (walker != null) return walker;
+        var found = UnityEngine.Object.FindObjectOfType(Il2CppType.Of<MoonWalker>());
+        walker = found as MoonWalker;
+        return walker;
+    }
+
+    private static void HideStalePromptCards()
+    {
+        var cards = UnityEngine.Object.FindObjectsOfType(Il2CppType.Of<MoonActionPromptCard>());
+        foreach (var item in cards)
+        {
+            if (item == null) continue;
+            var card = new MoonActionPromptCard(item.Pointer);
+            card.Hide();
+        }
     }
 
     private static RectTransform MakeRect(string name, Transform parent, Vector2 size, Vector2 position, Color? background)
