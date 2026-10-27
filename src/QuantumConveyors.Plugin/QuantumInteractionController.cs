@@ -21,6 +21,10 @@ public sealed class QuantumInteractionController : MonoBehaviour
 
     public void Awake() => QuantumNetwork.Diagnostic("Interaction host Awake");
 
+    public void OnDestroy() => QuantumNetwork.Diagnostic("Interaction host OnDestroy");
+
+    public void OnDisable() => QuantumNetwork.Diagnostic("Interaction host OnDisable");
+
     public void Update()
     {
         if (!updateReported)

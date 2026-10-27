@@ -41,7 +41,7 @@ public sealed class Plugin : BasePlugin
             Ports = new[] { PortSpec.In("input", new Vector3(0f, 0.85f, 0f), Vector3.forward) },
             Model = EndpointAssets.OutputModel,
             Machine = () => new QuantumOutputMachine(),
-            OnView = view => { QuantumNetwork.BindUnidentifiedView(view, true); QuantumEndpointInteraction.Attach(view); },
+            OnView = view => { EnsureInteractionHost(); QuantumNetwork.BindUnidentifiedView(view, true); QuantumEndpointInteraction.Attach(view); },
             ListAfter = VanillaKinds.Splitter,
         });
 
@@ -60,14 +60,14 @@ public sealed class Plugin : BasePlugin
             Ports = new[] { PortSpec.Out("output", new Vector3(0f, 0.85f, 0f), Vector3.forward) },
             Model = EndpointAssets.InputModel,
             Machine = () => new QuantumInputMachine(),
-            OnView = view => { QuantumNetwork.BindUnidentifiedView(view, false); QuantumEndpointInteraction.Attach(view); },
+            OnView = view => { EnsureInteractionHost(); QuantumNetwork.BindUnidentifiedView(view, false); QuantumEndpointInteraction.Attach(view); },
             ListAfter = VanillaKinds.Splitter,
         });
 
         Log.LogInfo("Registered Quantum Output and Quantum Input in the Logistics Building Tool.");
     }
 
-    private static void EnsureInteractionHost()
+    internal static void EnsureInteractionHost()
     {
         if (interactionHost != null && interactionHost.GetComponent<QuantumInteractionController>() != null) return;
         interactionHost = new GameObject("Quantum Conveyors Interaction");
