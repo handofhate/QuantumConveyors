@@ -54,6 +54,28 @@ internal static class QuantumNetwork
         if (view != null) BoundViews[endpointId] = view;
     }
 
+    public static void BindUnidentifiedView(UnityEngine.GameObject view, bool isOutput)
+    {
+        if (view == null) return;
+        var position = view.transform.position;
+        if (isOutput)
+        {
+            var match = Outputs
+                .Where(machine => !BoundViews.ContainsKey(machine.Id))
+                .OrderBy(machine => DistanceSquared(machine.Record, position))
+                .FirstOrDefault();
+            if (match != null) BoundViews[match.Id] = view;
+        }
+        else
+        {
+            var match = Inputs
+                .Where(machine => !BoundViews.ContainsKey(machine.Id))
+                .OrderBy(machine => DistanceSquared(machine.Record, position))
+                .FirstOrDefault();
+            if (match != null) BoundViews[match.Id] = view;
+        }
+    }
+
     public static void ConfigureInteraction(UnityEngine.GameObject view, QuantumEndpointInteraction interaction)
     {
         var output = Outputs.FirstOrDefault(machine => machine.View == view);
@@ -81,6 +103,14 @@ internal static class QuantumNetwork
     {
         if (BoundViews.TryGetValue(endpointId, out var view) && view != null) return view;
         return fallback;
+    }
+
+    private static float DistanceSquared(MoonCleaners.MoonDepotSnapshot record, UnityEngine.Vector3 position)
+    {
+        var dx = record.x - position.x;
+        var dy = record.y - position.y;
+        var dz = record.z - position.z;
+        return dx * dx + dy * dy + dz * dz;
     }
 
     public static void Tick()

@@ -18,7 +18,9 @@ public sealed class Plugin : BasePlugin
     {
         ClassInjector.RegisterTypeInIl2Cpp<QuantumEndpointInteraction>();
         ClassInjector.RegisterTypeInIl2Cpp<QuantumInteractionController>();
-        AddComponent<QuantumInteractionController>();
+        var interactionObject = new GameObject("Quantum Conveyors Interaction");
+        UnityEngine.Object.DontDestroyOnLoad(interactionObject);
+        interactionObject.AddComponent<QuantumInteractionController>();
         Log.LogInfo($"{PluginName} {PluginVersion} loaded.");
         Log.LogInfo($"MoonFramework {FrameworkPlugin.Version} is available.");
 
@@ -39,7 +41,7 @@ public sealed class Plugin : BasePlugin
             Ports = new[] { PortSpec.In("input", new Vector3(0f, 0.85f, 0f), Vector3.forward) },
             Model = EndpointAssets.OutputModel,
             Machine = () => new QuantumOutputMachine(),
-            OnView = view => { QuantumEndpointInteraction.Attach(view); },
+            OnView = view => { QuantumNetwork.BindUnidentifiedView(view, true); QuantumEndpointInteraction.Attach(view); },
             ListAfter = VanillaKinds.Splitter,
         });
 
@@ -58,7 +60,7 @@ public sealed class Plugin : BasePlugin
             Ports = new[] { PortSpec.Out("output", new Vector3(0f, 0.85f, 0f), Vector3.forward) },
             Model = EndpointAssets.InputModel,
             Machine = () => new QuantumInputMachine(),
-            OnView = view => { QuantumEndpointInteraction.Attach(view); },
+            OnView = view => { QuantumNetwork.BindUnidentifiedView(view, false); QuantumEndpointInteraction.Attach(view); },
             ListAfter = VanillaKinds.Splitter,
         });
 
