@@ -227,8 +227,16 @@ internal static class QuantumNetwork
 
     public static bool CreateAndAssign(int endpointId, out string channelId)
     {
-        channelId = CreateChannel();
+        channelId = CreateChannelId();
         return AssignEndpoint(endpointId, channelId);
+    }
+
+    public static bool CreateChannel(out string channelId)
+    {
+        channelId = string.Empty;
+        if (!Moon.IsAuthority) return false;
+        channelId = CreateChannelId();
+        return true;
     }
 
     public static bool AssignNextChannel(int endpointId)
@@ -277,7 +285,7 @@ internal static class QuantumNetwork
 
     public static bool DeleteChannel(string channelId)
     {
-        if (!Moon.IsAuthority || string.IsNullOrWhiteSpace(channelId) || !Channels.Remove(channelId)) return false;
+        if (!Moon.IsAuthority || string.IsNullOrWhiteSpace(channelId) || !Channels.ContainsKey(channelId)) return false;
 
         foreach (var output in Outputs.Where(output => output.ChannelId == channelId).ToList())
         {
@@ -289,6 +297,14 @@ internal static class QuantumNetwork
             input.SetChannel(string.Empty);
             BroadcastAssignment(input.Id, string.Empty);
         }
+
+        foreach (var endpointId in PendingRemoteAssignments
+                     .Where(pair => pair.Value == channelId)
+                     .Select(pair => pair.Key)
+                     .ToList())
+            PendingRemoteAssignments.Remove(endpointId);
+
+        Channels.Remove(channelId);
 
         var world = Moon.WorldData(Plugin.PluginGuid);
         world?.Remove($"name.{channelId}");
@@ -337,18 +353,14 @@ internal static class QuantumNetwork
         }
     }
 
-    private static string CreateChannel()
+    private static string CreateChannelId()
     {
-        var world = Moon.WorldData(Plugin.PluginGuid);
         var next = 1;
-        if (world != null && world.TryGetValue("next-channel", out var saved) && int.TryParse(saved, out var parsed))
-            next = Math.Max(1, parsed);
 
         string id;
         do id = $"channel-{next++}";
         while (Channels.ContainsKey(id));
 
-        if (world != null) world["next-channel"] = next.ToString(CultureInfo.InvariantCulture);
         EnsureChannel(id);
         return id;
     }

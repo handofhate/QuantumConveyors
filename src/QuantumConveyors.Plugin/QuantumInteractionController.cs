@@ -19,10 +19,11 @@ public sealed class QuantumInteractionController : MonoBehaviour
 {
     private QuantumEndpointView? target;
     private GameObject menuCanvas;
-    private InputField nameField;
     private Text menuStatus;
     private RectTransform channelContent;
+    private ScrollRect channelScroll;
     private string selectedChannelId = string.Empty;
+    private string editingChannelId = string.Empty;
     private int menuEndpointId;
     private MoonWalker walker;
     private bool previousUiBlocked;
@@ -30,6 +31,8 @@ public sealed class QuantumInteractionController : MonoBehaviour
     private CursorLockMode previousCursorLock;
     private bool previousCursorVisible;
     private GraphicRaycaster menuRaycaster;
+    private UnityEngine.EventSystems.BaseInputModule previousInputModule;
+    private bool previousInputModuleEnabled;
     private bool updateReported;
     private int lastViewCount = -1;
     private bool? cameraAvailable;
@@ -136,35 +139,29 @@ public sealed class QuantumInteractionController : MonoBehaviour
         root.anchoredPosition = Vector2.zero;
         root.localScale = new Vector3(0.5f, 0.5f, 1f);
         root.gameObject.AddComponent<CanvasGroup>().blocksRaycasts = true;
-        AddText(root, "Quantum Conveyors", new Vector2(0f, 226f), new Vector2(560f, 34f), 26, Color.white, TextAnchor.MiddleCenter);
+        AddText(root, "Quantum Conveyors", new Vector2(0f, 220f), new Vector2(560f, 34f), 26, Color.white, TextAnchor.MiddleCenter);
         AddText(root, isOutput ? "Configure this output adapter" : "Configure this input adapter",
-            new Vector2(0f, 193f), new Vector2(560f, 26f), 16, new Color(0.55f, 0.85f, 1f), TextAnchor.MiddleCenter);
-        AddText(root, "Choose a channel, rename it, or delete it. Changes are host-authoritative.",
-            new Vector2(0f, 164f), new Vector2(570f, 24f), 13, new Color(0.72f, 0.75f, 0.82f), TextAnchor.MiddleCenter);
-
-        AddText(root, "Selected channel name", new Vector2(-150f, 137f), new Vector2(250f, 22f), 14, Color.white, TextAnchor.MiddleLeft);
-        nameField = CreateInputField(root, new Vector2(-40f, 105f), new Vector2(300f, 34f));
-        nameField.text = SelectedChannelName();
-        CreateButton(root, "Save name", new Vector2(185f, 105f), new Vector2(120f, 34f), SaveName);
-
-        CreateButton(root, "New channel", new Vector2(-205f, 65f), new Vector2(150f, 34f), CreateNewChannel);
-        CreateButton(root, "Close", new Vector2(205f, 65f), new Vector2(120f, 34f), CloseMenu);
+            new Vector2(0f, 187f), new Vector2(560f, 26f), 16, new Color(0.55f, 0.85f, 1f), TextAnchor.MiddleCenter);
+        AddText(root, "Select a channel, or create one. Changes are host-authoritative.",
+            new Vector2(0f, 153f), new Vector2(520f, 24f), 13, new Color(0.72f, 0.75f, 0.82f), TextAnchor.MiddleCenter);
+        CreateButton(root, "New channel", new Vector2(-165f, 116f), new Vector2(150f, 34f), CreateNewChannel);
         menuStatus = AddText(root, Moon.IsAuthority ? "Host controls enabled." : "Only the host can change channels.",
-            new Vector2(0f, 65f), new Vector2(230f, 34f), 13, new Color(0.72f, 0.75f, 0.82f), TextAnchor.MiddleCenter);
+            new Vector2(55f, 116f), new Vector2(250f, 34f), 13, new Color(0.72f, 0.75f, 0.82f), TextAnchor.MiddleCenter);
+        CreateButton(root, "×", new Vector2(250f, 220f), new Vector2(36f, 36f), CloseMenu);
 
-        var viewport = MakeRect("ChannelViewport", root, new Vector2(570f, 270f), new Vector2(0f, -100f), new Color(0.04f, 0.05f, 0.07f, 0.96f));
+        var viewport = MakeRect("ChannelViewport", root, new Vector2(520f, 310f), new Vector2(0f, -52f), new Color(0.04f, 0.05f, 0.07f, 0.96f));
         var mask = viewport.gameObject.AddComponent<Mask>();
         mask.showMaskGraphic = true;
-        var scroll = viewport.gameObject.AddComponent<ScrollRect>();
-        scroll.horizontal = false;
-        scroll.vertical = true;
-        scroll.movementType = ScrollRect.MovementType.Clamped;
-        channelContent = MakeRect("ChannelContent", viewport, new Vector2(548f, 0f), Vector2.zero, null);
+        channelScroll = viewport.gameObject.AddComponent<ScrollRect>();
+        channelScroll.horizontal = false;
+        channelScroll.vertical = true;
+        channelScroll.movementType = ScrollRect.MovementType.Clamped;
+        channelContent = MakeRect("ChannelContent", viewport, new Vector2(500f, 0f), Vector2.zero, null);
         channelContent.anchorMin = new Vector2(0f, 1f);
         channelContent.anchorMax = new Vector2(1f, 1f);
         channelContent.pivot = new Vector2(0.5f, 1f);
-        scroll.viewport = viewport;
-        scroll.content = channelContent;
+        channelScroll.viewport = viewport;
+        channelScroll.content = channelContent;
 
         RefreshChannelList();
         EnsureEventSystem();
@@ -184,23 +181,20 @@ public sealed class QuantumInteractionController : MonoBehaviour
         }
     }
 
-    private string SelectedChannelName()
-    {
-        return string.IsNullOrWhiteSpace(selectedChannelId) ? string.Empty : QuantumNetwork.ChannelName(selectedChannelId);
-    }
-
     private void RefreshChannelList()
     {
         if (channelContent == null) return;
         for (var i = channelContent.childCount - 1; i >= 0; i--) Destroy(channelContent.GetChild(i).gameObject);
 
         var summaries = QuantumNetwork.Summaries();
-        var rowHeight = 42f;
-        channelContent.sizeDelta = new Vector2(0f, Math.Max(42f, summaries.Count * rowHeight));
+        var rowHeight = 44f;
+        channelContent.sizeDelta = new Vector2(0f, Math.Max(44f, summaries.Count * rowHeight));
+        channelContent.anchoredPosition = Vector2.zero;
+        if (channelScroll != null) channelScroll.verticalNormalizedPosition = 1f;
         if (summaries.Count == 0)
         {
-            AddText(channelContent, "No channels yet. Create one for this adapter.", new Vector2(0f, -24f),
-                new Vector2(520f, 34f), 16, new Color(0.72f, 0.75f, 0.82f), TextAnchor.MiddleCenter);
+            AddText(channelContent, "No channels yet. Press New channel to create one.", new Vector2(0f, -24f),
+                new Vector2(480f, 34f), 16, new Color(0.72f, 0.75f, 0.82f), TextAnchor.MiddleCenter);
             return;
         }
 
@@ -208,24 +202,34 @@ public sealed class QuantumInteractionController : MonoBehaviour
         {
             var summary = summaries[i];
             var y = -(i * rowHeight + rowHeight * 0.5f);
-            var row = MakeRect("ChannelRow", channelContent, new Vector2(540f, 36f), new Vector2(0f, y),
+            var row = MakeRect("ChannelRow", channelContent, new Vector2(500f, 38f), new Vector2(0f, y),
                 new Color(0.10f, 0.12f, 0.16f, 1f));
-            AddText(row, $"{summary.Name}  ({summary.Outputs} out / {summary.Inputs} in)",
-                new Vector2(-118f, 0f), new Vector2(280f, 32f), 14, Color.white, TextAnchor.MiddleLeft);
-            CreateButton(row, "Use", new Vector2(100f, 0f), new Vector2(72f, 28f),
-                () => UseChannel(summary.Id));
-            CreateButton(row, "Rename", new Vector2(185f, 0f), new Vector2(88f, 28f),
-                () => SelectChannel(summary.Id));
-            CreateButton(row, "Delete", new Vector2(285f, 0f), new Vector2(82f, 28f),
+            if (summary.Id == editingChannelId)
+            {
+                var editor = CreateInputField(row, new Vector2(-112f, 0f), new Vector2(220f, 30f));
+                editor.text = summary.Name;
+                CreateButton(row, "Save", new Vector2(38f, 0f), new Vector2(62f, 28f),
+                    () => SaveName(summary.Id, editor));
+            }
+            else
+            {
+                AddText(row, $"{summary.Name}  ({summary.Outputs} outputs / {summary.Inputs} inputs)",
+                    new Vector2(-112f, 0f), new Vector2(220f, 32f), 14, Color.white, TextAnchor.MiddleLeft);
+                CreateButton(row, "Assign", new Vector2(38f, 0f), new Vector2(62f, 28f),
+                    () => UseChannel(summary.Id));
+                CreateButton(row, "Rename", new Vector2(115f, 0f), new Vector2(82f, 28f),
+                    () => BeginRename(summary.Id));
+            }
+            CreateButton(row, "×", new Vector2(220f, 0f), new Vector2(34f, 28f),
                 () => DeleteChannel(summary.Id));
         }
     }
 
-    private void SelectChannel(string channelId)
+    private void BeginRename(string channelId)
     {
-        selectedChannelId = channelId;
-        if (nameField != null) nameField.text = SelectedChannelName();
-        if (menuStatus != null) menuStatus.text = $"Selected: {QuantumNetwork.ChannelName(channelId)}";
+        editingChannelId = channelId;
+        if (menuStatus != null) menuStatus.text = "Edit the name, then press Save.";
+        RefreshChannelList();
     }
 
     private void UseChannel(string channelId)
@@ -239,9 +243,7 @@ public sealed class QuantumInteractionController : MonoBehaviour
         if (QuantumNetwork.AssignEndpoint(menuEndpointId, channelId))
         {
             selectedChannelId = channelId;
-            if (nameField != null) nameField.text = SelectedChannelName();
             if (menuStatus != null) menuStatus.text = $"Using: {QuantumNetwork.ChannelName(channelId)}";
-            RefreshChannelList();
         }
     }
 
@@ -253,31 +255,24 @@ public sealed class QuantumInteractionController : MonoBehaviour
             return;
         }
 
-        if (QuantumNetwork.CreateAndAssign(menuEndpointId, out var channelId))
+        if (QuantumNetwork.CreateChannel(out var channelId))
         {
-            selectedChannelId = channelId;
-            if (nameField != null) nameField.text = SelectedChannelName();
-            if (menuStatus != null) menuStatus.text = "New channel created.";
+            if (menuStatus != null) menuStatus.text = "New channel created. Press Assign to use it.";
             RefreshChannelList();
         }
     }
 
-    private void SaveName()
+    private void SaveName(string channelId, InputField field)
     {
-        if (string.IsNullOrWhiteSpace(selectedChannelId))
-        {
-            if (menuStatus != null) menuStatus.text = "Select a channel first.";
-            return;
-        }
-
         if (!Moon.IsAuthority)
         {
             if (menuStatus != null) menuStatus.text = "Only the host can rename channels.";
             return;
         }
 
-        if (QuantumNetwork.RenameChannel(selectedChannelId, nameField == null ? string.Empty : nameField.text))
+        if (QuantumNetwork.RenameChannel(channelId, field == null ? string.Empty : field.text))
         {
+            editingChannelId = string.Empty;
             if (menuStatus != null) menuStatus.text = "Channel renamed.";
             RefreshChannelList();
         }
@@ -293,11 +288,8 @@ public sealed class QuantumInteractionController : MonoBehaviour
 
         if (QuantumNetwork.DeleteChannel(channelId))
         {
-            if (selectedChannelId == channelId)
-            {
-                selectedChannelId = string.Empty;
-                if (nameField != null) nameField.text = string.Empty;
-            }
+            if (selectedChannelId == channelId) selectedChannelId = string.Empty;
+            if (editingChannelId == channelId) editingChannelId = string.Empty;
             if (menuStatus != null) menuStatus.text = "Channel deleted.";
             RefreshChannelList();
         }
@@ -308,10 +300,13 @@ public sealed class QuantumInteractionController : MonoBehaviour
         if (menuCanvas != null) Destroy(menuCanvas);
         menuCanvas = null;
         menuRaycaster = null;
-        nameField = null;
+        if (previousInputModule != null) previousInputModule.enabled = previousInputModuleEnabled;
+        previousInputModule = null;
         menuStatus = null;
         channelContent = null;
+        channelScroll = null;
         selectedChannelId = string.Empty;
+        editingChannelId = string.Empty;
         RestorePlayerInput();
     }
 
@@ -463,12 +458,24 @@ public sealed class QuantumInteractionController : MonoBehaviour
         return button;
     }
 
-    private static void EnsureEventSystem()
+    private void EnsureEventSystem()
     {
-        if (UnityEngine.EventSystems.EventSystem.current != null) return;
-        var eventSystemObject = new GameObject("Quantum Conveyors EventSystem");
-        eventSystemObject.AddComponent<UnityEngine.EventSystems.EventSystem>();
-        DontDestroyOnLoad(eventSystemObject);
+        var eventSystem = UnityEngine.EventSystems.EventSystem.current;
+        if (eventSystem == null)
+        {
+            var eventSystemObject = new GameObject("Quantum Conveyors EventSystem");
+            eventSystem = eventSystemObject.AddComponent<UnityEngine.EventSystems.EventSystem>();
+            DontDestroyOnLoad(eventSystemObject);
+        }
+
+        // The game module and our direct raycast handler must not both process
+        // the same click, or actions such as New channel can fire twice.
+        previousInputModule = eventSystem.GetComponent<UnityEngine.EventSystems.BaseInputModule>();
+        if (previousInputModule != null)
+        {
+            previousInputModuleEnabled = previousInputModule.enabled;
+            previousInputModule.enabled = false;
+        }
     }
 
     private void HandleMenuClick()
