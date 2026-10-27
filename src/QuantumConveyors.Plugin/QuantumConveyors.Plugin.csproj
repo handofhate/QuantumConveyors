@@ -28,6 +28,9 @@
     <Reference Include="UnityEngine.CoreModule" HintPath="$(InteropDir)\UnityEngine.CoreModule.dll" Private="false" />
     <Reference Include="UnityEngine.PhysicsModule" HintPath="$(InteropDir)\UnityEngine.PhysicsModule.dll" Private="false" />
     <Reference Include="UnityEngine.IMGUIModule" HintPath="$(InteropDir)\UnityEngine.IMGUIModule.dll" Private="false" />
+    <Reference Include="UnityEngine.UIModule" HintPath="$(InteropDir)\UnityEngine.UIModule.dll" Private="false" />
+    <Reference Include="UnityEngine.TextRenderingModule" HintPath="$(InteropDir)\UnityEngine.TextRenderingModule.dll" Private="false" />
+    <Reference Include="UnityEngine.UI" HintPath="$(InteropDir)\UnityEngine.UI.dll" Private="false" />
     <Reference Include="Unity.InputSystem" HintPath="$(InteropDir)\Unity.InputSystem.dll" Private="false" />
   </ItemGroup>
 

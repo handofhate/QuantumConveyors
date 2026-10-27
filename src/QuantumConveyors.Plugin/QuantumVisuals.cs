@@ -13,8 +13,19 @@ internal static class QuantumVisuals
         var renderer = part.GetComponent<Renderer>();
         if (renderer == null) return false;
 
+        var color = paired ? Paired : Unpaired;
         var material = renderer.material;
-        material.color = paired ? Paired : Unpaired;
+        material.color = color;
+        material.SetColor("_Color", color);
+        material.SetColor("_BaseColor", color);
+        material.EnableKeyword("_EMISSION");
+        material.SetColor("_EmissionColor", color * (paired ? 1.8f : 0.8f));
+
+        var light = part.GetComponent<Light>() ?? part.AddComponent<Light>();
+        light.type = LightType.Point;
+        light.color = color;
+        light.range = 0.45f;
+        light.intensity = paired ? 0.8f : 0.45f;
         return true;
     }
 }

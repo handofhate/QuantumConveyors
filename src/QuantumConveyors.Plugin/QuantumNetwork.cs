@@ -15,15 +15,18 @@ internal static class QuantumNetwork
     private static readonly Dictionary<int, string> PendingRemoteAssignments = new();
     private static readonly Dictionary<int, UnityEngine.GameObject> BoundViews = new();
     private static ManualLogSource log;
-    private static int fallbackChannelNumber;
 
     private const string ChannelMessage = Plugin.PluginGuid + ".assignment";
+    private const string ChannelRenameMessage = Plugin.PluginGuid + ".rename";
+    private const string ChannelDeleteMessage = Plugin.PluginGuid + ".delete";
 
     public static void Initialize(ManualLogSource source)
     {
         log = source;
         Diagnostic("QuantumNetwork initialized");
         Crew.On(ChannelMessage, (_, data) => ApplyNetworkMessage(data));
+        Crew.On(ChannelRenameMessage, (_, data) => ApplyRenameMessage(data));
+        Crew.On(ChannelDeleteMessage, (_, data) => ApplyDeleteMessage(data));
     }
 
     internal static void Diagnostic(string message)
@@ -258,6 +261,41 @@ internal static class QuantumNetwork
         return true;
     }
 
+    public static bool RenameChannel(string channelId, string name)
+    {
+        if (!Moon.IsAuthority || string.IsNullOrWhiteSpace(channelId) || !Channels.TryGetValue(channelId, out var channel)) return false;
+        name = CleanChannelName(name);
+        if (string.IsNullOrWhiteSpace(name)) return false;
+
+        channel.Name = name;
+        var world = Moon.WorldData(Plugin.PluginGuid);
+        if (world != null) world[$"name.{channelId}"] = name;
+        if (Crew.InCrew)
+            Crew.Send(ChannelRenameMessage, System.Text.Encoding.UTF8.GetBytes(string.Join('\t', channelId, name)));
+        return true;
+    }
+
+    public static bool DeleteChannel(string channelId)
+    {
+        if (!Moon.IsAuthority || string.IsNullOrWhiteSpace(channelId) || !Channels.Remove(channelId)) return false;
+
+        foreach (var output in Outputs.Where(output => output.ChannelId == channelId).ToList())
+        {
+            output.SetChannel(string.Empty);
+            BroadcastAssignment(output.Id, string.Empty);
+        }
+        foreach (var input in Inputs.Where(input => input.ChannelId == channelId).ToList())
+        {
+            input.SetChannel(string.Empty);
+            BroadcastAssignment(input.Id, string.Empty);
+        }
+
+        var world = Moon.WorldData(Plugin.PluginGuid);
+        world?.Remove($"name.{channelId}");
+        if (Crew.InCrew) Crew.Send(ChannelDeleteMessage, System.Text.Encoding.UTF8.GetBytes(channelId));
+        return true;
+    }
+
     public static string ChannelName(string channelId)
     {
         return !string.IsNullOrWhiteSpace(channelId) && Channels.TryGetValue(channelId, out var channel)
@@ -319,13 +357,34 @@ internal static class QuantumNetwork
     {
         if (string.IsNullOrWhiteSpace(channelId) || Channels.ContainsKey(channelId)) return;
 
-        var name = string.IsNullOrWhiteSpace(preferredName) ? $"Quantum Channel {++fallbackChannelNumber}" : preferredName;
+        var name = string.IsNullOrWhiteSpace(preferredName) ? DefaultChannelName(channelId) : preferredName;
         var world = Moon.WorldData(Plugin.PluginGuid);
         if (world != null && world.TryGetValue($"name.{channelId}", out var savedName) && !string.IsNullOrWhiteSpace(savedName))
-            name = savedName;
+            name = IsLegacyDefaultName(savedName) ? DefaultChannelName(channelId) : savedName;
 
         Channels[channelId] = new ChannelState(channelId, name);
         if (world != null && !world.ContainsKey($"name.{channelId}")) world[$"name.{channelId}"] = name;
+    }
+
+    private static string DefaultChannelName(string channelId)
+    {
+        var dash = channelId.LastIndexOf('-');
+        return dash >= 0 && int.TryParse(channelId[(dash + 1)..], NumberStyles.Integer, CultureInfo.InvariantCulture, out var number)
+            ? $"Channel {number}"
+            : "Channel";
+    }
+
+    private static bool IsLegacyDefaultName(string name)
+    {
+        const string prefix = "Quantum Channel ";
+        return name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) &&
+            int.TryParse(name[prefix.Length..], NumberStyles.Integer, CultureInfo.InvariantCulture, out _);
+    }
+
+    private static string CleanChannelName(string name)
+    {
+        name = (name ?? string.Empty).Trim();
+        return name.Length <= 24 ? name : name[..24].TrimEnd();
     }
 
     private static void BroadcastAssignment(int endpointId, string channelId)
@@ -356,6 +415,29 @@ internal static class QuantumNetwork
         else PendingRemoteAssignments[endpointId] = channelId;
     }
 
+    private static void ApplyRenameMessage(byte[] data)
+    {
+        var fields = System.Text.Encoding.UTF8.GetString(data ?? Array.Empty<byte>()).Split('\t', 2);
+        if (fields.Length != 2 || string.IsNullOrWhiteSpace(fields[0])) return;
+        EnsureChannel(fields[0], fields[1]);
+        if (!Channels.TryGetValue(fields[0], out var channel)) return;
+        channel.Name = CleanChannelName(fields[1]);
+    }
+
+    private static void ApplyDeleteMessage(byte[] data)
+    {
+        var channelId = System.Text.Encoding.UTF8.GetString(data ?? Array.Empty<byte>());
+        if (string.IsNullOrWhiteSpace(channelId)) return;
+        foreach (var output in Outputs.Where(output => output.ChannelId == channelId).ToList()) output.SetChannel(string.Empty);
+        foreach (var input in Inputs.Where(input => input.ChannelId == channelId).ToList()) input.SetChannel(string.Empty);
+        Channels.Remove(channelId);
+        foreach (var endpointId in PendingRemoteAssignments
+                     .Where(pair => pair.Value == channelId)
+                     .Select(pair => pair.Key)
+                     .ToList())
+            PendingRemoteAssignments.Remove(endpointId);
+    }
+
     private static int Normalize(int cursor, int count) => count == 0 ? 0 : cursor % count;
 
     private sealed class ChannelState
@@ -367,7 +449,7 @@ internal static class QuantumNetwork
         }
 
         public string Id { get; }
-        public string Name { get; }
+        public string Name { get; set; }
         public int OutputCursor { get; set; }
         public int InputCursor { get; set; }
     }
