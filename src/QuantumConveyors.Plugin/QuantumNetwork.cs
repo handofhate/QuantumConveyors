@@ -502,9 +502,11 @@ internal readonly record struct PendingCapsule(MoonCargo Cargo, double Kilograms
 
 internal sealed class QuantumOutputMachine : Machine
 {
+    private const float ActivityDisplaySeconds = 3f;
+    private const float FullDisplayDelaySeconds = 3f;
     private readonly Queue<PendingCapsule> pending = new();
     private float activeUntil;
-    private bool outputBeltFull;
+    private float beltFullSince = -1f;
 
     internal bool HasPending => pending.Count > 0;
     internal int PendingCount => pending.Count;
@@ -549,14 +551,16 @@ internal sealed class QuantumOutputMachine : Machine
         var result = QuantumNetwork.TryTransmit(this, capsuleToSend);
         if (result != QuantumTransferResult.Sent)
         {
-            outputBeltFull = result == QuantumTransferResult.DestinationUnavailable;
+            if (result == QuantumTransferResult.DestinationUnavailable && beltFullSince < 0f)
+                beltFullSince = Time.unscaledTime;
+            if (result == QuantumTransferResult.NoMatchingAdapter) beltFullSince = -1f;
             Tone = MachineTone.Idle;
             return false;
         }
 
         IsAttached = true;
-        outputBeltFull = false;
-        activeUntil = Time.unscaledTime + 0.35f;
+        beltFullSince = -1f;
+        activeUntil = Time.unscaledTime + ActivityDisplaySeconds;
         Status = "Sending";
         Tone = MachineTone.Working;
         return true;
@@ -568,7 +572,8 @@ internal sealed class QuantumOutputMachine : Machine
         var next = pending.Peek();
         if (!input.TryReceive(next)) return false;
         pending.Dequeue();
-        activeUntil = Time.unscaledTime + 0.35f;
+        beltFullSince = -1f;
+        activeUntil = Time.unscaledTime + ActivityDisplaySeconds;
         Status = "Sending";
         Tone = pending.Count == 0 ? MachineTone.Idle : MachineTone.Working;
         return true;
@@ -617,7 +622,8 @@ internal sealed class QuantumOutputMachine : Machine
         if (!QuantumNetwork.HasChannelInput(ChannelId)) return QuantumIndicatorState.NoMatchingAdapter;
         if (!QuantumNetwork.HasAttachedChannelInput(ChannelId)) return QuantumIndicatorState.ConveyorMissing;
         if (activeUntil > Time.unscaledTime) return QuantumIndicatorState.Active;
-        if (outputBeltFull) return QuantumIndicatorState.OutputBeltFull;
+        if (beltFullSince >= 0f && Time.unscaledTime - beltFullSince >= FullDisplayDelaySeconds)
+            return QuantumIndicatorState.OutputBeltFull;
         return QuantumIndicatorState.Ready;
     }
 
@@ -637,8 +643,10 @@ internal sealed class QuantumOutputMachine : Machine
 
 internal sealed class QuantumInputMachine : Machine
 {
+    private const float ActivityDisplaySeconds = 3f;
+    private const float FullDisplayDelaySeconds = 3f;
     private float activeUntil;
-    private bool outputBeltFull;
+    private float beltFullSince = -1f;
     internal string ChannelId { get; private set; } = string.Empty;
     internal bool IsAttached { get; private set; }
 
@@ -674,11 +682,11 @@ internal sealed class QuantumInputMachine : Machine
         if (!IsAttached) return false;
         if (!Emit("output", capsule.Cargo, capsule.Kilograms))
         {
-            outputBeltFull = true;
+            if (beltFullSince < 0f) beltFullSince = Time.unscaledTime;
             return false;
         }
-        outputBeltFull = false;
-        activeUntil = Time.unscaledTime + 0.35f;
+        beltFullSince = -1f;
+        activeUntil = Time.unscaledTime + ActivityDisplaySeconds;
         Status = "Receiving";
         Tone = MachineTone.Working;
         return true;
@@ -687,7 +695,7 @@ internal sealed class QuantumInputMachine : Machine
     internal void SetChannel(string channelId)
     {
         ChannelId = channelId ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(ChannelId)) outputBeltFull = false;
+        if (string.IsNullOrWhiteSpace(ChannelId)) beltFullSince = -1f;
         if (string.IsNullOrWhiteSpace(ChannelId)) Data.Remove("channel");
         else Data["channel"] = ChannelId;
         RefreshAttachment();
@@ -719,7 +727,8 @@ internal sealed class QuantumInputMachine : Machine
         if (!IsAttached) return QuantumIndicatorState.ConveyorMissing;
         if (!QuantumNetwork.HasChannelOutput(ChannelId)) return QuantumIndicatorState.NoMatchingAdapter;
         if (activeUntil > Time.unscaledTime) return QuantumIndicatorState.Active;
-        if (outputBeltFull) return QuantumIndicatorState.OutputBeltFull;
+        if (beltFullSince >= 0f && Time.unscaledTime - beltFullSince >= FullDisplayDelaySeconds)
+            return QuantumIndicatorState.OutputBeltFull;
         return QuantumIndicatorState.Ready;
     }
 
