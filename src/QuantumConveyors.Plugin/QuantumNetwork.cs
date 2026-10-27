@@ -4,6 +4,7 @@ using BepInEx;
 using BepInEx.Logging;
 using MoonCleaners;
 using MoonFramework;
+using UnityEngine;
 
 namespace QuantumConveyors;
 
@@ -156,15 +157,15 @@ internal static class QuantumNetwork
         }
     }
 
-    public static bool TryTransmit(QuantumOutputMachine source, PendingCapsule capsule)
+    public static QuantumTransferResult TryTransmit(QuantumOutputMachine source, PendingCapsule capsule)
     {
-        if (!Moon.IsAuthority || string.IsNullOrWhiteSpace(source.ChannelId)) return false;
-        if (!Channels.TryGetValue(source.ChannelId, out var channel)) return false;
+        if (!Moon.IsAuthority || string.IsNullOrWhiteSpace(source.ChannelId)) return QuantumTransferResult.NoMatchingAdapter;
+        if (!Channels.TryGetValue(source.ChannelId, out var channel)) return QuantumTransferResult.NoMatchingAdapter;
 
-        var inputs = Inputs
-            .Where(input => input.ChannelId == source.ChannelId && input.IsAttached)
-            .ToList();
-        if (inputs.Count == 0) return false;
+        var matchingInputs = Inputs.Where(input => input.ChannelId == source.ChannelId).ToList();
+        if (matchingInputs.Count == 0) return QuantumTransferResult.NoMatchingAdapter;
+        var inputs = matchingInputs.Where(input => input.IsAttached).ToList();
+        if (inputs.Count == 0) return QuantumTransferResult.DestinationUnavailable;
 
         channel.InputCursor = Normalize(channel.InputCursor, inputs.Count);
         for (var inputOffset = 0; inputOffset < inputs.Count; inputOffset++)
@@ -173,10 +174,10 @@ internal static class QuantumNetwork
             if (!inputs[inputIndex].TryReceive(capsule)) continue;
 
             channel.InputCursor = (inputIndex + 1) % inputs.Count;
-            return true;
+            return QuantumTransferResult.Sent;
         }
 
-        return false;
+        return QuantumTransferResult.DestinationUnavailable;
     }
 
     public static string FormatStatus()
@@ -204,6 +205,21 @@ internal static class QuantumNetwork
         if (output != null) return output.ChannelId;
         var input = Inputs.FirstOrDefault(machine => machine.Id == endpointId);
         return input?.ChannelId ?? string.Empty;
+    }
+
+    internal static bool HasChannelInput(string channelId)
+    {
+        return !string.IsNullOrWhiteSpace(channelId) && Inputs.Any(input => input.ChannelId == channelId);
+    }
+
+    internal static bool HasAttachedChannelInput(string channelId)
+    {
+        return !string.IsNullOrWhiteSpace(channelId) && Inputs.Any(input => input.ChannelId == channelId && input.IsAttached);
+    }
+
+    internal static bool HasChannelOutput(string channelId)
+    {
+        return !string.IsNullOrWhiteSpace(channelId) && Outputs.Any(output => output.ChannelId == channelId);
     }
 
     public static bool AssignEndpoint(int endpointId, string channelId)
@@ -473,6 +489,13 @@ internal static class QuantumNetwork
 
 internal readonly record struct ChannelSummary(string Id, string Name, int Outputs, int Inputs);
 
+internal enum QuantumTransferResult
+{
+    Sent,
+    NoMatchingAdapter,
+    DestinationUnavailable,
+}
+
 internal readonly record struct QuantumEndpointView(int Id, bool IsOutput, UnityEngine.GameObject View);
 
 internal readonly record struct PendingCapsule(MoonCargo Cargo, double Kilograms, double Capacity, string Owner);
@@ -480,8 +503,8 @@ internal readonly record struct PendingCapsule(MoonCargo Cargo, double Kilograms
 internal sealed class QuantumOutputMachine : Machine
 {
     private readonly Queue<PendingCapsule> pending = new();
-    private bool? indicatorPaired;
-    private string operationalStatus = "Ready to send";
+    private float activeUntil;
+    private bool outputBeltFull;
 
     internal bool HasPending => pending.Count > 0;
     internal int PendingCount => pending.Count;
@@ -508,9 +531,7 @@ internal sealed class QuantumOutputMachine : Machine
 
     public override void Animate(float dt)
     {
-        var paired = !string.IsNullOrWhiteSpace(ChannelId);
-        if (indicatorPaired == paired) return;
-        if (QuantumVisuals.TrySetIndicator(Part("Indicator"), paired)) indicatorPaired = paired;
+        QuantumVisuals.TrySetIndicator(Part("Indicator"), CurrentIndicatorState());
     }
 
     public override void OnView(UnityEngine.GameObject view)
@@ -525,17 +546,18 @@ internal sealed class QuantumOutputMachine : Machine
         if (pending.Count > 0) return false;
 
         var capsuleToSend = new PendingCapsule(capsule.Cargo, capsule.Kilograms, capsule.Capacity, capsule.Owner);
-        if (!QuantumNetwork.TryTransmit(this, capsuleToSend))
+        var result = QuantumNetwork.TryTransmit(this, capsuleToSend);
+        if (result != QuantumTransferResult.Sent)
         {
-            operationalStatus = "Waiting for output belt";
-            Status = "Waiting for output belt";
+            outputBeltFull = result == QuantumTransferResult.DestinationUnavailable;
             Tone = MachineTone.Idle;
             return false;
         }
 
         IsAttached = true;
-        operationalStatus = "Resource sent";
-        Status = "Resource sent";
+        outputBeltFull = false;
+        activeUntil = Time.unscaledTime + 0.35f;
+        Status = "Sending";
         Tone = MachineTone.Working;
         return true;
     }
@@ -546,8 +568,8 @@ internal sealed class QuantumOutputMachine : Machine
         var next = pending.Peek();
         if (!input.TryReceive(next)) return false;
         pending.Dequeue();
-        operationalStatus = pending.Count == 0 ? "Ready to send" : "Resources queued";
-        Status = operationalStatus;
+        activeUntil = Time.unscaledTime + 0.35f;
+        Status = "Sending";
         Tone = pending.Count == 0 ? MachineTone.Idle : MachineTone.Working;
         return true;
     }
@@ -574,7 +596,7 @@ internal sealed class QuantumOutputMachine : Machine
     public override void Describe(MachinePanel panel)
     {
         panel.Line($"Ch: {QuantumNetwork.ChannelLabel(ChannelId)}");
-        panel.Line(string.IsNullOrWhiteSpace(ChannelId) ? "Waiting for setup" : operationalStatus);
+        panel.Line(StatusText(CurrentIndicatorState(), true));
     }
 
     private void RefreshAttachment()
@@ -588,12 +610,35 @@ internal sealed class QuantumOutputMachine : Machine
             ? "Disabled: Press E to configure"
             : "Press E to configure";
     }
+
+    private QuantumIndicatorState CurrentIndicatorState()
+    {
+        if (string.IsNullOrWhiteSpace(ChannelId)) return QuantumIndicatorState.WaitingForSetup;
+        if (!QuantumNetwork.HasChannelInput(ChannelId)) return QuantumIndicatorState.NoMatchingAdapter;
+        if (!QuantumNetwork.HasAttachedChannelInput(ChannelId)) return QuantumIndicatorState.ConveyorMissing;
+        if (activeUntil > Time.unscaledTime) return QuantumIndicatorState.Active;
+        if (outputBeltFull) return QuantumIndicatorState.OutputBeltFull;
+        return QuantumIndicatorState.Ready;
+    }
+
+    private static string StatusText(QuantumIndicatorState state, bool isOutput)
+    {
+        return state switch
+        {
+            QuantumIndicatorState.WaitingForSetup => "Waiting for setup",
+            QuantumIndicatorState.NoMatchingAdapter => "No matching adapter",
+            QuantumIndicatorState.ConveyorMissing => "Conveyor missing",
+            QuantumIndicatorState.Active => isOutput ? "Sending" : "Receiving",
+            QuantumIndicatorState.OutputBeltFull => "Output belt full",
+            _ => isOutput ? "Ready to send" : "Ready to receive",
+        };
+    }
 }
 
 internal sealed class QuantumInputMachine : Machine
 {
-    private bool? indicatorPaired;
-    private string operationalStatus = "Waiting for output";
+    private float activeUntil;
+    private bool outputBeltFull;
     internal string ChannelId { get; private set; } = string.Empty;
     internal bool IsAttached { get; private set; }
 
@@ -620,9 +665,7 @@ internal sealed class QuantumInputMachine : Machine
 
     public override void Animate(float dt)
     {
-        var paired = !string.IsNullOrWhiteSpace(ChannelId);
-        if (indicatorPaired == paired) return;
-        if (QuantumVisuals.TrySetIndicator(Part("Indicator"), paired)) indicatorPaired = paired;
+        QuantumVisuals.TrySetIndicator(Part("Indicator"), CurrentIndicatorState());
     }
 
     internal bool TryReceive(PendingCapsule capsule)
@@ -631,11 +674,12 @@ internal sealed class QuantumInputMachine : Machine
         if (!IsAttached) return false;
         if (!Emit("output", capsule.Cargo, capsule.Kilograms))
         {
-            operationalStatus = "Waiting for output space";
+            outputBeltFull = true;
             return false;
         }
-        operationalStatus = "Resource delivered";
-        Status = "Resource delivered";
+        outputBeltFull = false;
+        activeUntil = Time.unscaledTime + 0.35f;
+        Status = "Receiving";
         Tone = MachineTone.Working;
         return true;
     }
@@ -643,6 +687,7 @@ internal sealed class QuantumInputMachine : Machine
     internal void SetChannel(string channelId)
     {
         ChannelId = channelId ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(ChannelId)) outputBeltFull = false;
         if (string.IsNullOrWhiteSpace(ChannelId)) Data.Remove("channel");
         else Data["channel"] = ChannelId;
         RefreshAttachment();
@@ -657,9 +702,7 @@ internal sealed class QuantumInputMachine : Machine
     public override void Describe(MachinePanel panel)
     {
         panel.Line($"Ch: {QuantumNetwork.ChannelLabel(ChannelId)}");
-        panel.Line(!IsAttached
-            ? "Disabled: connect a conveyor"
-            : string.IsNullOrWhiteSpace(ChannelId) ? "Waiting for setup" : operationalStatus);
+        panel.Line(StatusText(CurrentIndicatorState()));
     }
 
     private void RefreshAttachment()
@@ -668,5 +711,28 @@ internal sealed class QuantumInputMachine : Machine
         Status = string.IsNullOrWhiteSpace(ChannelId)
             ? "Disabled: Press E to configure"
             : "Press E to configure";
+    }
+
+    private QuantumIndicatorState CurrentIndicatorState()
+    {
+        if (string.IsNullOrWhiteSpace(ChannelId)) return QuantumIndicatorState.WaitingForSetup;
+        if (!IsAttached) return QuantumIndicatorState.ConveyorMissing;
+        if (!QuantumNetwork.HasChannelOutput(ChannelId)) return QuantumIndicatorState.NoMatchingAdapter;
+        if (activeUntil > Time.unscaledTime) return QuantumIndicatorState.Active;
+        if (outputBeltFull) return QuantumIndicatorState.OutputBeltFull;
+        return QuantumIndicatorState.Ready;
+    }
+
+    private static string StatusText(QuantumIndicatorState state)
+    {
+        return state switch
+        {
+            QuantumIndicatorState.WaitingForSetup => "Waiting for setup",
+            QuantumIndicatorState.NoMatchingAdapter => "No matching adapter",
+            QuantumIndicatorState.ConveyorMissing => "Conveyor missing",
+            QuantumIndicatorState.Active => "Receiving",
+            QuantumIndicatorState.OutputBeltFull => "Output belt full",
+            _ => "Ready to receive",
+        };
     }
 }
