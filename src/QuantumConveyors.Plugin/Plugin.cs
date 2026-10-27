@@ -1,5 +1,6 @@
 using BepInEx;
 using BepInEx.Unity.IL2CPP;
+using Il2CppInterop.Runtime.Injection;
 using MoonFramework;
 using UnityEngine;
 
@@ -15,6 +16,7 @@ public sealed class Plugin : BasePlugin
 
     public override void Load()
     {
+        ClassInjector.RegisterTypeInIl2Cpp<QuantumEndpointInteraction>();
         Log.LogInfo($"{PluginName} {PluginVersion} loaded.");
         Log.LogInfo($"MoonFramework {FrameworkPlugin.Version} is available.");
 

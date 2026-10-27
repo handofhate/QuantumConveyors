@@ -2,7 +2,7 @@
 
 Wireless logistics for Moon Sweepers.
 
-Quantum Conveyors adds small, placeable endpoints to the normal Building Tool. A player assigns endpoints to existing conveyor ports, then links outputs to inputs. Resources move through the wireless network without requiring a physical belt between the endpoints.
+Quantum Conveyors adds small, placeable endpoints to the normal Building Tool. A player places endpoints on existing conveyor ports, then uses the normal interact key to assign each one to a named channel. Resources move through the wireless network without requiring a physical belt between the endpoints.
 
 ## Current target
 
@@ -18,7 +18,9 @@ Quantum Conveyors adds small, placeable endpoints to the normal Building Tool. A
 - Initial wireless networks are unrestricted: no cost, range, power, or bandwidth limit.
 - Multiple sources and destinations share resources fairly.
 - Priority routing is a later optional feature, not required for the first working version.
-- Endpoint hardware is deliberately small and visible, using a simple glow/ring until a final art direction is chosen.
+- Endpoint hardware is deliberately small and visible: a black portal square sits on top of the conveyor, with a tiny colored LED on top.
+- Channels are unbounded and isolated. Each channel can contain multiple outputs and inputs, while separate channels remain separate.
+- New endpoints begin unassigned and show an in-game channel menu when interacted with.
 - Links and endpoint placement should persist with the world save.
 
 ## Development stages
@@ -28,7 +30,7 @@ Quantum Conveyors adds small, placeable endpoints to the normal Building Tool. A
 3. Add a diagnostic plugin that identifies build-tool entries, compatible ports, conveyor networks, and cargo transfer methods.
 4. Add the Quantum Endpoint building-tool item and its visual marker.
 5. Implement one output to one input transfer.
-6. Add fair multi-source/multi-destination routing.
+6. Add fair multi-channel, multi-source/multi-destination routing.
 7. Add save/load and multiplayer host synchronization.
 8. Add optional routing priorities and configurable limits.
 

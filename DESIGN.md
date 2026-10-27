@@ -6,7 +6,9 @@ The player opens the normal Building Tool and chooses a tiny **Quantum Output** 
 
 Each endpoint is placed directly on a compatible machine, depot, or conveyor port. The visible model should be only a small port-mounted component, with no unnecessary floor footprint.
 
-The player then selects another endpoint to create a wireless link. A subtle line, pulse, or endpoint color can communicate the connection without filling the world with permanent belt geometry.
+The player walks up to an endpoint and presses the normal interact key. An endpoint starts **unassigned**. The small setup menu can create a new channel or add this endpoint to an existing channel. A channel has no fixed size: it can contain any number of outputs and inputs.
+
+The endpoint model is a small black square portal mounted on top of the conveyor, with a tiny color LED on top. Outputs and inputs use different default LED colors. The channel name is shown in the endpoint status panel and in the setup menu.
 
 ## Port ownership
 
@@ -20,7 +22,7 @@ Removing an endpoint releases the port so a stock conveyor can be connected agai
 
 ## Routing
 
-The initial router treats every ready input and output in a connected Quantum network as a shared pool. It allocates available cargo fairly, using round-robin selection with remembered cursors so one destination does not permanently starve another.
+Each channel is an isolated network. The router treats every ready output and input in that channel as a shared pool. It allocates available cargo fairly, using round-robin selection with remembered cursors so one destination does not permanently starve another. This means output A can feed input A while output B feeds input B, even though both pairs use the same world.
 
 Resource type compatibility must be preserved. An input that cannot accept a cargo type is skipped, and cargo must not be silently destroyed when a destination is full or disconnected.
 
@@ -28,7 +30,7 @@ Priority routing is planned as an opt-in mode. It should not change the default 
 
 ## Multiplayer
 
-The host owns the authoritative endpoint registry, network links, routing decisions, and cargo transfers. Other players receive the resulting endpoint/link state and visual updates. Every player should install the same mod for the first multiplayer release so clients have matching custom objects and UI.
+The host owns the authoritative endpoint registry, channel assignments, routing decisions, and cargo transfers. Channel assignment messages are sent to other players so their endpoint panels and visuals update during the session. Every player should install the same mod for the first multiplayer release so clients have matching custom objects and UI.
 
 The first multiplayer test must cover:
 

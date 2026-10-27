@@ -13,7 +13,9 @@
 
 The BepInEx runtime, MoonSweepers patcher, MoonFramework 0.6.0, and the first Quantum Conveyors prototype have now been installed successfully. The game reached the main menu and loaded both plugins without a Quantum Conveyors exception. The first prototype registered `Quantum Output` and `Quantum Input` in the Logistics Building Tool.
 
-The updated prototype build is now installed and loaded by the game. The startup log confirms both Quantum buildings register successfully, and no Quantum Conveyors or MoonFramework errors were found. No buildings were placed and no save changes were made during this verification pass.
+The previous prototype build is installed and loaded by the game. The startup log confirms both Quantum buildings register successfully, and no Quantum Conveyors or MoonFramework errors were found. No buildings were placed and no save changes were made during this verification pass.
+
+The next local build adds isolated, unbounded channels, a host-authoritative channel-assignment message for multiplayer, an E-to-interact setup window, and a black portal-square endpoint model with a top LED. It has passed a clean local compile. It has not been copied over the live game yet because the game is currently open.
 
 ## External files prepared
 
