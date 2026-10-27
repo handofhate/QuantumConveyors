@@ -27,7 +27,6 @@ public sealed class QuantumInteractionController : MonoBehaviour
     private bool previousUiBlocked;
     private CursorLockMode previousCursorLock;
     private bool previousCursorVisible;
-    private float nextPromptCleanup;
     private bool updateReported;
     private int lastViewCount = -1;
     private bool? cameraAvailable;
@@ -59,12 +58,6 @@ public sealed class QuantumInteractionController : MonoBehaviour
             {
                 if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame) CloseMenu();
                 return;
-            }
-
-            if (Time.unscaledTime >= nextPromptCleanup)
-            {
-                nextPromptCleanup = Time.unscaledTime + 1f;
-                HideStalePromptCards();
             }
 
             var camera = ActiveCamera();
@@ -122,7 +115,6 @@ public sealed class QuantumInteractionController : MonoBehaviour
     {
         menuEndpointId = endpointId;
         selectedChannelId = QuantumNetwork.ChannelFor(endpointId) ?? string.Empty;
-        FreezePlayerInput();
 
         menuCanvas = new GameObject("Quantum Conveyors Configuration");
         DontDestroyOnLoad(menuCanvas);
@@ -169,6 +161,20 @@ public sealed class QuantumInteractionController : MonoBehaviour
 
         RefreshChannelList();
         EnsureEventSystem();
+
+        // Input freezing is deliberately last.  If Moon Sweepers changes its
+        // player-controller implementation, a failed lookup must not prevent
+        // the configuration window from being created.
+        try
+        {
+            FreezePlayerInput();
+        }
+        catch (Exception exception)
+        {
+            QuantumNetwork.Diagnostic($"Player input freeze skipped: {exception.GetType().Name}: {exception.Message}");
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
+        }
     }
 
     private string SelectedChannelName()
@@ -330,18 +336,6 @@ public sealed class QuantumInteractionController : MonoBehaviour
         var found = UnityEngine.Object.FindObjectOfType(Il2CppType.Of<MoonWalker>());
         walker = found as MoonWalker;
         return walker;
-    }
-
-    private static void HideStalePromptCards()
-    {
-        var cards = UnityEngine.Object.FindObjectsOfType(Il2CppType.Of<MoonActionPromptCard>());
-        if (cards == null) return;
-        foreach (var item in cards)
-        {
-            if (item == null) continue;
-            var card = new MoonActionPromptCard(item.Pointer);
-            card.Hide();
-        }
     }
 
     private static RectTransform MakeRect(string name, Transform parent, Vector2 size, Vector2 position, Color? background)
