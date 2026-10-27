@@ -25,10 +25,10 @@ public sealed class QuantumInteractionController : MonoBehaviour
     private int menuEndpointId;
     private MoonWalker walker;
     private bool previousUiBlocked;
+    private bool previousWalkerEnabled;
     private CursorLockMode previousCursorLock;
     private bool previousCursorVisible;
-    private UnityEngine.EventSystems.EventSystem previousEventSystem;
-    private GameObject menuEventSystem;
+    private GraphicRaycaster menuRaycaster;
     private bool updateReported;
     private int lastViewCount = -1;
     private bool? cameraAvailable;
@@ -60,6 +60,7 @@ public sealed class QuantumInteractionController : MonoBehaviour
             {
                 KeepCursorForMenu();
                 if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame) CloseMenu();
+                else HandleMenuClick();
                 return;
             }
 
@@ -125,7 +126,7 @@ public sealed class QuantumInteractionController : MonoBehaviour
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
         canvas.sortingOrder = 1000;
         menuCanvas.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        menuCanvas.AddComponent<GraphicRaycaster>();
+        menuRaycaster = menuCanvas.AddComponent<GraphicRaycaster>();
 
         var root = MakeRect("Window", menuCanvas.transform, new Vector2(560f, 480f), Vector2.zero, new Color(0.08f, 0.10f, 0.14f, 0.98f));
         root.anchorMin = new Vector2(0.5f, 0.5f);
@@ -304,11 +305,8 @@ public sealed class QuantumInteractionController : MonoBehaviour
     private void CloseMenu()
     {
         if (menuCanvas != null) Destroy(menuCanvas);
-        if (menuEventSystem != null) Destroy(menuEventSystem);
-        if (previousEventSystem != null) previousEventSystem.enabled = true;
         menuCanvas = null;
-        menuEventSystem = null;
-        previousEventSystem = null;
+        menuRaycaster = null;
         nameField = null;
         menuStatus = null;
         channelContent = null;
@@ -324,8 +322,11 @@ public sealed class QuantumInteractionController : MonoBehaviour
         if (found != null)
         {
             previousUiBlocked = found.UIBlocked;
+            previousWalkerEnabled = found.enabled;
             found.UIBlocked = true;
+            found.enabled = false;
         }
+        else QuantumNetwork.Diagnostic("Player controller was not found from the active camera");
 
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
@@ -336,7 +337,11 @@ public sealed class QuantumInteractionController : MonoBehaviour
         try
         {
             var found = FindWalker();
-            if (found != null) found.UIBlocked = previousUiBlocked;
+            if (found != null)
+            {
+                found.UIBlocked = previousUiBlocked;
+                found.enabled = previousWalkerEnabled;
+            }
         }
         catch (Exception exception)
         {
@@ -366,7 +371,8 @@ public sealed class QuantumInteractionController : MonoBehaviour
         // player, so resolve MoonWalker from that hierarchy instead.
         var camera = ActiveCamera();
         if (camera == null) return null;
-        var found = camera.GetComponentInParent(Il2CppType.Of<MoonWalker>());
+        var found = camera.GetComponent(Il2CppType.Of<MoonWalker>());
+        if (found == null) found = camera.GetComponentInParent(Il2CppType.Of<MoonWalker>());
         if (found == null) found = camera.transform.root.GetComponentInChildren(Il2CppType.Of<MoonWalker>());
         walker = found as MoonWalker;
         return walker;
@@ -419,18 +425,43 @@ public sealed class QuantumInteractionController : MonoBehaviour
         return button;
     }
 
-    private void EnsureEventSystem()
+    private static void EnsureEventSystem()
     {
-        // Use a private event system while the menu is open.  The game's
-        // existing system is optimized for its own HUD and can leave these
-        // buttons without a pointer module, which makes clicks fall through.
-        previousEventSystem = UnityEngine.EventSystems.EventSystem.current;
-        if (previousEventSystem != null) previousEventSystem.enabled = false;
+        if (UnityEngine.EventSystems.EventSystem.current != null) return;
+        var eventSystemObject = new GameObject("Quantum Conveyors EventSystem");
+        eventSystemObject.AddComponent<UnityEngine.EventSystems.EventSystem>();
+        DontDestroyOnLoad(eventSystemObject);
+    }
 
-        menuEventSystem = new GameObject("Quantum Conveyors EventSystem");
-        menuEventSystem.AddComponent<UnityEngine.EventSystems.EventSystem>();
-        menuEventSystem.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
-        DontDestroyOnLoad(menuEventSystem);
+    private void HandleMenuClick()
+    {
+        if (menuRaycaster == null || Mouse.current == null || !Mouse.current.leftButton.wasPressedThisFrame) return;
+        var eventSystem = UnityEngine.EventSystems.EventSystem.current;
+        if (eventSystem == null) return;
+
+        var pointer = new UnityEngine.EventSystems.PointerEventData(eventSystem)
+        {
+            position = Mouse.current.position.ReadValue()
+        };
+        var results = new Il2CppSystem.Collections.Generic.List<UnityEngine.EventSystems.RaycastResult>();
+        menuRaycaster.Raycast(pointer, results);
+        foreach (var result in results)
+        {
+            var button = result.gameObject.GetComponentInParent<Button>();
+            if (button != null)
+            {
+                button.onClick.Invoke();
+                return;
+            }
+
+            var field = result.gameObject.GetComponentInParent<InputField>();
+            if (field != null)
+            {
+                eventSystem.SetSelectedGameObject(field.gameObject);
+                field.ActivateInputField();
+                return;
+            }
+        }
     }
 
     private static QuantumEndpointView? FindTarget(Camera camera, IReadOnlyList<QuantumEndpointView> endpoints)
