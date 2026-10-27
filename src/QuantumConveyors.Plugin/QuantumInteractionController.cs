@@ -324,8 +324,15 @@ public sealed class QuantumInteractionController : MonoBehaviour
 
     private void RestorePlayerInput()
     {
-        var found = FindWalker();
-        if (found != null) found.UIBlocked = previousUiBlocked;
+        try
+        {
+            var found = FindWalker();
+            if (found != null) found.UIBlocked = previousUiBlocked;
+        }
+        catch (Exception exception)
+        {
+            QuantumNetwork.Diagnostic($"Player input restore skipped: {exception.GetType().Name}: {exception.Message}");
+        }
         Cursor.lockState = previousCursorLock;
         Cursor.visible = previousCursorVisible;
     }
@@ -333,7 +340,13 @@ public sealed class QuantumInteractionController : MonoBehaviour
     private MoonWalker FindWalker()
     {
         if (walker != null) return walker;
-        var found = UnityEngine.Object.FindObjectOfType(Il2CppType.Of<MoonWalker>());
+
+        // The preview build does not reliably expose Unity's global
+        // FindObjectOfType bridge.  The player camera is parented to the
+        // player, so resolve MoonWalker from that hierarchy instead.
+        var camera = ActiveCamera();
+        if (camera == null) return null;
+        var found = camera.GetComponentInParent(Il2CppType.Of<MoonWalker>());
         walker = found as MoonWalker;
         return walker;
     }
@@ -387,11 +400,19 @@ public sealed class QuantumInteractionController : MonoBehaviour
 
     private static void EnsureEventSystem()
     {
-        if (UnityEngine.EventSystems.EventSystem.current != null) return;
-        var eventSystem = new GameObject("Quantum Conveyors EventSystem");
-        eventSystem.AddComponent<UnityEngine.EventSystems.EventSystem>();
-        eventSystem.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
-        DontDestroyOnLoad(eventSystem);
+        var eventSystem = UnityEngine.EventSystems.EventSystem.current;
+        if (eventSystem == null)
+        {
+            var objectRoot = new GameObject("Quantum Conveyors EventSystem");
+            eventSystem = objectRoot.AddComponent<UnityEngine.EventSystems.EventSystem>();
+            DontDestroyOnLoad(objectRoot);
+        }
+
+        // Some Moon Sweepers scenes provide an EventSystem without a mouse
+        // input module.  In that case the canvas is visible but clicks fall
+        // through because Unity never dispatches pointer events to Buttons.
+        if (eventSystem.GetComponent<UnityEngine.EventSystems.BaseInputModule>() == null)
+            eventSystem.gameObject.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
     }
 
     private static QuantumEndpointView? FindTarget(Camera camera, IReadOnlyList<QuantumEndpointView> endpoints)

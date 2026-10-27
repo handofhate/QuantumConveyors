@@ -24,8 +24,8 @@ internal static class QuantumVisuals
         var light = part.GetComponent<Light>() ?? part.AddComponent<Light>();
         light.type = LightType.Point;
         light.color = color;
-        light.range = 0.56f;
-        light.intensity = paired ? 0.8f : 0.45f;
+        light.range = 0.75f;
+        light.intensity = paired ? 1.3f : 0.7f;
         light.transform.localPosition = new Vector3(0f, 0.11f, 0f);
         return true;
     }
