@@ -521,26 +521,26 @@ public sealed class QuantumInteractionController : MonoBehaviour
 
     private static QuantumEndpointView? FindTarget(Camera camera, IReadOnlyList<QuantumEndpointView> endpoints)
     {
-        var center = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
-        var bestPixels = 300f;
-        QuantumEndpointView? best = null;
+        // The old aim-assist implementation selected the endpoint whose model
+        // was nearest to the crosshair in screen space.  That allowed a hidden
+        // endpoint to win even when the player was looking at another building
+        // in front of it.  Use the game's physics line of sight instead: an
+        // adapter can answer E only when its own collision is the first thing
+        // under the crosshair.
+        var ray = camera.ScreenPointToRay(new Vector3(Screen.width * 0.5f, Screen.height * 0.5f, 0f));
+        if (!Physics.Raycast(ray, out var hit, 8f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+            return null;
 
         foreach (var endpoint in endpoints)
         {
             if (endpoint.View == null) continue;
-            var worldPoint = endpoint.View.transform.TransformPoint(new Vector3(0f, 1.0f, 0f));
-            var toTarget = worldPoint - camera.transform.position;
-            if (toTarget.magnitude > 6f || Vector3.Angle(camera.transform.forward, toTarget) > 18f) continue;
-            var screenPoint = camera.WorldToScreenPoint(worldPoint);
-            if (screenPoint.z <= 0f) continue;
-
-            var guiPoint = new Vector2(screenPoint.x, Screen.height - screenPoint.y);
-            var pixels = Vector2.Distance(center, guiPoint);
-            if (pixels > bestPixels) continue;
-            bestPixels = pixels;
-            best = endpoint;
+            var endpointTransform = endpoint.View.transform;
+            var hitTransform = hit.collider == null ? null : hit.collider.transform;
+            if (hitTransform == null) continue;
+            if (hitTransform == endpointTransform || hitTransform.IsChildOf(endpointTransform) || endpointTransform.IsChildOf(hitTransform))
+                return endpoint;
         }
 
-        return best;
+        return null;
     }
 }
