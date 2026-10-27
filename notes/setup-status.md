@@ -15,9 +15,11 @@ The BepInEx runtime, MoonSweepers patcher, MoonFramework 0.6.0, and the first Qu
 
 The previous prototype build is installed and loaded by the game. The startup log confirms both Quantum buildings register successfully, and no Quantum Conveyors or MoonFramework errors were found. No buildings were placed and no save changes were made during this verification pass.
 
-The next local build adds isolated, unbounded channels, a host-authoritative channel-assignment message for multiplayer, an E-to-interact setup window, and a black portal-square endpoint model with a top LED. It has passed a clean local compile. It has not been copied over the live game yet because the game is currently open.
+The current build adds isolated, unbounded channels, a host-authoritative channel-assignment message for multiplayer, an E-to-interact setup window, and a black portal-square endpoint model with a top LED. It passed a clean local compile and was installed after the game was closed. The game has now been launched with this build; in-game behavior testing is pending.
 
 The current working update also applies belt backpressure: the output endpoint tries to send directly into an available destination belt before accepting a capsule. When destination belts are full, the origin capsule stays on its origin belt. Endpoints whose attached belt is deleted remain as disabled objects, preserving their channel assignment until a new belt is connected.
+
+The latest runtime installation is backed up at `work\backups\runtime-install\20261026-222638`.
 
 ## External files prepared
 
