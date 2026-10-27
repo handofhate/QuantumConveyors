@@ -1,18 +1,12 @@
-newmtl PortalBlack
-Ka 0.005 0.005 0.008
-Kd 0.008 0.010 0.016
-Ks 0.08 0.10 0.14
-Ns 64
+newmtl PuckGray
+Ka 0.12 0.14 0.16
+Kd 0.42 0.46 0.50
+Ks 0.35 0.38 0.42
+Ns 72
 
-newmtl PortalEdge
-Ka 0.01 0.012 0.02
-Kd 0.018 0.022 0.035
-Ks 0.18 0.22 0.32
-Ns 96
-
-newmtl QuantumOutputLed
-Ka 0.02 0.12 0.24
-Kd 0.05 0.55 1.0
-Ks 0.35 0.75 1.0
-Ke 0.02 0.18 0.45
-Ns 32
+newmtl QuantumIndicator
+Ka 0.40 0.01 0.01
+Kd 0.90 0.02 0.01
+Ks 0.60 0.20 0.20
+Ke 0.35 0.01 0.01
+Ns 48
