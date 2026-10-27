@@ -5,10 +5,11 @@ using UnityEngine;
 
 namespace QuantumConveyors;
 
-internal sealed class QuantumEndpointInteraction : MonoBehaviour
+public sealed class QuantumEndpointInteraction : MonoBehaviour
 {
     private MoonActionPromptCard prompt;
     private MoonWalker walker;
+    private BoxCollider interactionCollider;
     private Rect windowRect = new(0f, 0f, 420f, 520f);
     private int endpointId;
     private bool isOutput;
@@ -22,6 +23,7 @@ internal sealed class QuantumEndpointInteraction : MonoBehaviour
         endpointId = id;
         isOutput = output;
         currentChannel = QuantumNetwork.ChannelFor(endpointId);
+        EnsureInteractionCollider();
     }
 
     private void Update()
@@ -61,9 +63,26 @@ internal sealed class QuantumEndpointInteraction : MonoBehaviour
         var camera = walker.viewCamera;
         if (camera == null) return false;
         var ray = new Ray(camera.transform.position, camera.transform.forward);
-        if (!Physics.Raycast(ray, out var hit, 4f)) return false;
-        var hitTransform = hit.collider == null ? null : hit.collider.transform;
-        return hitTransform != null && (hitTransform == transform || hitTransform.IsChildOf(transform));
+        if (Physics.Raycast(ray, out var hit, 4f))
+        {
+            var hitTransform = hit.collider == null ? null : hit.collider.transform;
+            if (hitTransform != null && (hitTransform == transform || hitTransform.IsChildOf(transform))) return true;
+        }
+
+        // Some game surfaces can win the raycast even when the player is clearly aiming at this tiny port.
+        // Keep interaction forgiving without making the endpoint interactable from across the room.
+        var target = transform.TransformPoint(new Vector3(0f, 1.0f, 0f));
+        var toTarget = target - camera.transform.position;
+        return toTarget.magnitude <= 4f && Vector3.Angle(camera.transform.forward, toTarget) <= 10f;
+    }
+
+    private void EnsureInteractionCollider()
+    {
+        if (interactionCollider == null) interactionCollider = gameObject.GetComponent<BoxCollider>();
+        if (interactionCollider == null) interactionCollider = gameObject.AddComponent<BoxCollider>();
+        interactionCollider.center = new Vector3(0f, 1.0f, 0f);
+        interactionCollider.size = new Vector3(0.55f, 0.38f, 0.55f);
+        interactionCollider.isTrigger = false;
     }
 
     private void OnGUI()
