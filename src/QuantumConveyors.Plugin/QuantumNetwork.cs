@@ -75,6 +75,7 @@ internal static class QuantumNetwork
         if (view != null)
         {
             BoundViews[endpointId] = view;
+            QuantumVisuals.DrawInteractionBounds(view);
             Diagnostic($"Bound view for endpoint {endpointId}: {view.name}");
         }
     }
@@ -82,6 +83,7 @@ internal static class QuantumNetwork
     public static void BindUnidentifiedView(UnityEngine.GameObject view, bool isOutput)
     {
         if (view == null) return;
+        QuantumVisuals.DrawInteractionBounds(view);
         Diagnostic($"Building OnView callback: {(isOutput ? "output" : "input")} {view.name}");
         var position = view.transform.position;
         if (isOutput)
