@@ -394,6 +394,13 @@ public sealed class QuantumInteractionController : MonoBehaviour
                 var found = root.GetComponentInChildren(Il2CppType.Of<MoonWalker>());
                 walker = found as MoonWalker;
                 if (walker != null) return walker;
+
+                var production = root.GetComponentInChildren(Il2CppType.Of<MoonProductionInteraction>()) as MoonProductionInteraction;
+                if (production != null && production.walker != null)
+                {
+                    walker = production.walker;
+                    return walker;
+                }
             }
         }
 
