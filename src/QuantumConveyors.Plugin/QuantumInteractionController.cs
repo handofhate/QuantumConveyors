@@ -15,6 +15,7 @@ public sealed class QuantumInteractionController : MonoBehaviour
     private bool updateReported;
     private bool guiReported;
     private int lastViewCount = -1;
+    private bool? cameraAvailable;
 
     public QuantumInteractionController(IntPtr pointer) : base(pointer) { }
 
@@ -28,8 +29,21 @@ public sealed class QuantumInteractionController : MonoBehaviour
             QuantumNetwork.Diagnostic("Interaction host Update is running");
         }
         if (walker == null) walker = UnityEngine.Object.FindObjectOfType<MoonWalker>();
-        var camera = walker?.viewCamera ?? Camera.main;
-        if (camera == null) return;
+        var camera = ActiveCamera();
+        if (camera == null)
+        {
+            if (cameraAvailable != false)
+            {
+                cameraAvailable = false;
+                QuantumNetwork.Diagnostic($"No active camera found; walker={(walker != null)}");
+            }
+            return;
+        }
+        if (cameraAvailable != true)
+        {
+            cameraAvailable = true;
+            QuantumNetwork.Diagnostic($"Active camera found: {camera.name}");
+        }
 
         var endpointViews = QuantumNetwork.EndpointViews();
         if (endpointViews.Count != lastViewCount)
@@ -64,6 +78,15 @@ public sealed class QuantumInteractionController : MonoBehaviour
         if (walker?.interact != null && walker.interact.WasPressedThisFrame()) return true;
         if (Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame) return true;
         return false;
+    }
+
+    private Camera ActiveCamera()
+    {
+        if (walker?.viewCamera != null) return walker.viewCamera;
+        if (Camera.main != null) return Camera.main;
+
+        var cameras = UnityEngine.Object.FindObjectsOfType<Camera>();
+        return cameras.FirstOrDefault(camera => camera != null && camera.isActiveAndEnabled);
     }
 
     private static QuantumEndpointView? FindTarget(Camera camera, IReadOnlyList<QuantumEndpointView> endpoints)
