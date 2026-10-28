@@ -41,16 +41,30 @@ internal static class QuantumVisuals
         material.EnableKeyword("_EMISSION");
         material.SetColor("_EmissionColor", displayColor * (visible ? 2.2f : 0.05f));
 
-        var light = part.GetComponent<Light>() ?? part.AddComponent<Light>();
+        // Keep the glow parented to the actual rendered indicator mesh. A
+        // light attached to the adapter wrapper can retain an old world-space
+        // position when the framework finishes moving the imported model.
+        var glowTransform = renderer.transform.Find("QuantumIndicatorGlow");
+        if (glowTransform == null)
+        {
+            var glowObject = new GameObject("QuantumIndicatorGlow");
+            glowTransform = glowObject.transform;
+            glowTransform.SetParent(renderer.transform, false);
+        }
+
+        var oldDirectLight = part.GetComponent<Light>();
+        if (oldDirectLight != null && oldDirectLight.gameObject != glowTransform.gameObject)
+            UnityEngine.Object.Destroy(oldDirectLight);
+
+        var light = glowTransform.GetComponent<Light>() ?? glowTransform.gameObject.AddComponent<Light>();
         light.type = LightType.Point;
         light.color = color;
         light.range = 0.75f;
         light.intensity = visible ? 1.3f : 0.05f;
-        // Place the point light at the modeled indicator, then lift it slightly
-        // above and outward from the surface so the glow is visible beside the
-        // modeled LED rather than appearing buried inside it.
-        light.transform.position = renderer.bounds.center +
-            part.transform.up * 0.06f + part.transform.forward * 0.06f;
+        // Place it at the LED mesh center, then lift it slightly above and
+        // outward from the surface. This local position follows the mesh.
+        var worldOffset = part.transform.up * 0.06f + part.transform.forward * 0.06f;
+        glowTransform.localPosition = renderer.transform.InverseTransformPoint(renderer.bounds.center + worldOffset);
         return true;
     }
 
