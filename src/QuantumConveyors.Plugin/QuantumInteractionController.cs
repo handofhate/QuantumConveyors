@@ -99,6 +99,8 @@ public sealed class QuantumInteractionController : MonoBehaviour
                 QuantumNetwork.Diagnostic($"Interaction host sees {lastViewCount} endpoint view(s)");
             }
 
+            QuantumCoordinateGizmo.Ensure(endpointViews);
+
             target = FindTarget(camera, endpointViews);
             if (!target.HasValue || !InteractPressed()) return;
 
@@ -687,5 +689,78 @@ public sealed class QuantumInteractionController : MonoBehaviour
         }
 
         return null;
+    }
+}
+
+/// <summary>
+/// Temporary local coordinate ruler for positioning the imported gateway.
+/// Each long axis is one game unit and each short tick is 0.1 unit.
+/// </summary>
+internal sealed class QuantumCoordinateGizmo : MonoBehaviour
+{
+    private static Material material;
+    private bool built;
+
+    public static void Ensure(IReadOnlyList<QuantumEndpointView> endpoints)
+    {
+        foreach (var endpoint in endpoints)
+        {
+            if (endpoint.View == null) continue;
+            var existing = endpoint.View.GetComponentInChildren<QuantumCoordinateGizmo>(true);
+            if (existing != null) continue;
+
+            var gizmoObject = new GameObject("Quantum Coordinates (TEMP)");
+            gizmoObject.transform.SetParent(endpoint.View.transform, false);
+            gizmoObject.AddComponent<QuantumCoordinateGizmo>();
+        }
+    }
+
+    public void Start()
+    {
+        if (built) return;
+        built = true;
+        CreateAxis("X axis", Vector3.right, Color.red);
+        CreateAxis("Y axis", Vector3.up, Color.green);
+        CreateAxis("Z axis", Vector3.forward, Color.blue);
+    }
+
+    private void CreateAxis(string axisName, Vector3 direction, Color color)
+    {
+        CreateLine(axisName, Vector3.zero, direction, color, 0.018f);
+        var tickDirection = Vector3.Cross(direction, Vector3.up);
+        if (tickDirection.sqrMagnitude < 0.01f) tickDirection = Vector3.right;
+        tickDirection.Normalize();
+
+        for (var index = 1; index <= 10; index++)
+        {
+            var distance = index / 10f;
+            var halfTick = index == 10 ? 0.07f : 0.04f;
+            CreateLine($"{axisName} {distance:0.0}", direction * distance - tickDirection * halfTick,
+                direction * distance + tickDirection * halfTick, color, 0.012f);
+        }
+    }
+
+    private void CreateLine(string lineName, Vector3 start, Vector3 end, Color color, float width)
+    {
+        var lineObject = new GameObject(lineName);
+        lineObject.transform.SetParent(transform, false);
+        var line = lineObject.AddComponent<LineRenderer>();
+        line.useWorldSpace = false;
+        line.positionCount = 2;
+        line.SetPosition(0, start);
+        line.SetPosition(1, end);
+        line.startWidth = width;
+        line.endWidth = width;
+        line.startColor = color;
+        line.endColor = color;
+        line.material = GizmoMaterial();
+    }
+
+    private static Material GizmoMaterial()
+    {
+        if (material != null) return material;
+        var shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color");
+        material = new Material(shader) { color = Color.white };
+        return material;
     }
 }
