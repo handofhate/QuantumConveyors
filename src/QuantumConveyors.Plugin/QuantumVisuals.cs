@@ -63,7 +63,10 @@ internal static class QuantumVisuals
         light.intensity = visible ? 1.3f : 0.05f;
         // Place it at the LED mesh center, then lift it slightly above and
         // outward from the surface. This local position follows the mesh.
-        var worldOffset = part.transform.up * 0.06f + part.transform.forward * 0.06f;
+        // The modeled indicator is near the lower portion of this imported
+        // gateway. Keep the added glow visibly near the top using world Y;
+        // Z is the adapter's front/back direction, not vertical.
+        var worldOffset = Vector3.up * 1.70f + part.transform.forward * 0.06f;
         glowTransform.localPosition = renderer.transform.InverseTransformPoint(renderer.bounds.center + worldOffset);
         return true;
     }
