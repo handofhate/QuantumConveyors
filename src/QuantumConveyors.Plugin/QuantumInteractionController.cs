@@ -844,7 +844,7 @@ internal static class QuantumGatewayPhysics
 
         solidTransform.localPosition = Vector3.zero;
         solidTransform.localRotation = Quaternion.identity;
-        solidTransform.gameObject.layer = view.layer;
+        solidTransform.gameObject.layer = 0;
         var solidCollider = solidTransform.GetComponent<BoxCollider>() ?? solidTransform.gameObject.AddComponent<BoxCollider>();
         solidCollider.center = bounds.center;
         solidCollider.size = bounds.size + Vector3.one * 0.24f;
