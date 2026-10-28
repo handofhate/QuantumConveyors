@@ -6,6 +6,7 @@ using MoonFramework;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.InputSystem;
+using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
@@ -657,8 +658,8 @@ public sealed class QuantumInteractionController : MonoBehaviour
             maxY = Mathf.Max(maxY, guiY);
         }
 
-        radiusX = float.IsInfinity(minX) ? 180f : Mathf.Max(180f, (maxX - minX) * 0.5f + 32f);
-        radiusY = float.IsInfinity(minY) ? 120f : Mathf.Max(120f, (maxY - minY) * 0.5f + 32f);
+        radiusX = (float.IsInfinity(minX) ? 180f : Mathf.Max(180f, (maxX - minX) * 0.5f + 32f)) * 1.25f;
+        radiusY = (float.IsInfinity(minY) ? 120f : Mathf.Max(120f, (maxY - minY) * 0.5f + 32f)) * 1.25f;
     }
 
     private static bool HasClearLineOfSight(Camera camera, Vector3 target, float distance,
@@ -734,7 +735,7 @@ internal sealed class QuantumCoordinateGizmo : MonoBehaviour
         var camera = Camera.main;
         if (camera == null) return;
         foreach (var label in labels)
-            if (label != null) label.rotation = camera.transform.rotation;
+            if (label != null) label.rotation = Quaternion.LookRotation(-camera.transform.forward, camera.transform.up);
     }
 
     private void CreateAxis(string axisName, Vector3 direction, Color color)
@@ -762,8 +763,15 @@ internal sealed class QuantumCoordinateGizmo : MonoBehaviour
             -direction * arrowBack + tickDirection * 0.12f, color, 0.018f);
         CreateLine($"{axisName} negative arrow B", -direction * AxisExtent,
             -direction * arrowBack - tickDirection * 0.12f, color, 0.018f);
-        CreateLabel($"+{axisName[0]}", direction * (AxisExtent + 0.16f), color);
-        CreateLabel($"-{axisName[0]}", -direction * (AxisExtent + 0.16f), color);
+        try
+        {
+            CreateLabel($"+{axisName[0]}", direction * (AxisExtent + 0.16f), color);
+            CreateLabel($"-{axisName[0]}", -direction * (AxisExtent + 0.16f), color);
+        }
+        catch (Exception exception)
+        {
+            QuantumNetwork.DiagnosticThrottled("coordinate-labels", $"Coordinate labels unavailable: {exception.GetType().Name}", 5f);
+        }
     }
 
     private void CreateLabel(string text, Vector3 position, Color color)
@@ -792,6 +800,8 @@ internal sealed class QuantumCoordinateGizmo : MonoBehaviour
         line.SetPosition(1, end);
         line.startWidth = width;
         line.endWidth = width;
+        line.alignment = LineAlignment.View;
+        line.numCapVertices = 4;
         line.startColor = color;
         line.endColor = color;
         line.material = GizmoMaterial();
@@ -802,6 +812,8 @@ internal sealed class QuantumCoordinateGizmo : MonoBehaviour
         if (material != null) return material;
         var shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color");
         material = new Material(shader) { color = Color.white };
+        if (material.HasProperty("_ZTest"))
+            material.SetInt("_ZTest", (int)CompareFunction.Always);
         return material;
     }
 }
@@ -824,10 +836,24 @@ internal static class QuantumGatewayPhysics
         // Parent the blocker to the rendered body so it inherits the exact
         // model offset and rotation rather than duplicating ModelSpec offsets.
         blockerTransform.SetParent(bodyRenderer.transform, false);
-        var collider = blockerTransform.GetComponent<BoxCollider>() ?? blockerTransform.gameObject.AddComponent<BoxCollider>();
-        collider.center = bodyRenderer.localBounds.center + Vector3.up * 0.04f;
-        collider.size = bodyRenderer.localBounds.size + Vector3.one * 0.08f;
-        collider.isTrigger = false;
+        var oldCollider = blockerTransform.GetComponent<BoxCollider>();
+        if (oldCollider != null) oldCollider.enabled = false;
+
+        var bounds = bodyRenderer.localBounds;
+        var mouthTransform = bodyRenderer.transform.Find("QuantumGatewayMouthBlocker");
+        if (mouthTransform == null)
+        {
+            var mouthObject = new GameObject("QuantumGatewayMouthBlocker");
+            mouthTransform = mouthObject.transform;
+            mouthTransform.SetParent(bodyRenderer.transform, false);
+        }
+
+        var mouthCollider = mouthTransform.GetComponent<BoxCollider>() ?? mouthTransform.gameObject.AddComponent<BoxCollider>();
+        mouthTransform.localPosition = new Vector3(bounds.center.x, bounds.center.y, bounds.max.z + 0.06f);
+        mouthTransform.localRotation = Quaternion.identity;
+        mouthCollider.center = Vector3.zero;
+        mouthCollider.size = new Vector3(bounds.size.x + 0.08f, bounds.size.y + 0.08f, 0.14f);
+        mouthCollider.isTrigger = false;
     }
 
     private static Renderer FindGatewayBodyRenderer(GameObject view)
