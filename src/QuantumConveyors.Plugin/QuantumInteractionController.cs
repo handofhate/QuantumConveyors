@@ -698,8 +698,11 @@ public sealed class QuantumInteractionController : MonoBehaviour
 /// </summary>
 internal sealed class QuantumCoordinateGizmo : MonoBehaviour
 {
+    private const float AxisExtent = 3f;
+    private const float TickSpacing = 0.1f;
     private static Material material;
     private bool built;
+    private readonly List<Transform> labels = new();
 
     public static void Ensure(IReadOnlyList<QuantumEndpointView> endpoints)
     {
@@ -724,20 +727,56 @@ internal sealed class QuantumCoordinateGizmo : MonoBehaviour
         CreateAxis("Z axis", Vector3.forward, Color.blue);
     }
 
+    public void LateUpdate()
+    {
+        var camera = Camera.main;
+        if (camera == null) return;
+        foreach (var label in labels)
+            if (label != null) label.rotation = camera.transform.rotation;
+    }
+
     private void CreateAxis(string axisName, Vector3 direction, Color color)
     {
-        CreateLine(axisName, Vector3.zero, direction, color, 0.018f);
+        CreateLine(axisName, -direction * AxisExtent, direction * AxisExtent, color, 0.018f);
         var tickDirection = Vector3.Cross(direction, Vector3.up);
         if (tickDirection.sqrMagnitude < 0.01f) tickDirection = Vector3.right;
         tickDirection.Normalize();
 
-        for (var index = 1; index <= 10; index++)
+        for (var index = -30; index <= 30; index++)
         {
-            var distance = index / 10f;
-            var halfTick = index == 10 ? 0.07f : 0.04f;
+            if (index == 0) continue;
+            var distance = index * TickSpacing;
+            var halfTick = index % 10 == 0 ? 0.07f : 0.04f;
             CreateLine($"{axisName} {distance:0.0}", direction * distance - tickDirection * halfTick,
                 direction * distance + tickDirection * halfTick, color, 0.012f);
         }
+
+        var arrowBack = AxisExtent - 0.22f;
+        CreateLine($"{axisName} positive arrow A", direction * AxisExtent,
+            direction * arrowBack + tickDirection * 0.12f, color, 0.018f);
+        CreateLine($"{axisName} positive arrow B", direction * AxisExtent,
+            direction * arrowBack - tickDirection * 0.12f, color, 0.018f);
+        CreateLine($"{axisName} negative arrow A", -direction * AxisExtent,
+            -direction * arrowBack + tickDirection * 0.12f, color, 0.018f);
+        CreateLine($"{axisName} negative arrow B", -direction * AxisExtent,
+            -direction * arrowBack - tickDirection * 0.12f, color, 0.018f);
+        CreateLabel($"+{axisName[0]}", direction * (AxisExtent + 0.16f), color);
+        CreateLabel($"-{axisName[0]}", -direction * (AxisExtent + 0.16f), color);
+    }
+
+    private void CreateLabel(string text, Vector3 position, Color color)
+    {
+        var labelObject = new GameObject($"Coordinate {text}");
+        labelObject.transform.SetParent(transform, false);
+        labelObject.transform.localPosition = position;
+        var label = labelObject.AddComponent<TextMesh>();
+        label.text = text;
+        label.anchor = TextAnchor.MiddleCenter;
+        label.alignment = TextAlignment.Center;
+        label.characterSize = 0.08f;
+        label.fontSize = 32;
+        label.color = color;
+        labels.Add(labelObject.transform);
     }
 
     private void CreateLine(string lineName, Vector3 start, Vector3 end, Color color, float width)
