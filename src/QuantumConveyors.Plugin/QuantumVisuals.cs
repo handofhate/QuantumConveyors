@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace QuantumConveyors;
 
@@ -62,6 +63,11 @@ internal static class QuantumVisuals
         light.color = color;
         light.range = 1.25f;
         light.intensity = visible ? 1.5f : 0.05f;
+        light.shadows = LightShadows.Hard;
+        light.shadowStrength = 1f;
+        light.shadowBias = 0.005f;
+        light.shadowNormalBias = 0.01f;
+        light.shadowNearPlane = 0.02f;
         // Keep the added glow at the modeled LED mesh itself. The physical
         // Indicator mesh is the source of truth; do not move that mesh.
         var indicatorCenter = renderer.bounds.center;
@@ -105,8 +111,8 @@ internal static class QuantumVisuals
 
     private static Shader HaloShader()
     {
-        return Shader.Find("Particles/Standard Unlit") ??
-            Shader.Find("Legacy Shaders/Particles/Alpha Blended") ??
+        return Shader.Find("Legacy Shaders/Particles/Alpha Blended") ??
+            Shader.Find("Particles/Standard Unlit") ??
             Shader.Find("Unlit/Transparent") ??
             Shader.Find("Unlit/Color");
     }
