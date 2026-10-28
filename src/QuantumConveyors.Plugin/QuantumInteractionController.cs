@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Il2CppInterop.Runtime;
 using MoonCleaners;
 using MoonFramework;
@@ -29,6 +30,7 @@ public sealed class QuantumInteractionController : MonoBehaviour
     private bool previousWalkerEnabled;
     private UnityEngine.InputSystem.InputActionAsset playerInputAsset;
     private bool previousPlayerInputEnabled;
+    private readonly List<UnityEngine.InputSystem.InputActionAsset> fallbackInputAssets = new();
     private CursorLockMode previousCursorLock;
     private bool previousCursorVisible;
     private GraphicRaycaster menuRaycaster;
@@ -314,7 +316,11 @@ public sealed class QuantumInteractionController : MonoBehaviour
             found.UIBlocked = true;
             found.enabled = false;
         }
-        else QuantumNetwork.Diagnostic("Player controller was not found from the active camera");
+        else
+        {
+            QuantumNetwork.Diagnostic("Player controller was not found from the active camera; disabling live input assets as fallback");
+            DisableFallbackInputAssets();
+        }
 
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
@@ -332,6 +338,11 @@ public sealed class QuantumInteractionController : MonoBehaviour
             }
             if (playerInputAsset != null && previousPlayerInputEnabled) playerInputAsset.Enable();
             playerInputAsset = null;
+            foreach (var asset in fallbackInputAssets)
+            {
+                if (asset != null) asset.Enable();
+            }
+            fallbackInputAssets.Clear();
         }
         catch (Exception exception)
         {
@@ -403,6 +414,29 @@ public sealed class QuantumInteractionController : MonoBehaviour
         }
 
         return walker;
+    }
+
+    private void DisableFallbackInputAssets()
+    {
+        var disabledNames = new List<string>();
+        var assets = Resources.FindObjectsOfTypeAll(Il2CppType.Of<UnityEngine.InputSystem.InputActionAsset>());
+        foreach (var item in assets)
+        {
+            var asset = item as UnityEngine.InputSystem.InputActionAsset;
+            if (asset == null || !asset.enabled || IsUiInputAsset(asset)) continue;
+            asset.Disable();
+            fallbackInputAssets.Add(asset);
+            disabledNames.Add(asset.name);
+        }
+
+        QuantumNetwork.Diagnostic($"Fallback input freeze disabled {fallbackInputAssets.Count} asset(s): {string.Join(", ", disabledNames)}");
+    }
+
+    private static bool IsUiInputAsset(UnityEngine.InputSystem.InputActionAsset asset)
+    {
+        var name = asset.name ?? string.Empty;
+        return name.IndexOf("ui", StringComparison.OrdinalIgnoreCase) >= 0 ||
+            name.IndexOf("menu", StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
     private static RectTransform MakeRect(string name, Transform parent, Vector2 size, Vector2 position, Color? background)
