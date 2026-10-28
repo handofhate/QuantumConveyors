@@ -100,6 +100,8 @@ public sealed class QuantumInteractionController : MonoBehaviour
             }
 
             QuantumCoordinateGizmo.Ensure(endpointViews);
+            foreach (var endpoint in endpointViews)
+                QuantumGatewayPhysics.Ensure(endpoint.View, endpoint.IsOutput);
 
             target = FindTarget(camera, endpointViews);
             if (!target.HasValue || !InteractPressed()) return;
@@ -604,7 +606,7 @@ public sealed class QuantumInteractionController : MonoBehaviour
             var worldPoint = bounds.center;
             var toTarget = worldPoint - camera.transform.position;
             var distance = toTarget.magnitude;
-            if (distance > 8f || distance < 0.01f) continue;
+            if (distance > 12f || distance < 0.01f) continue;
 
             var screenPoint = camera.WorldToScreenPoint(worldPoint);
             if (screenPoint.z <= 0f) continue;
@@ -655,8 +657,8 @@ public sealed class QuantumInteractionController : MonoBehaviour
             maxY = Mathf.Max(maxY, guiY);
         }
 
-        radiusX = float.IsInfinity(minX) ? 140f : Mathf.Max(140f, (maxX - minX) * 0.5f + 24f);
-        radiusY = float.IsInfinity(minY) ? 80f : Mathf.Max(80f, (maxY - minY) * 0.5f + 24f);
+        radiusX = float.IsInfinity(minX) ? 180f : Mathf.Max(180f, (maxX - minX) * 0.5f + 32f);
+        radiusY = float.IsInfinity(minY) ? 120f : Mathf.Max(120f, (maxY - minY) * 0.5f + 32f);
     }
 
     private static bool HasClearLineOfSight(Camera camera, Vector3 target, float distance,
@@ -823,8 +825,8 @@ internal static class QuantumGatewayPhysics
         // model offset and rotation rather than duplicating ModelSpec offsets.
         blockerTransform.SetParent(bodyRenderer.transform, false);
         var collider = blockerTransform.GetComponent<BoxCollider>() ?? blockerTransform.gameObject.AddComponent<BoxCollider>();
-        collider.center = bodyRenderer.localBounds.center;
-        collider.size = bodyRenderer.localBounds.size * 1.02f;
+        collider.center = bodyRenderer.localBounds.center + Vector3.up * 0.04f;
+        collider.size = bodyRenderer.localBounds.size + Vector3.one * 0.08f;
         collider.isTrigger = false;
     }
 
