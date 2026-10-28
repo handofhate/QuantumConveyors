@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.Rendering;
 
 namespace QuantumConveyors;
 
@@ -19,6 +18,7 @@ internal static class QuantumVisuals
     private static readonly Color Yellow = new(1f, 0.78f, 0.04f, 1f);
     private static readonly Color Green = new(0.08f, 1f, 0.18f, 1f);
     private static Texture2D haloTexture;
+    private static Sprite haloSprite;
 
     public static bool TrySetIndicator(GameObject part, QuantumIndicatorState state)
     {
@@ -83,15 +83,19 @@ internal static class QuantumVisuals
         glowTransform.rotation = Quaternion.LookRotation(outward);
 
         var haloTransform = renderer.transform.Find("QuantumIndicatorHalo");
-        if (haloTransform == null)
+        var haloSpriteRenderer = haloTransform == null ? null : haloTransform.GetComponent<SpriteRenderer>();
+        if (haloSpriteRenderer == null)
         {
-            var haloObject = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            if (haloTransform != null)
+                UnityEngine.Object.Destroy(haloTransform.gameObject);
+
+            var haloObject = new GameObject("QuantumIndicatorHalo");
             haloObject.name = "QuantumIndicatorHalo";
             haloTransform = haloObject.transform;
             haloTransform.SetParent(renderer.transform, false);
-            var haloCollider = haloObject.GetComponent<Collider>();
-            if (haloCollider != null) UnityEngine.Object.Destroy(haloCollider);
             haloTransform.localScale = Vector3.one * 0.52f;
+            haloSpriteRenderer = haloObject.AddComponent<SpriteRenderer>();
+            haloSpriteRenderer.sprite = HaloSprite();
         }
 
         haloTransform.localPosition = renderer.transform.InverseTransformPoint(indicatorCenter);
@@ -99,31 +103,9 @@ internal static class QuantumVisuals
         if (camera != null)
             haloTransform.rotation = Quaternion.LookRotation(haloTransform.position - camera.transform.position);
 
-        var haloRenderer = haloTransform.GetComponent<Renderer>();
-        if (haloRenderer != null)
-        {
-            var haloMaterial = haloRenderer.material;
-            // Reuse the imported LED's known-good shader. Moon Sweepers strips
-            // some built-in shaders, and a missing shader renders the quad magenta.
-            if (material.shader != null)
-                haloMaterial.shader = material.shader;
-            haloMaterial.mainTexture = HaloTexture();
-            var haloColor = new Color(color.r, color.g, color.b, visible ? 0.42f : 0.015f);
-            haloMaterial.color = haloColor;
-            haloMaterial.SetColor("_Color", haloColor);
-            haloMaterial.SetColor("_BaseColor", haloColor);
-            haloMaterial.EnableKeyword("_EMISSION");
-            haloMaterial.SetColor("_EmissionColor", new Color(color.r, color.g, color.b, 1f) * (visible ? 2.5f : 0.02f));
-            if (haloMaterial.HasProperty("_ZWrite")) haloMaterial.SetInt("_ZWrite", 0);
-            if (haloMaterial.HasProperty("_Cull")) haloMaterial.SetInt("_Cull", 0);
-            if (haloMaterial.HasProperty("_SrcBlend")) haloMaterial.SetInt("_SrcBlend", (int)BlendMode.SrcAlpha);
-            if (haloMaterial.HasProperty("_DstBlend")) haloMaterial.SetInt("_DstBlend", (int)BlendMode.OneMinusSrcAlpha);
-            if (haloMaterial.HasProperty("_Mode")) haloMaterial.SetFloat("_Mode", 3f);
-            haloMaterial.EnableKeyword("_ALPHABLEND_ON");
-            haloMaterial.DisableKeyword("_ALPHATEST_ON");
-            haloMaterial.DisableKeyword("_ALPHAPREMULTIPLY_ON");
-            haloMaterial.renderQueue = 3000;
-        }
+        var haloColor = new Color(color.r, color.g, color.b, visible ? 0.42f : 0.015f);
+        haloSpriteRenderer.sprite = HaloSprite();
+        haloSpriteRenderer.color = haloColor;
         return true;
     }
 
@@ -164,8 +146,18 @@ internal static class QuantumVisuals
         }
 
         haloTexture.SetPixels(pixels);
-        haloTexture.Apply(false, true);
+        haloTexture.Apply(false, false);
         return haloTexture;
+    }
+
+    private static Sprite HaloSprite()
+    {
+        if (haloSprite != null) return haloSprite;
+        var texture = HaloTexture();
+        haloSprite = Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height),
+            new Vector2(0.5f, 0.5f), texture.width);
+        haloSprite.name = "QuantumIndicatorHaloSprite";
+        return haloSprite;
     }
 
     private static Renderer FindIndicatorRenderer(GameObject part)
