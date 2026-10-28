@@ -59,10 +59,19 @@ internal static class QuantumVisuals
             UnityEngine.Object.Destroy(oldDirectLight);
 
         var light = glowTransform.GetComponent<Light>() ?? glowTransform.gameObject.AddComponent<Light>();
-        light.type = LightType.Point;
+        var indicatorCenter = renderer.bounds.center;
+        var bodyRenderer = FindGatewayBodyRenderer(renderer);
+        var outward = bodyRenderer == null
+            ? renderer.transform.forward
+            : (indicatorCenter - bodyRenderer.bounds.center).normalized;
+        if (outward.sqrMagnitude < 0.001f) outward = renderer.transform.forward;
+
+        light.type = LightType.Spot;
         light.color = color;
         light.range = 1.25f;
         light.intensity = visible ? 1.5f : 0.05f;
+        light.spotAngle = 95f;
+        light.innerSpotAngle = 35f;
         light.shadows = LightShadows.Hard;
         light.shadowStrength = 1f;
         light.shadowBias = 0.005f;
@@ -70,8 +79,8 @@ internal static class QuantumVisuals
         light.shadowNearPlane = 0.02f;
         // Keep the added glow at the modeled LED mesh itself. The physical
         // Indicator mesh is the source of truth; do not move that mesh.
-        var indicatorCenter = renderer.bounds.center;
         glowTransform.localPosition = renderer.transform.InverseTransformPoint(indicatorCenter);
+        glowTransform.rotation = Quaternion.LookRotation(outward);
 
         var haloTransform = renderer.transform.Find("QuantumIndicatorHalo");
         if (haloTransform == null)
@@ -104,6 +113,12 @@ internal static class QuantumVisuals
             haloMaterial.SetColor("_EmissionColor", new Color(color.r, color.g, color.b, 1f) * (visible ? 2.5f : 0.02f));
             if (haloMaterial.HasProperty("_ZWrite")) haloMaterial.SetInt("_ZWrite", 0);
             if (haloMaterial.HasProperty("_Cull")) haloMaterial.SetInt("_Cull", 0);
+            if (haloMaterial.HasProperty("_SrcBlend")) haloMaterial.SetInt("_SrcBlend", (int)BlendMode.SrcAlpha);
+            if (haloMaterial.HasProperty("_DstBlend")) haloMaterial.SetInt("_DstBlend", (int)BlendMode.OneMinusSrcAlpha);
+            if (haloMaterial.HasProperty("_Mode")) haloMaterial.SetFloat("_Mode", 3f);
+            haloMaterial.EnableKeyword("_ALPHABLEND_ON");
+            haloMaterial.DisableKeyword("_ALPHATEST_ON");
+            haloMaterial.DisableKeyword("_ALPHAPREMULTIPLY_ON");
             haloMaterial.renderQueue = 3000;
         }
         return true;
@@ -111,10 +126,18 @@ internal static class QuantumVisuals
 
     private static Shader HaloShader()
     {
-        return Shader.Find("Legacy Shaders/Particles/Alpha Blended") ??
-            Shader.Find("Particles/Standard Unlit") ??
-            Shader.Find("Unlit/Transparent") ??
-            Shader.Find("Unlit/Color");
+        return Shader.Find("Standard") ?? Shader.Find("Unlit/Transparent");
+    }
+
+    private static Renderer FindGatewayBodyRenderer(Renderer indicator)
+    {
+        var root = indicator.transform.root;
+        foreach (var renderer in root.GetComponentsInChildren<Renderer>(true))
+        {
+            if (renderer.gameObject.name == "GatewayBody") return renderer;
+        }
+
+        return null;
     }
 
     private static Texture2D HaloTexture()
