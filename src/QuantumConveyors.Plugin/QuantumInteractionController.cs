@@ -380,6 +380,25 @@ public sealed class QuantumInteractionController : MonoBehaviour
             if (walker != null) return walker;
         }
 
+        // Preview 1.0.5 can leave the player outside the camera hierarchy and
+        // outside the scene-root walk. Try Unity's global component search as a
+        // final direct lookup before falling back to input suppression.
+        try
+        {
+            var globalWalkers = UnityEngine.Object.FindObjectsOfType<MoonWalker>(true);
+            foreach (var candidate in globalWalkers)
+            {
+                if (candidate == null) continue;
+                walker = candidate;
+                QuantumNetwork.Diagnostic($"Player controller found by global search: {walker.gameObject.name}");
+                return walker;
+            }
+        }
+        catch (Exception exception)
+        {
+            QuantumNetwork.Diagnostic($"Global player search failed: {exception.GetType().Name}: {exception.Message}");
+        }
+
         // Moon Sweepers' camera is not always parented under the player.  Walk
         // the active scene roots instead of Unity's global FindObjectOfType,
         // whose IL2CPP bridge is unavailable in Preview 1.0.5.
@@ -427,6 +446,22 @@ public sealed class QuantumInteractionController : MonoBehaviour
             asset.Disable();
             fallbackInputAssets.Add(asset);
             disabledNames.Add(asset.name);
+        }
+
+        try
+        {
+            var globalAssets = UnityEngine.Object.FindObjectsOfType<UnityEngine.InputSystem.InputActionAsset>(true);
+            foreach (var asset in globalAssets)
+            {
+                if (asset == null || !asset.enabled || IsUiInputAsset(asset) || fallbackInputAssets.Contains(asset)) continue;
+                asset.Disable();
+                fallbackInputAssets.Add(asset);
+                disabledNames.Add(asset.name);
+            }
+        }
+        catch (Exception exception)
+        {
+            QuantumNetwork.Diagnostic($"Global input asset search failed: {exception.GetType().Name}: {exception.Message}");
         }
 
         QuantumNetwork.Diagnostic($"Fallback input freeze disabled {fallbackInputAssets.Count} asset(s): {string.Join(", ", disabledNames)}");
