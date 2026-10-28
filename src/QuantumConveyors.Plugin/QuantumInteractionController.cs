@@ -6,7 +6,6 @@ using MoonFramework;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.InputSystem;
-using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
@@ -67,7 +66,12 @@ public sealed class QuantumInteractionController : MonoBehaviour
             if (menuCanvas != null)
             {
                 KeepCursorForMenu();
-                if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame) CloseMenu();
+                if (Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame)
+                    CloseMenu();
+                else if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
+                    CloseMenu();
+                else if (Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame && !RenameFieldFocused())
+                    CloseMenu();
                 else
                 {
                     HandleMenuClick();
@@ -100,8 +104,6 @@ public sealed class QuantumInteractionController : MonoBehaviour
                 QuantumNetwork.Diagnostic($"Interaction host sees {lastViewCount} endpoint view(s)");
             }
 
-            QuantumCoordinateGizmo.Ensure(endpointViews);
-
             target = FindTarget(camera, endpointViews);
             if (!target.HasValue || !InteractPressed()) return;
 
@@ -121,6 +123,14 @@ public sealed class QuantumInteractionController : MonoBehaviour
     private static bool InteractPressed()
     {
         return Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame;
+    }
+
+    private static bool RenameFieldFocused()
+    {
+        var eventSystem = UnityEngine.EventSystems.EventSystem.current;
+        var selected = eventSystem == null ? null : eventSystem.currentSelectedGameObject;
+        var field = selected == null ? null : selected.GetComponentInParent<InputField>();
+        return field != null && field.isFocused;
     }
 
     private static Camera ActiveCamera()
@@ -691,180 +701,4 @@ public sealed class QuantumInteractionController : MonoBehaviour
 
         return null;
     }
-}
-
-/// <summary>
-/// Temporary local coordinate ruler for positioning the imported gateway.
-/// Each long axis is one game unit and each short tick is 0.1 unit.
-/// </summary>
-internal sealed class QuantumCoordinateGizmo : MonoBehaviour
-{
-    private const float AxisExtent = 3f;
-    private static Material material;
-    private bool built;
-
-    public static void Ensure(IReadOnlyList<QuantumEndpointView> endpoints)
-    {
-        foreach (var endpoint in endpoints)
-        {
-            if (endpoint.View == null) continue;
-            var existing = endpoint.View.GetComponentInChildren<QuantumCoordinateGizmo>(true);
-            if (existing != null) continue;
-
-            var gizmoObject = new GameObject("Quantum Coordinates (TEMP)");
-            gizmoObject.transform.SetParent(endpoint.View.transform, false);
-            gizmoObject.AddComponent<QuantumCoordinateGizmo>();
-        }
-    }
-
-    public void Start()
-    {
-        if (built) return;
-        built = true;
-        CreateAxis("X axis", Vector3.right, Color.red);
-        CreateAxis("Y axis", Vector3.up, Color.green);
-        CreateAxis("Z axis", Vector3.forward, Color.blue);
-    }
-
-    private void CreateAxis(string axisName, Vector3 direction, Color color)
-    {
-        var tickDirection = Vector3.Cross(direction, Vector3.up);
-        if (tickDirection.sqrMagnitude < 0.01f) tickDirection = Vector3.right;
-        tickDirection.Normalize();
-        var vertices = new List<Vector3>();
-        var indices = new List<int>();
-        AddSegment(vertices, indices, -direction * AxisExtent, direction * AxisExtent);
-        for (var index = -30; index <= 30; index++)
-        {
-            if (index == 0) continue;
-            var distance = index * 0.1f;
-            var halfTick = index % 10 == 0 ? 0.07f : 0.04f;
-            AddSegment(vertices, indices, direction * distance - tickDirection * halfTick,
-                direction * distance + tickDirection * halfTick);
-        }
-
-        var arrowBack = AxisExtent - 0.22f;
-        AddSegment(vertices, indices, direction * AxisExtent, direction * arrowBack + tickDirection * 0.12f);
-        AddSegment(vertices, indices, direction * AxisExtent, direction * arrowBack - tickDirection * 0.12f);
-        AddSegment(vertices, indices, -direction * AxisExtent, -direction * arrowBack + tickDirection * 0.12f);
-        AddSegment(vertices, indices, -direction * AxisExtent, -direction * arrowBack - tickDirection * 0.12f);
-        CreateRulerMesh(axisName, vertices, indices, color);
-        // Positive ends use spheres; negative ends use cubes. The arrowheads
-        // point outward from the origin, so the sign remains unambiguous even
-        // when text labels are hidden by the model.
-        CreateMarker($"{axisName} positive", direction * AxisExtent, PrimitiveType.Sphere, color);
-        CreateMarker($"{axisName} negative", -direction * AxisExtent, PrimitiveType.Cube, color);
-    }
-
-    private static void AddSegment(List<Vector3> vertices, List<int> indices, Vector3 start, Vector3 end)
-    {
-        var index = vertices.Count;
-        vertices.Add(start);
-        vertices.Add(end);
-        indices.Add(index);
-        indices.Add(index + 1);
-    }
-
-    private void CreateRulerMesh(string axisName, List<Vector3> vertices, List<int> indices, Color color)
-    {
-        var axisObject = new GameObject($"{axisName} ruler");
-        axisObject.transform.SetParent(transform, false);
-        var mesh = new Mesh { name = $"{axisName} ruler mesh" };
-        mesh.vertices = vertices.ToArray();
-        mesh.SetIndices(indices.ToArray(), MeshTopology.Lines, 0);
-        mesh.RecalculateBounds();
-        axisObject.AddComponent<MeshFilter>().sharedMesh = mesh;
-        var renderer = axisObject.AddComponent<MeshRenderer>();
-        renderer.material = new Material(GizmoMaterial()) { color = color };
-    }
-
-    private void CreateMarker(string markerName, Vector3 position, PrimitiveType primitive, Color color)
-    {
-        var marker = GameObject.CreatePrimitive(primitive);
-        marker.name = markerName;
-        marker.transform.SetParent(transform, false);
-        marker.transform.localPosition = position;
-        marker.transform.localScale = Vector3.one * 0.10f;
-        var collider = marker.GetComponent<Collider>();
-        if (collider != null) UnityEngine.Object.Destroy(collider);
-        var renderer = marker.GetComponent<Renderer>();
-        if (renderer != null)
-        {
-            renderer.material = GizmoMaterial();
-            renderer.material.color = color;
-        }
-    }
-
-    private static Material GizmoMaterial()
-    {
-        if (material != null) return material;
-        var shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color");
-        material = new Material(shader) { color = Color.white };
-        if (material.HasProperty("_ZTest"))
-            material.SetInt("_ZTest", (int)CompareFunction.Always);
-        return material;
-    }
-}
-
-internal static class QuantumGatewayPhysics
-{
-    public static void Ensure(GameObject view, bool isOutput)
-    {
-        if (view == null) return;
-        var bodyRenderer = FindGatewayBodyRenderer(view);
-        if (bodyRenderer == null) return;
-
-        var bounds = bodyRenderer.localBounds;
-        DisableCollider(bodyRenderer.transform.Find("QuantumGatewayPlayerBlocker"));
-        DisableCollider(bodyRenderer.transform.Find("QuantumGatewayMouthBlocker"));
-        DisableCollider(bodyRenderer.transform.Find("QuantumGatewayTopBlocker"));
-
-        foreach (var faceName in new[]
-        {
-            "QuantumGatewayFaceFront", "QuantumGatewayFaceBack", "QuantumGatewayFaceLeft",
-            "QuantumGatewayFaceRight", "QuantumGatewayFaceTop", "QuantumGatewayFaceBottom",
-        })
-            DisableCollider(bodyRenderer.transform.Find(faceName));
-
-        var directCollider = bodyRenderer.GetComponent<BoxCollider>();
-        if (directCollider != null) directCollider.enabled = false;
-
-        // Put one solid, two-way collider on a dedicated child of the actual
-        // rendered body. This preserves the exact model transform and uses the
-        // building's collision layer instead of the stale adapter-root volume.
-        var solidTransform = bodyRenderer.transform.Find("QuantumGatewaySolidBlocker");
-        if (solidTransform == null)
-        {
-            var solidObject = new GameObject("QuantumGatewaySolidBlocker");
-            solidTransform = solidObject.transform;
-            solidTransform.SetParent(bodyRenderer.transform, false);
-        }
-
-        solidTransform.localPosition = Vector3.zero;
-        solidTransform.localRotation = Quaternion.identity;
-        solidTransform.gameObject.layer = 0;
-        var solidCollider = solidTransform.GetComponent<BoxCollider>() ?? solidTransform.gameObject.AddComponent<BoxCollider>();
-        solidCollider.center = bounds.center;
-        solidCollider.size = bounds.size + Vector3.one * 0.24f;
-        solidCollider.isTrigger = false;
-        solidCollider.enabled = true;
-    }
-
-    private static Renderer FindGatewayBodyRenderer(GameObject view)
-    {
-        foreach (var renderer in view.GetComponentsInChildren<Renderer>(true))
-        {
-            if (renderer.gameObject.name == "GatewayBody") return renderer;
-        }
-
-        return null;
-    }
-
-    private static void DisableCollider(Transform transform)
-    {
-        if (transform == null) return;
-        var collider = transform.GetComponent<BoxCollider>();
-        if (collider != null) collider.enabled = false;
-    }
-
 }

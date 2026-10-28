@@ -18,7 +18,6 @@ public sealed class Plugin : BasePlugin
     public override void Load()
     {
         ClassInjector.RegisterTypeInIl2Cpp<QuantumInteractionController>();
-        ClassInjector.RegisterTypeInIl2Cpp<QuantumCoordinateGizmo>();
         EnsureInteractionHost();
         Moon.WorldLoaded += _ => EnsureInteractionHost();
         Log.LogInfo($"{PluginName} {PluginVersion} loaded.");
