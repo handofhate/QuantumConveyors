@@ -21,7 +21,7 @@ internal static class QuantumVisuals
     public static bool TrySetIndicator(GameObject part, QuantumIndicatorState state)
     {
         if (part == null) return false;
-        var renderer = part.GetComponent<Renderer>();
+        var renderer = FindIndicatorRenderer(part);
         if (renderer == null) return false;
 
         var flashing = state is QuantumIndicatorState.ConveyorMissing or
@@ -52,6 +52,21 @@ internal static class QuantumVisuals
         light.transform.position = renderer.bounds.center +
             part.transform.up * 0.06f + part.transform.forward * 0.06f;
         return true;
+    }
+
+    private static Renderer FindIndicatorRenderer(GameObject part)
+    {
+        var ownRenderer = part.GetComponent<Renderer>();
+        if (string.Equals(part.name, "Indicator", System.StringComparison.OrdinalIgnoreCase) && ownRenderer != null)
+            return ownRenderer;
+
+        foreach (var childRenderer in part.GetComponentsInChildren<Renderer>(true))
+        {
+            if (string.Equals(childRenderer.gameObject.name, "Indicator", System.StringComparison.OrdinalIgnoreCase))
+                return childRenderer;
+        }
+
+        return ownRenderer;
     }
 
 }
