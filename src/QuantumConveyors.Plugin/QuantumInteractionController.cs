@@ -101,8 +101,6 @@ public sealed class QuantumInteractionController : MonoBehaviour
             }
 
             QuantumCoordinateGizmo.Ensure(endpointViews);
-            foreach (var endpoint in endpointViews)
-                QuantumGatewayPhysics.Ensure(endpoint.View, endpoint.IsOutput);
 
             target = FindTarget(camera, endpointViews);
             if (!target.HasValue || !InteractPressed()) return;

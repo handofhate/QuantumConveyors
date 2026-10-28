@@ -65,6 +65,30 @@ internal static class QuantumVisuals
         // Indicator mesh is the source of truth; do not move that mesh.
         var indicatorCenter = renderer.bounds.center;
         glowTransform.localPosition = renderer.transform.InverseTransformPoint(indicatorCenter);
+
+        var haloTransform = renderer.transform.Find("QuantumIndicatorHalo");
+        if (haloTransform == null)
+        {
+            var haloObject = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            haloObject.name = "QuantumIndicatorHalo";
+            haloTransform = haloObject.transform;
+            haloTransform.SetParent(renderer.transform, false);
+            var haloCollider = haloObject.GetComponent<Collider>();
+            if (haloCollider != null) UnityEngine.Object.Destroy(haloCollider);
+            haloTransform.localScale = Vector3.one * 0.16f;
+        }
+
+        haloTransform.localPosition = renderer.transform.InverseTransformPoint(indicatorCenter);
+        var haloRenderer = haloTransform.GetComponent<Renderer>();
+        if (haloRenderer != null)
+        {
+            var haloMaterial = haloRenderer.material;
+            haloMaterial.color = displayColor;
+            haloMaterial.SetColor("_Color", displayColor);
+            haloMaterial.SetColor("_BaseColor", displayColor);
+            haloMaterial.EnableKeyword("_EMISSION");
+            haloMaterial.SetColor("_EmissionColor", displayColor * (visible ? 3.5f : 0.05f));
+        }
         return true;
     }
 
