@@ -854,6 +854,21 @@ internal static class QuantumGatewayPhysics
         mouthCollider.center = Vector3.zero;
         mouthCollider.size = new Vector3(bounds.size.x + 0.08f, bounds.size.y + 0.08f, 0.14f);
         mouthCollider.isTrigger = false;
+
+        var topTransform = bodyRenderer.transform.Find("QuantumGatewayTopBlocker");
+        if (topTransform == null)
+        {
+            var topObject = new GameObject("QuantumGatewayTopBlocker");
+            topTransform = topObject.transform;
+            topTransform.SetParent(bodyRenderer.transform, false);
+        }
+
+        var topCollider = topTransform.GetComponent<BoxCollider>() ?? topTransform.gameObject.AddComponent<BoxCollider>();
+        topTransform.localPosition = new Vector3(bounds.center.x, bounds.max.y + 0.06f, bounds.center.z);
+        topTransform.localRotation = Quaternion.identity;
+        topCollider.center = Vector3.zero;
+        topCollider.size = new Vector3(bounds.size.x + 0.08f, 0.14f, bounds.size.z + 0.08f);
+        topCollider.isTrigger = false;
     }
 
     private static Renderer FindGatewayBodyRenderer(GameObject view)
