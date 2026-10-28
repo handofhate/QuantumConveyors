@@ -12,7 +12,7 @@ public sealed class Plugin : BasePlugin
 {
     public const string PluginGuid = "tylerun.moonsweepers.quantumconveyors";
     public const string PluginName = "Quantum Conveyors";
-    public const string PluginVersion = "0.1.0-dev";
+    public const string PluginVersion = "1.1.0";
     private static GameObject interactionHost;
 
     public override void Load()
