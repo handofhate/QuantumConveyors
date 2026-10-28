@@ -103,7 +103,10 @@ internal static class QuantumVisuals
         if (haloRenderer != null)
         {
             var haloMaterial = haloRenderer.material;
-            haloMaterial.shader = HaloShader();
+            // Reuse the imported LED's known-good shader. Moon Sweepers strips
+            // some built-in shaders, and a missing shader renders the quad magenta.
+            if (material.shader != null)
+                haloMaterial.shader = material.shader;
             haloMaterial.mainTexture = HaloTexture();
             var haloColor = new Color(color.r, color.g, color.b, visible ? 0.42f : 0.015f);
             haloMaterial.color = haloColor;
@@ -122,11 +125,6 @@ internal static class QuantumVisuals
             haloMaterial.renderQueue = 3000;
         }
         return true;
-    }
-
-    private static Shader HaloShader()
-    {
-        return Shader.Find("Standard") ?? Shader.Find("Unlit/Transparent");
     }
 
     private static Renderer FindGatewayBodyRenderer(Renderer indicator)
