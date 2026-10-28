@@ -592,19 +592,14 @@ public sealed class QuantumInteractionController : MonoBehaviour
     {
         if (endpoints == null || endpoints.Count == 0) return null;
 
-        // Aim at the visible puck rather than the collision volume.  The
-        // collision volume overlaps the conveyor by design, which made a
-        // physics sphere cast trigger above the visible model.
         var center = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
-        const float aimRadiusX = 140f;
-        const float aimRadiusY = 80f;
         QuantumEndpointView? best = null;
 
         foreach (var endpoint in endpoints)
         {
             if (endpoint.View == null) continue;
-            var localTarget = new Vector3(0f, 0.90f, endpoint.IsOutput ? -0.15f : 0.15f);
-            var worldPoint = endpoint.View.transform.TransformPoint(localTarget);
+            var bounds = EndpointBounds(endpoint.View);
+            var worldPoint = bounds.center;
             var toTarget = worldPoint - camera.transform.position;
             var distance = toTarget.magnitude;
             if (distance > 8f || distance < 0.01f) continue;
@@ -612,6 +607,7 @@ public sealed class QuantumInteractionController : MonoBehaviour
             var screenPoint = camera.WorldToScreenPoint(worldPoint);
             if (screenPoint.z <= 0f) continue;
             var guiPoint = new Vector2(screenPoint.x, Screen.height - screenPoint.y);
+            GetScreenAimRadii(camera, bounds, out var aimRadiusX, out var aimRadiusY);
             var normalizedX = (guiPoint.x - center.x) / aimRadiusX;
             var normalizedY = (guiPoint.y - center.y) / aimRadiusY;
             var aimDistance = normalizedX * normalizedX + normalizedY * normalizedY;
@@ -621,6 +617,44 @@ public sealed class QuantumInteractionController : MonoBehaviour
         }
 
         return best;
+    }
+
+    private static Bounds EndpointBounds(GameObject endpoint)
+    {
+        var renderers = endpoint.GetComponentsInChildren<Renderer>(true);
+        if (renderers == null || renderers.Length == 0)
+            return new Bounds(endpoint.transform.position, Vector3.one * 0.5f);
+
+        var bounds = renderers[0].bounds;
+        for (var index = 1; index < renderers.Length; index++)
+            bounds.Encapsulate(renderers[index].bounds);
+        return bounds;
+    }
+
+    private static void GetScreenAimRadii(Camera camera, Bounds bounds, out float radiusX, out float radiusY)
+    {
+        var minX = float.PositiveInfinity;
+        var maxX = float.NegativeInfinity;
+        var minY = float.PositiveInfinity;
+        var maxY = float.NegativeInfinity;
+        var center = bounds.center;
+        var extents = bounds.extents;
+
+        for (var x = -1; x <= 1; x += 2)
+        for (var y = -1; y <= 1; y += 2)
+        for (var z = -1; z <= 1; z += 2)
+        {
+            var screenPoint = camera.WorldToScreenPoint(center + Vector3.Scale(extents, new Vector3(x, y, z)));
+            if (screenPoint.z <= 0f) continue;
+            minX = Mathf.Min(minX, screenPoint.x);
+            maxX = Mathf.Max(maxX, screenPoint.x);
+            var guiY = Screen.height - screenPoint.y;
+            minY = Mathf.Min(minY, guiY);
+            maxY = Mathf.Max(maxY, guiY);
+        }
+
+        radiusX = float.IsInfinity(minX) ? 140f : Mathf.Max(140f, (maxX - minX) * 0.5f + 24f);
+        radiusY = float.IsInfinity(minY) ? 80f : Mathf.Max(80f, (maxY - minY) * 0.5f + 24f);
     }
 
     private static bool HasClearLineOfSight(Camera camera, Vector3 target, float distance,
