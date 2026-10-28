@@ -46,10 +46,11 @@ internal static class QuantumVisuals
         light.color = color;
         light.range = 0.75f;
         light.intensity = visible ? 1.3f : 0.05f;
-        // Place the point light at the modeled indicator instead of assuming
-        // the old puck's origin and height. This also supports imported gateway
-        // models whose LED mesh is not centered at the part root.
-        light.transform.position = renderer.bounds.center;
+        // Place the point light at the modeled indicator, then lift it slightly
+        // above and outward from the surface so the glow is visible beside the
+        // modeled LED rather than appearing buried inside it.
+        light.transform.position = renderer.bounds.center +
+            part.transform.up * 0.06f + part.transform.forward * 0.06f;
         return true;
     }
 
