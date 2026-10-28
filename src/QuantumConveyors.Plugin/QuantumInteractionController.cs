@@ -828,12 +828,26 @@ internal static class QuantumGatewayPhysics
         })
             DisableCollider(bodyRenderer.transform.Find(faceName));
 
-        // Put one solid, two-way collider directly on the rendered body. This
-        // avoids transform/offset mismatches from separate shell pieces and
-        // makes the gateway physically solid from every direction.
-        var solidCollider = bodyRenderer.GetComponent<BoxCollider>() ?? bodyRenderer.gameObject.AddComponent<BoxCollider>();
+        var directCollider = bodyRenderer.GetComponent<BoxCollider>();
+        if (directCollider != null) directCollider.enabled = false;
+
+        // Put one solid, two-way collider on a dedicated child of the actual
+        // rendered body. This preserves the exact model transform and uses the
+        // building's collision layer instead of the stale adapter-root volume.
+        var solidTransform = bodyRenderer.transform.Find("QuantumGatewaySolidBlocker");
+        if (solidTransform == null)
+        {
+            var solidObject = new GameObject("QuantumGatewaySolidBlocker");
+            solidTransform = solidObject.transform;
+            solidTransform.SetParent(bodyRenderer.transform, false);
+        }
+
+        solidTransform.localPosition = Vector3.zero;
+        solidTransform.localRotation = Quaternion.identity;
+        solidTransform.gameObject.layer = view.layer;
+        var solidCollider = solidTransform.GetComponent<BoxCollider>() ?? solidTransform.gameObject.AddComponent<BoxCollider>();
         solidCollider.center = bounds.center;
-        solidCollider.size = bounds.size + Vector3.one * 0.16f;
+        solidCollider.size = bounds.size + Vector3.one * 0.24f;
         solidCollider.isTrigger = false;
         solidCollider.enabled = true;
     }

@@ -61,11 +61,10 @@ internal static class QuantumVisuals
         light.color = color;
         light.range = 0.75f;
         light.intensity = visible ? 1.3f : 0.05f;
-        // Use the coordinate ruler's local frame for this temporary placement:
-        // green/Y is strongly negative, while blue/Z remains slightly positive.
+        // Keep the added glow at the modeled LED mesh itself. The physical
+        // Indicator mesh is the source of truth; do not move that mesh.
         var indicatorCenter = renderer.bounds.center;
-        var worldOffset = -part.transform.up * 0.80f + part.transform.forward * 0.04f;
-        glowTransform.localPosition = renderer.transform.InverseTransformPoint(indicatorCenter + worldOffset);
+        glowTransform.localPosition = renderer.transform.InverseTransformPoint(indicatorCenter);
         return true;
     }
 
