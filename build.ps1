@@ -20,6 +20,6 @@ if ($CopyToStagedRuntime) {
     $destination = Join-Path $projectRoot 'work\staging\BepInEx\BepInEx\plugins\QuantumConveyors'
     New-Item -ItemType Directory -Force -Path $destination | Out-Null
     Copy-Item -LiteralPath (Join-Path $projectRoot 'src\QuantumConveyors.Plugin\bin\Release\net6.0\QuantumConveyors.dll') -Destination $destination -Force
-    Get-ChildItem -LiteralPath (Join-Path $projectRoot 'src\QuantumConveyors.Plugin') -File -Include '*.obj', '*.mtl' |
+    Get-ChildItem -LiteralPath (Join-Path $projectRoot 'src\QuantumConveyors.Plugin') -File -Include '*.obj', '*.mtl', '*.png', '*.jpg', '*.jpeg' |
         Copy-Item -Destination $destination -Force
 }

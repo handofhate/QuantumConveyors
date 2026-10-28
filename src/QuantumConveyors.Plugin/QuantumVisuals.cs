@@ -46,7 +46,10 @@ internal static class QuantumVisuals
         light.color = color;
         light.range = 0.75f;
         light.intensity = visible ? 1.3f : 0.05f;
-        light.transform.localPosition = new Vector3(0f, 0.11f, 0f);
+        // Place the point light at the modeled indicator instead of assuming
+        // the old puck's origin and height. This also supports imported gateway
+        // models whose LED mesh is not centered at the part root.
+        light.transform.position = renderer.bounds.center;
         return true;
     }
 

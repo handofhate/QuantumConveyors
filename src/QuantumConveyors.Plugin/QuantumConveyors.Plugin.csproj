@@ -35,7 +35,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="*.obj;*.mtl" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="*.obj;*.mtl;*.png;*.jpg;*.jpeg" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
   <Target Name="CopyPluginToLocalRuntime" AfterTargets="Build" Condition="'$(CopyToLocalRuntime)' == 'true'">
