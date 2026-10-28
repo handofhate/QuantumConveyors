@@ -826,7 +826,7 @@ internal static class QuantumGatewayPhysics
         var bodyRenderer = FindGatewayBodyRenderer(view);
         if (bodyRenderer == null) return;
 
-        var blockerTransform = view.transform.Find("QuantumGatewayPlayerBlocker");
+        var blockerTransform = bodyRenderer.transform.Find("QuantumGatewayPlayerBlocker");
         if (blockerTransform == null)
         {
             var blockerObject = new GameObject("QuantumGatewayPlayerBlocker");
@@ -836,39 +836,31 @@ internal static class QuantumGatewayPhysics
         // Parent the blocker to the rendered body so it inherits the exact
         // model offset and rotation rather than duplicating ModelSpec offsets.
         blockerTransform.SetParent(bodyRenderer.transform, false);
-        var oldCollider = blockerTransform.GetComponent<BoxCollider>();
-        if (oldCollider != null) oldCollider.enabled = false;
-
         var bounds = bodyRenderer.localBounds;
-        var mouthTransform = bodyRenderer.transform.Find("QuantumGatewayMouthBlocker");
-        if (mouthTransform == null)
-        {
-            var mouthObject = new GameObject("QuantumGatewayMouthBlocker");
-            mouthTransform = mouthObject.transform;
-            mouthTransform.SetParent(bodyRenderer.transform, false);
-        }
+        DisableCollider(bodyRenderer.transform.Find("QuantumGatewayPlayerBlocker"));
+        DisableCollider(bodyRenderer.transform.Find("QuantumGatewayMouthBlocker"));
+        DisableCollider(bodyRenderer.transform.Find("QuantumGatewayTopBlocker"));
 
-        var mouthCollider = mouthTransform.GetComponent<BoxCollider>() ?? mouthTransform.gameObject.AddComponent<BoxCollider>();
-        mouthTransform.localPosition = new Vector3(bounds.center.x, bounds.center.y, bounds.max.z + 0.06f);
-        mouthTransform.localRotation = Quaternion.identity;
-        mouthCollider.center = Vector3.zero;
-        mouthCollider.size = new Vector3(bounds.size.x + 0.08f, bounds.size.y + 0.08f, 0.14f);
-        mouthCollider.isTrigger = false;
-
-        var topTransform = bodyRenderer.transform.Find("QuantumGatewayTopBlocker");
-        if (topTransform == null)
-        {
-            var topObject = new GameObject("QuantumGatewayTopBlocker");
-            topTransform = topObject.transform;
-            topTransform.SetParent(bodyRenderer.transform, false);
-        }
-
-        var topCollider = topTransform.GetComponent<BoxCollider>() ?? topTransform.gameObject.AddComponent<BoxCollider>();
-        topTransform.localPosition = new Vector3(bounds.center.x, bounds.max.y + 0.06f, bounds.center.z);
-        topTransform.localRotation = Quaternion.identity;
-        topCollider.center = Vector3.zero;
-        topCollider.size = new Vector3(bounds.size.x + 0.08f, 0.14f, bounds.size.z + 0.08f);
-        topCollider.isTrigger = false;
+        const float thickness = 0.12f;
+        const float padding = 0.08f;
+        EnsureFace(bodyRenderer.transform, "QuantumGatewayFaceFront",
+            new Vector3(bounds.center.x, bounds.center.y, bounds.max.z + thickness * 0.5f),
+            new Vector3(bounds.size.x + padding, bounds.size.y + padding, thickness));
+        EnsureFace(bodyRenderer.transform, "QuantumGatewayFaceBack",
+            new Vector3(bounds.center.x, bounds.center.y, bounds.min.z - thickness * 0.5f),
+            new Vector3(bounds.size.x + padding, bounds.size.y + padding, thickness));
+        EnsureFace(bodyRenderer.transform, "QuantumGatewayFaceLeft",
+            new Vector3(bounds.min.x - thickness * 0.5f, bounds.center.y, bounds.center.z),
+            new Vector3(thickness, bounds.size.y + padding, bounds.size.z + padding));
+        EnsureFace(bodyRenderer.transform, "QuantumGatewayFaceRight",
+            new Vector3(bounds.max.x + thickness * 0.5f, bounds.center.y, bounds.center.z),
+            new Vector3(thickness, bounds.size.y + padding, bounds.size.z + padding));
+        EnsureFace(bodyRenderer.transform, "QuantumGatewayFaceTop",
+            new Vector3(bounds.center.x, bounds.max.y + thickness * 0.5f, bounds.center.z),
+            new Vector3(bounds.size.x + padding, thickness, bounds.size.z + padding));
+        EnsureFace(bodyRenderer.transform, "QuantumGatewayFaceBottom",
+            new Vector3(bounds.center.x, bounds.min.y - thickness * 0.5f, bounds.center.z),
+            new Vector3(bounds.size.x + padding, thickness, bounds.size.z + padding));
     }
 
     private static Renderer FindGatewayBodyRenderer(GameObject view)
@@ -879,5 +871,31 @@ internal static class QuantumGatewayPhysics
         }
 
         return null;
+    }
+
+    private static void DisableCollider(Transform transform)
+    {
+        if (transform == null) return;
+        var collider = transform.GetComponent<BoxCollider>();
+        if (collider != null) collider.enabled = false;
+    }
+
+    private static void EnsureFace(Transform parent, string name, Vector3 localPosition, Vector3 size)
+    {
+        var face = parent.Find(name);
+        if (face == null)
+        {
+            var faceObject = new GameObject(name);
+            face = faceObject.transform;
+            face.SetParent(parent, false);
+        }
+
+        face.localPosition = localPosition;
+        face.localRotation = Quaternion.identity;
+        var collider = face.GetComponent<BoxCollider>() ?? face.gameObject.AddComponent<BoxCollider>();
+        collider.center = Vector3.zero;
+        collider.size = size;
+        collider.isTrigger = false;
+        collider.enabled = true;
     }
 }
