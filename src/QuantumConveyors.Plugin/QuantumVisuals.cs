@@ -61,13 +61,33 @@ internal static class QuantumVisuals
         light.color = color;
         light.range = 0.75f;
         light.intensity = visible ? 1.3f : 0.05f;
-        // Place it at the LED mesh center, then lift it slightly above and
-        // outward from the surface. This local position follows the mesh.
-        // The modeled indicator is near the lower portion of this imported
-        // gateway. Keep the added glow visibly near the top using world Y;
-        // Z is the adapter's front/back direction, not vertical.
-        var worldOffset = Vector3.up * 1.70f + part.transform.forward * 0.06f;
-        glowTransform.localPosition = renderer.transform.InverseTransformPoint(renderer.bounds.center + worldOffset);
+        // Place the glow just outside the actual indicator surface. Derive
+        // the outward direction from the gateway body bounds instead of using
+        // a hard-coded world-space height or front/back offset.
+        var indicatorCenter = renderer.bounds.center;
+        var modelRoot = part.transform.parent != null ? part.transform.parent.gameObject : part;
+        var bodyBounds = new Bounds(indicatorCenter, Vector3.zero);
+        var hasBodyBounds = false;
+        foreach (var candidate in modelRoot.GetComponentsInChildren<Renderer>(true))
+        {
+            if (candidate == renderer) continue;
+            if (!hasBodyBounds)
+            {
+                bodyBounds = candidate.bounds;
+                hasBodyBounds = true;
+            }
+            else
+            {
+                bodyBounds.Encapsulate(candidate.bounds);
+            }
+        }
+
+        var outward = hasBodyBounds
+            ? indicatorCenter - bodyBounds.center
+            : renderer.transform.forward;
+        if (outward.sqrMagnitude < 0.0001f) outward = renderer.transform.forward;
+        outward.Normalize();
+        glowTransform.localPosition = renderer.transform.InverseTransformPoint(indicatorCenter + outward * 0.08f);
         return true;
     }
 

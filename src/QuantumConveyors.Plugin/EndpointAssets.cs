@@ -20,7 +20,7 @@ internal static class EndpointAssets
     {
         File = "quantum-input.obj",
         CollisionFile = "quantum-endpoint-collision.obj",
-        Offset = new Vector3(0f, 0.85f, 1.65f),
+        Offset = new Vector3(0f, 0.85f, 1.35f),
         Turn = 180f,
         HideBody = true,
         KeepBodyColliders = false,
