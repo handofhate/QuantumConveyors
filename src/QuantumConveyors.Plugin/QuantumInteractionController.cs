@@ -702,10 +702,8 @@ public sealed class QuantumInteractionController : MonoBehaviour
 internal sealed class QuantumCoordinateGizmo : MonoBehaviour
 {
     private const float AxisExtent = 3f;
-    private const float TickSpacing = 0.1f;
     private static Material material;
     private bool built;
-    private readonly List<Transform> labels = new();
 
     public static void Ensure(IReadOnlyList<QuantumEndpointView> endpoints)
     {
@@ -730,29 +728,12 @@ internal sealed class QuantumCoordinateGizmo : MonoBehaviour
         CreateAxis("Z axis", Vector3.forward, Color.blue);
     }
 
-    public void LateUpdate()
-    {
-        var camera = Camera.main;
-        if (camera == null) return;
-        foreach (var label in labels)
-            if (label != null) label.rotation = Quaternion.LookRotation(-camera.transform.forward, camera.transform.up);
-    }
-
     private void CreateAxis(string axisName, Vector3 direction, Color color)
     {
         CreateLine(axisName, -direction * AxisExtent, direction * AxisExtent, color, 0.018f);
         var tickDirection = Vector3.Cross(direction, Vector3.up);
         if (tickDirection.sqrMagnitude < 0.01f) tickDirection = Vector3.right;
         tickDirection.Normalize();
-
-        for (var index = -30; index <= 30; index++)
-        {
-            if (index == 0) continue;
-            var distance = index * TickSpacing;
-            var halfTick = index % 10 == 0 ? 0.07f : 0.04f;
-            CreateLine($"{axisName} {distance:0.0}", direction * distance - tickDirection * halfTick,
-                direction * distance + tickDirection * halfTick, color, 0.012f);
-        }
 
         var arrowBack = AxisExtent - 0.22f;
         CreateLine($"{axisName} positive arrow A", direction * AxisExtent,
@@ -763,30 +744,28 @@ internal sealed class QuantumCoordinateGizmo : MonoBehaviour
             -direction * arrowBack + tickDirection * 0.12f, color, 0.018f);
         CreateLine($"{axisName} negative arrow B", -direction * AxisExtent,
             -direction * arrowBack - tickDirection * 0.12f, color, 0.018f);
-        try
-        {
-            CreateLabel($"+{axisName[0]}", direction * (AxisExtent + 0.16f), color);
-            CreateLabel($"-{axisName[0]}", -direction * (AxisExtent + 0.16f), color);
-        }
-        catch (Exception exception)
-        {
-            QuantumNetwork.DiagnosticThrottled("coordinate-labels", $"Coordinate labels unavailable: {exception.GetType().Name}", 5f);
-        }
+        // Positive ends use spheres; negative ends use cubes. The arrowheads
+        // point outward from the origin, so the sign remains unambiguous even
+        // when text labels are hidden by the model.
+        CreateMarker($"{axisName} positive", direction * AxisExtent, PrimitiveType.Sphere, color);
+        CreateMarker($"{axisName} negative", -direction * AxisExtent, PrimitiveType.Cube, color);
     }
 
-    private void CreateLabel(string text, Vector3 position, Color color)
+    private void CreateMarker(string markerName, Vector3 position, PrimitiveType primitive, Color color)
     {
-        var labelObject = new GameObject($"Coordinate {text}");
-        labelObject.transform.SetParent(transform, false);
-        labelObject.transform.localPosition = position;
-        var label = labelObject.AddComponent<TextMesh>();
-        label.text = text;
-        label.anchor = TextAnchor.MiddleCenter;
-        label.alignment = TextAlignment.Center;
-        label.characterSize = 0.08f;
-        label.fontSize = 32;
-        label.color = color;
-        labels.Add(labelObject.transform);
+        var marker = GameObject.CreatePrimitive(primitive);
+        marker.name = markerName;
+        marker.transform.SetParent(transform, false);
+        marker.transform.localPosition = position;
+        marker.transform.localScale = Vector3.one * 0.10f;
+        var collider = marker.GetComponent<Collider>();
+        if (collider != null) UnityEngine.Object.Destroy(collider);
+        var renderer = marker.GetComponent<Renderer>();
+        if (renderer != null)
+        {
+            renderer.material = GizmoMaterial();
+            renderer.material.color = color;
+        }
     }
 
     private void CreateLine(string lineName, Vector3 start, Vector3 end, Color color, float width)
@@ -841,25 +820,25 @@ internal static class QuantumGatewayPhysics
         DisableCollider(bodyRenderer.transform.Find("QuantumGatewayMouthBlocker"));
         DisableCollider(bodyRenderer.transform.Find("QuantumGatewayTopBlocker"));
 
-        const float thickness = 0.12f;
-        const float padding = 0.08f;
+        const float thickness = 0.18f;
+        const float padding = 0.24f;
         EnsureFace(bodyRenderer.transform, "QuantumGatewayFaceFront",
-            new Vector3(bounds.center.x, bounds.center.y, bounds.max.z + thickness * 0.5f),
+            new Vector3(bounds.center.x, bounds.center.y, bounds.max.z + padding * 0.5f + thickness * 0.5f),
             new Vector3(bounds.size.x + padding, bounds.size.y + padding, thickness));
         EnsureFace(bodyRenderer.transform, "QuantumGatewayFaceBack",
-            new Vector3(bounds.center.x, bounds.center.y, bounds.min.z - thickness * 0.5f),
+            new Vector3(bounds.center.x, bounds.center.y, bounds.min.z - padding * 0.5f - thickness * 0.5f),
             new Vector3(bounds.size.x + padding, bounds.size.y + padding, thickness));
         EnsureFace(bodyRenderer.transform, "QuantumGatewayFaceLeft",
-            new Vector3(bounds.min.x - thickness * 0.5f, bounds.center.y, bounds.center.z),
+            new Vector3(bounds.min.x - padding * 0.5f - thickness * 0.5f, bounds.center.y, bounds.center.z),
             new Vector3(thickness, bounds.size.y + padding, bounds.size.z + padding));
         EnsureFace(bodyRenderer.transform, "QuantumGatewayFaceRight",
-            new Vector3(bounds.max.x + thickness * 0.5f, bounds.center.y, bounds.center.z),
+            new Vector3(bounds.max.x + padding * 0.5f + thickness * 0.5f, bounds.center.y, bounds.center.z),
             new Vector3(thickness, bounds.size.y + padding, bounds.size.z + padding));
         EnsureFace(bodyRenderer.transform, "QuantumGatewayFaceTop",
-            new Vector3(bounds.center.x, bounds.max.y + thickness * 0.5f, bounds.center.z),
+            new Vector3(bounds.center.x, bounds.max.y + padding * 0.5f + thickness * 0.5f, bounds.center.z),
             new Vector3(bounds.size.x + padding, thickness, bounds.size.z + padding));
         EnsureFace(bodyRenderer.transform, "QuantumGatewayFaceBottom",
-            new Vector3(bounds.center.x, bounds.min.y - thickness * 0.5f, bounds.center.z),
+            new Vector3(bounds.center.x, bounds.min.y - padding * 0.5f - thickness * 0.5f, bounds.center.z),
             new Vector3(bounds.size.x + padding, thickness, bounds.size.z + padding));
     }
 
