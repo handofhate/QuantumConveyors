@@ -767,26 +767,35 @@ internal sealed class QuantumCoordinateGizmo : MonoBehaviour
 
 internal static class QuantumGatewayPhysics
 {
-    // Bounds of the current imported gateway model in its local model space.
-    private static readonly Vector3 ModelCenter = new(0.022f, 0.110f, -0.787f);
-    private static readonly Vector3 ModelSize = new(1.780f, 2.200f, 1.630f);
-
     public static void Ensure(GameObject view, bool isOutput)
     {
         if (view == null) return;
+        var bodyRenderer = FindGatewayBodyRenderer(view);
+        if (bodyRenderer == null) return;
+
         var blockerTransform = view.transform.Find("QuantumGatewayPlayerBlocker");
         if (blockerTransform == null)
         {
             var blockerObject = new GameObject("QuantumGatewayPlayerBlocker");
             blockerTransform = blockerObject.transform;
-            blockerTransform.SetParent(view.transform, false);
         }
 
-        blockerTransform.localPosition = new Vector3(0f, 0.85f, isOutput ? -1.35f : 1.35f);
-        blockerTransform.localRotation = Quaternion.Euler(0f, isOutput ? 0f : 180f, 0f);
+        // Parent the blocker to the rendered body so it inherits the exact
+        // model offset and rotation rather than duplicating ModelSpec offsets.
+        blockerTransform.SetParent(bodyRenderer.transform, false);
         var collider = blockerTransform.GetComponent<BoxCollider>() ?? blockerTransform.gameObject.AddComponent<BoxCollider>();
-        collider.center = ModelCenter;
-        collider.size = ModelSize;
+        collider.center = bodyRenderer.localBounds.center;
+        collider.size = bodyRenderer.localBounds.size * 1.02f;
         collider.isTrigger = false;
+    }
+
+    private static Renderer FindGatewayBodyRenderer(GameObject view)
+    {
+        foreach (var renderer in view.GetComponentsInChildren<Renderer>(true))
+        {
+            if (renderer.gameObject.name == "GatewayBody") return renderer;
+        }
+
+        return null;
     }
 }
