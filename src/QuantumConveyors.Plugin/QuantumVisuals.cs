@@ -61,33 +61,11 @@ internal static class QuantumVisuals
         light.color = color;
         light.range = 0.75f;
         light.intensity = visible ? 1.3f : 0.05f;
-        // Place the glow just outside the actual indicator surface. Derive
-        // the outward direction from the gateway body bounds instead of using
-        // a hard-coded world-space height or front/back offset.
+        // Use the coordinate ruler's local frame for this temporary placement:
+        // green/Y is strongly negative, while blue/Z remains slightly positive.
         var indicatorCenter = renderer.bounds.center;
-        var modelRoot = part.transform.parent != null ? part.transform.parent.gameObject : part;
-        var bodyBounds = new Bounds(indicatorCenter, Vector3.zero);
-        var hasBodyBounds = false;
-        foreach (var candidate in modelRoot.GetComponentsInChildren<Renderer>(true))
-        {
-            if (candidate == renderer) continue;
-            if (!hasBodyBounds)
-            {
-                bodyBounds = candidate.bounds;
-                hasBodyBounds = true;
-            }
-            else
-            {
-                bodyBounds.Encapsulate(candidate.bounds);
-            }
-        }
-
-        var outward = hasBodyBounds
-            ? indicatorCenter - bodyBounds.center
-            : renderer.transform.forward;
-        if (outward.sqrMagnitude < 0.0001f) outward = renderer.transform.forward;
-        outward.Normalize();
-        glowTransform.localPosition = renderer.transform.InverseTransformPoint(indicatorCenter + outward * 0.08f);
+        var worldOffset = -part.transform.up * 0.80f + part.transform.forward * 0.04f;
+        glowTransform.localPosition = renderer.transform.InverseTransformPoint(indicatorCenter + worldOffset);
         return true;
     }
 

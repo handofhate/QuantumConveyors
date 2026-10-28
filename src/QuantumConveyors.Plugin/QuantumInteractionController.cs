@@ -730,25 +730,54 @@ internal sealed class QuantumCoordinateGizmo : MonoBehaviour
 
     private void CreateAxis(string axisName, Vector3 direction, Color color)
     {
-        CreateLine(axisName, -direction * AxisExtent, direction * AxisExtent, color, 0.018f);
         var tickDirection = Vector3.Cross(direction, Vector3.up);
         if (tickDirection.sqrMagnitude < 0.01f) tickDirection = Vector3.right;
         tickDirection.Normalize();
+        var vertices = new List<Vector3>();
+        var indices = new List<int>();
+        AddSegment(vertices, indices, -direction * AxisExtent, direction * AxisExtent);
+        for (var index = -30; index <= 30; index++)
+        {
+            if (index == 0) continue;
+            var distance = index * 0.1f;
+            var halfTick = index % 10 == 0 ? 0.07f : 0.04f;
+            AddSegment(vertices, indices, direction * distance - tickDirection * halfTick,
+                direction * distance + tickDirection * halfTick);
+        }
 
         var arrowBack = AxisExtent - 0.22f;
-        CreateLine($"{axisName} positive arrow A", direction * AxisExtent,
-            direction * arrowBack + tickDirection * 0.12f, color, 0.018f);
-        CreateLine($"{axisName} positive arrow B", direction * AxisExtent,
-            direction * arrowBack - tickDirection * 0.12f, color, 0.018f);
-        CreateLine($"{axisName} negative arrow A", -direction * AxisExtent,
-            -direction * arrowBack + tickDirection * 0.12f, color, 0.018f);
-        CreateLine($"{axisName} negative arrow B", -direction * AxisExtent,
-            -direction * arrowBack - tickDirection * 0.12f, color, 0.018f);
+        AddSegment(vertices, indices, direction * AxisExtent, direction * arrowBack + tickDirection * 0.12f);
+        AddSegment(vertices, indices, direction * AxisExtent, direction * arrowBack - tickDirection * 0.12f);
+        AddSegment(vertices, indices, -direction * AxisExtent, -direction * arrowBack + tickDirection * 0.12f);
+        AddSegment(vertices, indices, -direction * AxisExtent, -direction * arrowBack - tickDirection * 0.12f);
+        CreateRulerMesh(axisName, vertices, indices, color);
         // Positive ends use spheres; negative ends use cubes. The arrowheads
         // point outward from the origin, so the sign remains unambiguous even
         // when text labels are hidden by the model.
         CreateMarker($"{axisName} positive", direction * AxisExtent, PrimitiveType.Sphere, color);
         CreateMarker($"{axisName} negative", -direction * AxisExtent, PrimitiveType.Cube, color);
+    }
+
+    private static void AddSegment(List<Vector3> vertices, List<int> indices, Vector3 start, Vector3 end)
+    {
+        var index = vertices.Count;
+        vertices.Add(start);
+        vertices.Add(end);
+        indices.Add(index);
+        indices.Add(index + 1);
+    }
+
+    private void CreateRulerMesh(string axisName, List<Vector3> vertices, List<int> indices, Color color)
+    {
+        var axisObject = new GameObject($"{axisName} ruler");
+        axisObject.transform.SetParent(transform, false);
+        var mesh = new Mesh { name = $"{axisName} ruler mesh" };
+        mesh.vertices = vertices.ToArray();
+        mesh.SetIndices(indices.ToArray(), MeshTopology.Lines, 0);
+        mesh.RecalculateBounds();
+        axisObject.AddComponent<MeshFilter>().sharedMesh = mesh;
+        var renderer = axisObject.AddComponent<MeshRenderer>();
+        renderer.material = new Material(GizmoMaterial()) { color = color };
     }
 
     private void CreateMarker(string markerName, Vector3 position, PrimitiveType primitive, Color color)
@@ -766,24 +795,6 @@ internal sealed class QuantumCoordinateGizmo : MonoBehaviour
             renderer.material = GizmoMaterial();
             renderer.material.color = color;
         }
-    }
-
-    private void CreateLine(string lineName, Vector3 start, Vector3 end, Color color, float width)
-    {
-        var lineObject = new GameObject(lineName);
-        lineObject.transform.SetParent(transform, false);
-        var line = lineObject.AddComponent<LineRenderer>();
-        line.useWorldSpace = false;
-        line.positionCount = 2;
-        line.SetPosition(0, start);
-        line.SetPosition(1, end);
-        line.startWidth = width;
-        line.endWidth = width;
-        line.alignment = LineAlignment.View;
-        line.numCapVertices = 4;
-        line.startColor = color;
-        line.endColor = color;
-        line.material = GizmoMaterial();
     }
 
     private static Material GizmoMaterial()
@@ -805,41 +816,26 @@ internal static class QuantumGatewayPhysics
         var bodyRenderer = FindGatewayBodyRenderer(view);
         if (bodyRenderer == null) return;
 
-        var blockerTransform = bodyRenderer.transform.Find("QuantumGatewayPlayerBlocker");
-        if (blockerTransform == null)
-        {
-            var blockerObject = new GameObject("QuantumGatewayPlayerBlocker");
-            blockerTransform = blockerObject.transform;
-        }
-
-        // Parent the blocker to the rendered body so it inherits the exact
-        // model offset and rotation rather than duplicating ModelSpec offsets.
-        blockerTransform.SetParent(bodyRenderer.transform, false);
         var bounds = bodyRenderer.localBounds;
         DisableCollider(bodyRenderer.transform.Find("QuantumGatewayPlayerBlocker"));
         DisableCollider(bodyRenderer.transform.Find("QuantumGatewayMouthBlocker"));
         DisableCollider(bodyRenderer.transform.Find("QuantumGatewayTopBlocker"));
 
-        const float thickness = 0.18f;
-        const float padding = 0.24f;
-        EnsureFace(bodyRenderer.transform, "QuantumGatewayFaceFront",
-            new Vector3(bounds.center.x, bounds.center.y, bounds.max.z + padding * 0.5f + thickness * 0.5f),
-            new Vector3(bounds.size.x + padding, bounds.size.y + padding, thickness));
-        EnsureFace(bodyRenderer.transform, "QuantumGatewayFaceBack",
-            new Vector3(bounds.center.x, bounds.center.y, bounds.min.z - padding * 0.5f - thickness * 0.5f),
-            new Vector3(bounds.size.x + padding, bounds.size.y + padding, thickness));
-        EnsureFace(bodyRenderer.transform, "QuantumGatewayFaceLeft",
-            new Vector3(bounds.min.x - padding * 0.5f - thickness * 0.5f, bounds.center.y, bounds.center.z),
-            new Vector3(thickness, bounds.size.y + padding, bounds.size.z + padding));
-        EnsureFace(bodyRenderer.transform, "QuantumGatewayFaceRight",
-            new Vector3(bounds.max.x + padding * 0.5f + thickness * 0.5f, bounds.center.y, bounds.center.z),
-            new Vector3(thickness, bounds.size.y + padding, bounds.size.z + padding));
-        EnsureFace(bodyRenderer.transform, "QuantumGatewayFaceTop",
-            new Vector3(bounds.center.x, bounds.max.y + padding * 0.5f + thickness * 0.5f, bounds.center.z),
-            new Vector3(bounds.size.x + padding, thickness, bounds.size.z + padding));
-        EnsureFace(bodyRenderer.transform, "QuantumGatewayFaceBottom",
-            new Vector3(bounds.center.x, bounds.min.y - padding * 0.5f - thickness * 0.5f, bounds.center.z),
-            new Vector3(bounds.size.x + padding, thickness, bounds.size.z + padding));
+        foreach (var faceName in new[]
+        {
+            "QuantumGatewayFaceFront", "QuantumGatewayFaceBack", "QuantumGatewayFaceLeft",
+            "QuantumGatewayFaceRight", "QuantumGatewayFaceTop", "QuantumGatewayFaceBottom",
+        })
+            DisableCollider(bodyRenderer.transform.Find(faceName));
+
+        // Put one solid, two-way collider directly on the rendered body. This
+        // avoids transform/offset mismatches from separate shell pieces and
+        // makes the gateway physically solid from every direction.
+        var solidCollider = bodyRenderer.GetComponent<BoxCollider>() ?? bodyRenderer.gameObject.AddComponent<BoxCollider>();
+        solidCollider.center = bounds.center;
+        solidCollider.size = bounds.size + Vector3.one * 0.16f;
+        solidCollider.isTrigger = false;
+        solidCollider.enabled = true;
     }
 
     private static Renderer FindGatewayBodyRenderer(GameObject view)
@@ -859,22 +855,4 @@ internal static class QuantumGatewayPhysics
         if (collider != null) collider.enabled = false;
     }
 
-    private static void EnsureFace(Transform parent, string name, Vector3 localPosition, Vector3 size)
-    {
-        var face = parent.Find(name);
-        if (face == null)
-        {
-            var faceObject = new GameObject(name);
-            face = faceObject.transform;
-            face.SetParent(parent, false);
-        }
-
-        face.localPosition = localPosition;
-        face.localRotation = Quaternion.identity;
-        var collider = face.GetComponent<BoxCollider>() ?? face.gameObject.AddComponent<BoxCollider>();
-        collider.center = Vector3.zero;
-        collider.size = size;
-        collider.isTrigger = false;
-        collider.enabled = true;
-    }
 }
