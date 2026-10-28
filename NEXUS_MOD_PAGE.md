@@ -6,17 +6,18 @@ Quantum Conveyors adds small wireless adapters to the normal Building Tool. Plac
 
 ## Current release
 
-- Mod: Quantum Conveyors 0.1.0 preview
-- Target game build: Moon Sweepers Preview 1.0.5
-- Status: Early public preview; single-player behavior is the primary tested path
+- Mod: Quantum Conveyors 1.1
+- Target game build: Moon Sweepers 1.0.5
+- Status: Stable 1.1 release; single-player behavior is tested, with host-authoritative multiplayer support included
 
 Please back up your save before using any mods.
 
 ## Features
 
 - Quantum Output and Quantum Input building-tool entries under Logistics
-- Small puck-like adapter model mounted over the conveyor
+- Industrial gateway-style adapter model mounted over the conveyor
 - Red, yellow, and green status indicator with flashing warning/activity states
+- Soft colored LED halo and directional illumination
 - Named wireless channels
 - Unlimited channels
 - Multiple outputs and multiple inputs per channel
@@ -32,8 +33,8 @@ Install these prerequisites before installing Quantum Conveyors:
 
 1. BepInEx 6 IL2CPP for Moon Sweepers
 2. The Moon Sweepers BepInEx compatibility patcher required by the game
-3. MoonFramework 0.6.0 or the version specified by the release
-4. Moon Sweepers Preview 1.0.5
+3. MoonFramework 1.0.5.2
+4. Moon Sweepers 1.0.5
 
 Every player who joins a multiplayer session should use the same game build, BepInEx setup, MoonFramework version, and Quantum Conveyors version.
 
@@ -170,9 +171,9 @@ Yes, but make a backup first. Loading a save with the mod enabled is not expecte
 ## Known issues and limitations
 
 - **Moving adapters:** The game's new move feature does not reliably resnap splitter/merger-style structures to a new conveyor location. If an adapter is moved away from its original conveyor, deleting and rebuilding it is currently the reliable workaround.
-- **Underlying splitter/merger clearance:** Although the visible Quantum adapter is a small puck, the game evaluates its placement using the underlying splitter/merger footprint and overlap rules. An adapter may not fit directly against a merger, machine, or another structure if there is not enough clearance. A short conveyor segment or stub may be needed to give the adapter room to place. This can also occur when the conveyor segment being used at a machine is too short.
+- **Underlying splitter/merger clearance:** Although the visible Quantum adapter is an industrial gateway, the game evaluates its placement using the underlying splitter/merger footprint and overlap rules. An adapter may not fit directly against a merger, machine, or another structure if there is not enough clearance. A short conveyor segment or stub may be needed to give the adapter room to place. This can also occur when the conveyor segment being used at a machine is too short.
 - **Multiple outputs:** Multiple source belts can compete based on the game's update order. Fair round-robin source scheduling is planned.
-- **Preview-build compatibility:** Moon Sweepers updates can change internal APIs used by BepInEx, MoonFramework, conveyor handling, or save loading. A game update should be treated as untested until the mod is verified.
+- **Game update compatibility:** Moon Sweepers updates can change internal APIs used by BepInEx, MoonFramework, conveyor handling, or save loading. A game update should be treated as untested until the mod is verified.
 - **Save compatibility without the mod:** The adapters are stored using vanilla-compatible building identities. Without the mod, they may appear as ordinary splitter/merger structures and will not provide wireless behavior. Back up saves before disabling or uninstalling the mod.
 - **No configuration file yet:** Cost, power use, range, bandwidth, and channel limits are not configurable yet.
 - **No priority routing yet:** All adapters in a channel currently participate in shared routing; per-channel priorities are planned.
@@ -185,13 +186,13 @@ Yes, but make a backup first. Loading a save with the mod enabled is not expecte
 - Confirm BepInEx, the Moon Sweepers patcher, and MoonFramework are installed.
 - Confirm the DLL is under `BepInEx/plugins/QuantumConveyors/`.
 - Confirm the `.obj` and `.mtl` files are beside the DLL.
-- Confirm the game is the supported Preview 1.0.5 build.
+- Confirm the game is the supported 1.0.5 build.
 - Close and relaunch the game after changing mod files.
 
 ### Pressing E does nothing
 
 - Stand close to the adapter.
-- Aim at the puck itself, not the conveyor or nearby machine.
+- Aim at the adapter gateway itself, not the conveyor or nearby machine.
 - Make sure another object is not between the camera and the adapter.
 - Confirm the adapter's hover panel appears.
 - In multiplayer, have the host perform channel changes.

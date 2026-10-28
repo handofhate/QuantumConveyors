@@ -6,7 +6,7 @@ Wireless conveyor adapters for Moon Sweepers.
 Requirements
 ------------
 
-- Moon Sweepers Preview 1.0.5
+- Moon Sweepers 1.0.5
 - BepInEx 6 IL2CPP
 - The Moon Sweepers BepInEx compatibility patcher
 - MoonFramework, using the version listed on the Quantum Conveyors release page
