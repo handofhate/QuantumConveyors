@@ -18,6 +18,7 @@ public sealed class Plugin : BasePlugin
     public override void Load()
     {
         ClassInjector.RegisterTypeInIl2Cpp<QuantumInteractionController>();
+        ClassInjector.RegisterTypeInIl2Cpp<QuantumCoordinateGizmo>();
         EnsureInteractionHost();
         Moon.WorldLoaded += _ => EnsureInteractionHost();
         Log.LogInfo($"{PluginName} {PluginVersion} loaded.");
@@ -40,7 +41,7 @@ public sealed class Plugin : BasePlugin
             Ports = new[] { PortSpec.In("input", new Vector3(0f, 0.85f, 0f), Vector3.forward) },
             Model = EndpointAssets.OutputModel,
             Machine = () => new QuantumOutputMachine(),
-            OnView = view => { EnsureInteractionHost(); QuantumNetwork.BindUnidentifiedView(view, true); },
+            OnView = view => { EnsureInteractionHost(); QuantumGatewayPhysics.Ensure(view, true); QuantumNetwork.BindUnidentifiedView(view, true); },
             ListAfter = VanillaKinds.Splitter,
         });
 
@@ -59,7 +60,7 @@ public sealed class Plugin : BasePlugin
             Ports = new[] { PortSpec.Out("output", new Vector3(0f, 0.85f, 0f), Vector3.forward) },
             Model = EndpointAssets.InputModel,
             Machine = () => new QuantumInputMachine(),
-            OnView = view => { EnsureInteractionHost(); QuantumNetwork.BindUnidentifiedView(view, false); },
+            OnView = view => { EnsureInteractionHost(); QuantumGatewayPhysics.Ensure(view, false); QuantumNetwork.BindUnidentifiedView(view, false); },
             ListAfter = VanillaKinds.Splitter,
         });
 
