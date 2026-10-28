@@ -104,6 +104,11 @@ internal static class QuantumVisuals
             haloTransform.rotation = Quaternion.LookRotation(haloTransform.position - camera.transform.position);
 
         var haloColor = new Color(color.r, color.g, color.b, visible ? 0.42f : 0.015f);
+        var cameraInsideGateway = camera != null && bodyRenderer != null &&
+            bodyRenderer.bounds.Contains(camera.transform.position);
+        haloSpriteRenderer.enabled = !cameraInsideGateway;
+        if (cameraInsideGateway)
+            haloColor.a = 0f;
         haloSpriteRenderer.sprite = HaloSprite();
         haloSpriteRenderer.color = haloColor;
         return true;
@@ -124,7 +129,7 @@ internal static class QuantumVisuals
     {
         if (haloTexture != null) return haloTexture;
 
-        const int size = 32;
+        const int size = 64;
         haloTexture = new Texture2D(size, size, TextureFormat.RGBA32, false)
         {
             name = "QuantumIndicatorHaloTexture",
@@ -140,8 +145,8 @@ internal static class QuantumVisuals
             var dx = (x - center) / center;
             var dy = (y - center) / center;
             var distance = Mathf.Sqrt(dx * dx + dy * dy);
-            var alpha = Mathf.Clamp01(1f - distance);
-            alpha *= alpha;
+            var alpha = 1f - Mathf.SmoothStep(0.55f, 1f, distance);
+            alpha *= 0.82f;
             pixels[y * size + x] = new Color(1f, 1f, 1f, alpha);
         }
 
