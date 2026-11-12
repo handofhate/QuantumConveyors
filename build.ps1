@@ -1,5 +1,7 @@
 param(
-    [switch]$CopyToStagedRuntime
+    [switch]$CopyToStagedRuntime,
+    [string]$BepInExStage,
+    [string]$MoonSweepersGameRoot
 )
 
 $ErrorActionPreference = 'Stop'
@@ -10,10 +12,18 @@ if (-not (Test-Path -LiteralPath $dotnet)) {
     $dotnet = 'dotnet'
 }
 
-& $dotnet restore $project --force-evaluate --ignore-failed-sources
+$propertyArgs = @()
+if (-not [string]::IsNullOrWhiteSpace($BepInExStage)) {
+    $propertyArgs += "/p:BepInExStage=$BepInExStage"
+}
+if (-not [string]::IsNullOrWhiteSpace($MoonSweepersGameRoot)) {
+    $propertyArgs += "/p:MoonSweepersGameRoot=$MoonSweepersGameRoot"
+}
+
+& $dotnet restore $project --force-evaluate --ignore-failed-sources @propertyArgs
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-& $dotnet build $project -c Release --no-restore
+& $dotnet build $project -c Release --no-restore @propertyArgs
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 if ($CopyToStagedRuntime) {

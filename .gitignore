@@ -4,6 +4,7 @@ bin/
 obj/
 release/
 nexus-media/
+dist/
 *.zip
 *.user
 *.suo
