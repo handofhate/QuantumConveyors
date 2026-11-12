@@ -33,6 +33,7 @@ internal static class QuantumNetwork
 
     internal static void Diagnostic(string message)
     {
+        if (!Plugin.DiagnosticsEnabled) return;
         log?.LogInfo($"[QuantumConveyors] {message}");
         try
         {
@@ -47,6 +48,7 @@ internal static class QuantumNetwork
 
     internal static void DiagnosticThrottled(string key, string message, float intervalSeconds = 5f)
     {
+        if (!Plugin.DiagnosticsEnabled) return;
         var now = Time.unscaledTime;
         if (DiagnosticThrottle.TryGetValue(key, out var last) && now - last < intervalSeconds) return;
         DiagnosticThrottle[key] = now;

@@ -18,6 +18,15 @@ namespace QuantumConveyors;
 /// </summary>
 public sealed class QuantumInteractionController : MonoBehaviour
 {
+    private static readonly Color PanelColor = new(239f / 255f, 235f / 255f, 225f / 255f, 1f);       // #EFEBE1
+    private static readonly Color HeaderTextColor = new(186f / 255f, 181f / 255f, 175f / 255f, 1f);  // #BAB5AF
+    private static readonly Color RowColor = new(42f / 255f, 42f / 255f, 50f / 255f, 1f);             // #2A2A32
+    private static readonly Color ButtonColor = new(73f / 255f, 73f / 255f, 75f / 255f, 1f);          // #49494B
+    private static readonly Color AccentColor = new(1f, 122f / 255f, 46f / 255f, 1f);                 // #FF7A2E
+    private static readonly Color ChannelTextColor = new(242f / 255f, 237f / 255f, 228f / 255f, 1f);  // #F2EDE4
+    private static readonly Color CountTextColor = new(160f / 255f, 156f / 255f, 150f / 255f, 1f);    // #A09C96
+    private static readonly Color AccentTextColor = new(28f / 255f, 34f / 255f, 50f / 255f, 1f);      // #1C2232
+
     private QuantumEndpointView? target;
     private GameObject menuCanvas;
     private RectTransform channelContent;
@@ -97,6 +106,11 @@ public sealed class QuantumInteractionController : MonoBehaviour
                 QuantumNetwork.Diagnostic($"Active camera found: {camera.name}");
             }
 
+            // J.O.O.N.A.S. boarding uses the same E key. Do not let the
+            // wide adapter aim radius steal that key when a robot is the
+            // object the player is actually looking at.
+            if (IsJoonasAimedAt(camera)) return;
+
             var endpointViews = QuantumNetwork.EndpointViews();
             if (endpointViews.Count != lastViewCount)
             {
@@ -152,21 +166,24 @@ public sealed class QuantumInteractionController : MonoBehaviour
         menuCanvas.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
         menuRaycaster = menuCanvas.AddComponent<GraphicRaycaster>();
 
-        var root = MakeRect("Window", menuCanvas.transform, new Vector2(560f, 480f), Vector2.zero, new Color(0.08f, 0.10f, 0.14f, 0.98f));
+        var root = MakeRect("Window", menuCanvas.transform, new Vector2(640f, 520f), Vector2.zero, PanelColor);
         root.anchorMin = new Vector2(0.5f, 0.5f);
         root.anchorMax = new Vector2(0.5f, 0.5f);
         root.pivot = new Vector2(0.5f, 0.5f);
         root.anchoredPosition = Vector2.zero;
-        root.localScale = new Vector3(0.5f, 0.5f, 1f);
+        root.localScale = new Vector3(0.54f, 0.54f, 1f);
         root.gameObject.AddComponent<CanvasGroup>().blocksRaycasts = true;
-        AddText(root, "Quantum Conveyors", new Vector2(0f, 220f), new Vector2(560f, 34f), 26, Color.white, TextAnchor.MiddleCenter);
-        CreateButton(root, "New channel", new Vector2(-165f, 170f), new Vector2(150f, 34f), CreateNewChannel);
-        CreateButton(root, "×", new Vector2(250f, 210f), new Vector2(36f, 36f), CloseMenu);
 
-        var viewport = MakeRect("ChannelViewport", root, new Vector2(520f, 330f), new Vector2(0f, -35f), new Color(0.04f, 0.05f, 0.07f, 0.96f));
+        AddText(root, "Quantum Conveyors", new Vector2(0f, 220f), new Vector2(640f, 42f), 30, HeaderTextColor, TextAnchor.MiddleCenter);
+        CreateButton(root, "New Channel", new Vector2(0f, 152f), new Vector2(180f, 40f), CreateNewChannel, true);
+        CreateButton(root, "×", new Vector2(287f, 231f), new Vector2(42f, 42f), CloseMenu);
+
+        // Keep the channel list below the New Channel button while keeping the
+        // complete viewport inside the card's bottom edge.
+        var viewport = MakeRect("ChannelViewport", root, new Vector2(600f, 330f), new Vector2(0f, -45.5f), PanelColor);
         var mask = viewport.gameObject.AddComponent<Mask>();
         mask.showMaskGraphic = true;
-        channelContent = MakeRect("ChannelContent", viewport, new Vector2(500f, 44f), Vector2.zero, null);
+        channelContent = MakeRect("ChannelContent", viewport, new Vector2(580f, 44f), Vector2.zero, null);
         channelContent.anchorMin = new Vector2(0.5f, 1f);
         channelContent.anchorMax = new Vector2(0.5f, 1f);
         channelContent.pivot = new Vector2(0.5f, 1f);
@@ -196,46 +213,45 @@ public sealed class QuantumInteractionController : MonoBehaviour
             UnityEngine.Object.DestroyImmediate(channelContent.GetChild(i).gameObject);
 
         var summaries = QuantumNetwork.Summaries();
-        var rowHeight = 44f;
-        var topPadding = 10f;
-        channelContent.sizeDelta = new Vector2(500f, Math.Max(44f, topPadding + summaries.Count * rowHeight));
+        var rowHeight = 52f;
+        channelContent.sizeDelta = new Vector2(580f, Math.Max(44f, summaries.Count * rowHeight));
         channelScrollOffset = 0f;
         channelContent.anchoredPosition = Vector2.zero;
         if (summaries.Count == 0)
         {
-            AddText(channelContent, "No channels yet. Press New channel to create one.", new Vector2(0f, -24f),
-                new Vector2(480f, 34f), 16, new Color(0.72f, 0.75f, 0.82f), TextAnchor.MiddleCenter);
+            AddText(channelContent, "No channels yet. Press New Channel to create one.", new Vector2(0f, -28f),
+                new Vector2(560f, 40f), 18, HeaderTextColor, TextAnchor.MiddleCenter);
             return;
         }
 
         for (var i = 0; i < summaries.Count; i++)
         {
             var summary = summaries[i];
-            var row = MakeRect("ChannelRow", channelContent, new Vector2(500f, 38f), new Vector2(0f, -topPadding - i * rowHeight),
-                new Color(0.10f, 0.12f, 0.16f, 1f));
+            var row = MakeRect("ChannelRow", channelContent, new Vector2(580f, 46f), new Vector2(0f, -i * rowHeight), RowColor);
             row.anchorMin = new Vector2(0.5f, 1f);
             row.anchorMax = new Vector2(0.5f, 1f);
             row.pivot = new Vector2(0.5f, 1f);
-            row.anchoredPosition = new Vector2(0f, -topPadding - i * rowHeight);
+            row.anchoredPosition = new Vector2(0f, -i * rowHeight);
             if (summary.Id == editingChannelId)
             {
-                var editor = CreateInputField(row, new Vector2(-112f, 0f), new Vector2(220f, 30f));
+                var editor = CreateInputField(row, new Vector2(-145f, 0f), new Vector2(260f, 34f));
                 editor.text = summary.Name;
-                CreateButton(row, "Save", new Vector2(38f, 0f), new Vector2(62f, 28f),
-                    () => SaveName(summary.Id, editor));
+                CreateButton(row, "Save", new Vector2(34f, 0f), new Vector2(76f, 34f),
+                    () => SaveName(summary.Id, editor), true);
             }
             else
             {
-                AddText(row, $"{summary.Name}  ({summary.Outputs} outputs / {summary.Inputs} inputs)",
-                    new Vector2(-112f, 0f), new Vector2(220f, 32f), 14, Color.white, TextAnchor.MiddleLeft);
+                var channelLabel = AddText(row, $"{summary.Name}  <size=13><color=#A09C96>({Plugin.DisplayCounts(summary.Outputs, summary.Inputs)})</color></size>",
+                    new Vector2(-145f, 0f), new Vector2(260f, 40f), 16, ChannelTextColor, TextAnchor.MiddleLeft);
+                channelLabel.supportRichText = true;
                 var assigned = QuantumNetwork.ChannelFor(menuEndpointId) == summary.Id;
-                CreateButton(row, assigned ? "Unassign" : "Assign", new Vector2(38f, 0f), new Vector2(72f, 28f),
+                CreateButton(row, assigned ? "Unassign" : "Assign", new Vector2(34f, 0f), new Vector2(88f, 34f),
                     () => ToggleChannel(summary.Id));
-                CreateButton(row, "Rename", new Vector2(115f, 0f), new Vector2(82f, 28f),
+                CreateButton(row, "Rename", new Vector2(130f, 0f), new Vector2(94f, 34f),
                     () => BeginRename(summary.Id));
             }
-            CreateButton(row, "×", new Vector2(220f, 0f), new Vector2(34f, 28f),
-                () => DeleteChannel(summary.Id));
+            CreateButton(row, "Delete", new Vector2(229f, 0f), new Vector2(94f, 34f),
+                () => DeleteChannel(summary.Id), true);
         }
 
     }
@@ -326,8 +342,11 @@ public sealed class QuantumInteractionController : MonoBehaviour
                 previousPlayerInputEnabled = playerInputAsset.enabled;
                 playerInputAsset.Disable();
             }
+            else
+            {
+                DisableFallbackInputAssets();
+            }
             found.UIBlocked = true;
-            found.enabled = false;
         }
         else
         {
@@ -349,20 +368,38 @@ public sealed class QuantumInteractionController : MonoBehaviour
                 found.UIBlocked = previousUiBlocked;
                 found.enabled = previousWalkerEnabled;
             }
-            if (playerInputAsset != null && previousPlayerInputEnabled) playerInputAsset.Enable();
-            playerInputAsset = null;
-            foreach (var asset in fallbackInputAssets)
-            {
-                if (asset != null) asset.Enable();
-            }
-            fallbackInputAssets.Clear();
         }
         catch (Exception exception)
         {
             QuantumNetwork.Diagnostic($"Player input restore skipped: {exception.GetType().Name}: {exception.Message}");
         }
-        Cursor.lockState = previousCursorLock;
-        Cursor.visible = previousCursorVisible;
+        finally
+        {
+            try
+            {
+                if (playerInputAsset != null && previousPlayerInputEnabled) playerInputAsset.Enable();
+            }
+            catch (Exception exception)
+            {
+                QuantumNetwork.Diagnostic($"Primary player input restore skipped: {exception.GetType().Name}: {exception.Message}");
+            }
+
+            playerInputAsset = null;
+            foreach (var asset in fallbackInputAssets)
+            {
+                try
+                {
+                    if (asset != null) asset.Enable();
+                }
+                catch (Exception exception)
+                {
+                    QuantumNetwork.Diagnostic($"Fallback player input restore skipped: {exception.GetType().Name}: {exception.Message}");
+                }
+            }
+            fallbackInputAssets.Clear();
+            Cursor.lockState = previousCursorLock;
+            Cursor.visible = previousCursorVisible;
+        }
     }
 
     public void LateUpdate()
@@ -497,7 +534,11 @@ public sealed class QuantumInteractionController : MonoBehaviour
         rect.pivot = new Vector2(0.5f, 0.5f);
         rect.sizeDelta = size;
         rect.anchoredPosition = position;
-        if (background.HasValue) objectRoot.AddComponent<Image>().color = background.Value;
+        if (background.HasValue)
+        {
+            var image = objectRoot.AddComponent<Image>();
+            image.color = background.Value;
+        }
         return rect;
     }
 
@@ -517,23 +558,28 @@ public sealed class QuantumInteractionController : MonoBehaviour
 
     private static InputField CreateInputField(Transform parent, Vector2 position, Vector2 size)
     {
-        var root = MakeRect("NameField", parent, size, position, new Color(0.18f, 0.20f, 0.24f, 1f));
+        var root = MakeRect("NameField", parent, size, position, ButtonColor);
         var field = root.gameObject.AddComponent<InputField>();
-        field.textComponent = AddText(root, string.Empty, Vector2.zero, size - new Vector2(16f, 4f), 16, Color.white, TextAnchor.MiddleLeft);
+        field.targetGraphic = root.GetComponent<Image>();
+        field.textComponent = AddText(root, string.Empty, Vector2.zero, size - new Vector2(16f, 4f), 18, ChannelTextColor, TextAnchor.MiddleLeft);
         field.textComponent.rectTransform.anchoredPosition = new Vector2(8f, 0f);
         field.characterLimit = 24;
         return field;
     }
 
-    private static Button CreateButton(Transform parent, string label, Vector2 position, Vector2 size, Action action)
+    private static Button CreateButton(Transform parent, string label, Vector2 position, Vector2 size, Action action, bool accent = false)
     {
-        var root = MakeRect("Button", parent, size, position, new Color(0.18f, 0.25f, 0.32f, 1f));
+        var isClose = label == "×" && size.x >= 40f;
+        var isDelete = label == "×" && size.x < 40f;
+        var background = accent ? AccentColor : isClose ? new Color(0f, 0f, 0f, 0f) : isDelete ? RowColor : ButtonColor;
+        var textColor = accent ? AccentTextColor : isClose ? HeaderTextColor : isDelete ? CountTextColor : ChannelTextColor;
+        var root = MakeRect("Button", parent, size, position, background);
         var image = root.GetComponent<Image>();
         var button = root.gameObject.AddComponent<Button>();
         button.targetGraphic = image;
         UnityAction unityAction = action;
         button.onClick.AddListener(unityAction);
-        AddText(root, label, Vector2.zero, size - new Vector2(8f, 4f), 14, Color.white, TextAnchor.MiddleCenter);
+        AddText(root, label, Vector2.zero, size - new Vector2(8f, 4f), isClose ? 28 : 16, textColor, TextAnchor.MiddleCenter);
         return button;
     }
 
@@ -615,7 +661,7 @@ public sealed class QuantumInteractionController : MonoBehaviour
             var worldPoint = bounds.center;
             var toTarget = worldPoint - camera.transform.position;
             var distance = toTarget.magnitude;
-            if (distance > 12f || distance < 0.01f) continue;
+            if (distance > 4.5f || distance < 0.01f) continue;
 
             var screenPoint = camera.WorldToScreenPoint(worldPoint);
             if (screenPoint.z <= 0f) continue;
@@ -632,6 +678,22 @@ public sealed class QuantumInteractionController : MonoBehaviour
         return best;
     }
 
+    private static bool IsJoonasAimedAt(Camera camera)
+    {
+        foreach (var rig in UnityEngine.Object.FindObjectsOfType<MoonJoonasRig>(true))
+        {
+            if (rig == null) continue;
+            var point = rig.transform.position + Vector3.up * 0.8f;
+            var to = point - camera.transform.position;
+            var distance = to.magnitude;
+            if (distance > 12f || distance < 0.5f || Vector3.Angle(camera.transform.forward, to) > 6f) continue;
+            if (!Physics.Raycast(camera.transform.position, to.normalized, out var hit, distance + 0.25f,
+                    Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore)) return true;
+            if (hit.transform == rig.transform || hit.transform.IsChildOf(rig.transform)) return true;
+        }
+        return false;
+    }
+
     private static Bounds EndpointBounds(GameObject endpoint)
     {
         var renderers = endpoint.GetComponentsInChildren<Renderer>(true);
@@ -646,28 +708,23 @@ public sealed class QuantumInteractionController : MonoBehaviour
 
     private static void GetScreenAimRadii(Camera camera, Bounds bounds, out float radiusX, out float radiusY)
     {
-        var minX = float.PositiveInfinity;
-        var maxX = float.NegativeInfinity;
-        var minY = float.PositiveInfinity;
-        var maxY = float.NegativeInfinity;
-        var center = bounds.center;
-        var extents = bounds.extents;
+        // Use a capped world-space envelope. Projecting every renderer corner
+        // can make a neighboring adapter's screen rectangle explode when the
+        // player is close to it or some corners are near/behind the camera.
+        var forwardDistance = Vector3.Dot(bounds.center - camera.transform.position, camera.transform.forward);
+        var fieldOfView = Mathf.Max(1f, camera.fieldOfView) * Mathf.Deg2Rad;
+        var pixelsPerWorldUnit = Screen.height /
+            (2f * Mathf.Tan(fieldOfView * 0.5f) * Mathf.Max(0.75f, forwardDistance));
+        var worldExtents = bounds.extents + Vector3.one * 0.12f;
+        var halfWidth = Mathf.Abs(camera.transform.right.x) * worldExtents.x +
+            Mathf.Abs(camera.transform.right.y) * worldExtents.y +
+            Mathf.Abs(camera.transform.right.z) * worldExtents.z;
+        var halfHeight = Mathf.Abs(camera.transform.up.x) * worldExtents.x +
+            Mathf.Abs(camera.transform.up.y) * worldExtents.y +
+            Mathf.Abs(camera.transform.up.z) * worldExtents.z;
 
-        for (var x = -1; x <= 1; x += 2)
-        for (var y = -1; y <= 1; y += 2)
-        for (var z = -1; z <= 1; z += 2)
-        {
-            var screenPoint = camera.WorldToScreenPoint(center + Vector3.Scale(extents, new Vector3(x, y, z)));
-            if (screenPoint.z <= 0f) continue;
-            minX = Mathf.Min(minX, screenPoint.x);
-            maxX = Mathf.Max(maxX, screenPoint.x);
-            var guiY = Screen.height - screenPoint.y;
-            minY = Mathf.Min(minY, guiY);
-            maxY = Mathf.Max(maxY, guiY);
-        }
-
-        radiusX = (float.IsInfinity(minX) ? 180f : Mathf.Max(180f, (maxX - minX) * 0.5f + 32f)) * 1.25f;
-        radiusY = (float.IsInfinity(minY) ? 120f : Mathf.Max(120f, (maxY - minY) * 0.5f + 32f)) * 1.25f;
+        radiusX = Mathf.Clamp((halfWidth * pixelsPerWorldUnit + 32f) * 0.675f, 151.875f, 225f);
+        radiusY = Mathf.Clamp((halfHeight * pixelsPerWorldUnit + 32f) * 0.675f, 101.25f, 150f);
     }
 
     private static bool HasClearLineOfSight(Camera camera, Vector3 target, float distance,

@@ -1,4 +1,4 @@
-Quantum Conveyors 1.1
+Quantum Conveyors 1.1.2
 =====================
 
 Wireless conveyor adapters for Moon Sweepers.
@@ -23,13 +23,17 @@ The installed files belong in:
 
 BepInEx/plugins/QuantumConveyors/
 
+The folder should contain the DLL, model files, material files, collision file,
+and the two build-menu preview PNGs.
+
 Every multiplayer player should use the same game build, BepInEx setup,
 MoonFramework version, and Quantum Conveyors version.
 
 Basic use
 ---------
 
-1. Open the normal Building Tool and place a Quantum Output or Quantum Input.
+1. Open the normal Building Tool and place a Quantum Input on the source conveyor
+   or a Quantum Output on the destination conveyor.
 2. Attach it to a conveyor. Leave enough straight conveyor space for the adapter;
    it occupies the physical port area used by a stock splitter/merger-style part.
 3. Aim at the adapter and press E to open its configuration window.
@@ -41,6 +45,8 @@ Important notes
 ---------------
 
 - Channels are currently unrestricted: there is no cost, range, power, or bandwidth limit.
+- The Mod Manager provides settings for adapter price, diagnostics, and the
+  optional Brain Fart Naming toggle.
 - The host controls channel assignments and transfers in multiplayer.
 - If the attached conveyor is deleted, the adapter disables transfer and shows
   Conveyor missing. Its channel assignment remains available when a compatible

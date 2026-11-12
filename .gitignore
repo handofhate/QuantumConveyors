@@ -2,6 +2,9 @@ work/
 artifacts/
 bin/
 obj/
+release/
+nexus-media/
+*.zip
 *.user
 *.suo
 
