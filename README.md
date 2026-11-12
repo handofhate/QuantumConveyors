@@ -2,41 +2,83 @@
 
 Wireless logistics for Moon Sweepers.
 
-Quantum Conveyors adds small, placeable endpoints to the normal Building Tool. A player places endpoints on existing conveyor ports, then uses the normal interact key to assign each one to a named channel. Resources move through the wireless network without requiring a physical belt between the endpoints.
+Quantum Conveyors adds two small adapters to the Building Tool's Logistics tab. A **Quantum Input** sits on the end of a
+belt and takes its capsules; a **Quantum Output** sits on the start of a belt and puts capsules on it. Put adapters on the
+same channel and capsules travel between them with no belt in between. A channel can have any number of inputs and
+outputs; the outputs take turns.
 
-## Current target
+## Install
 
-- Moon Sweepers preview 1.0.5
-- Windows x64 Steam build
-- Unity 6000.6 / IL2CPP
-- BepInEx 6 IL2CPP with the Moon Sweepers compatibility patcher
-- Multiplayer support with the host authoritative over transfers
+Needs BepInEx 6 (IL2CPP) with the Moon Sweepers patcher, and MoonFramework.
 
-## Design commitments
+1. Close the game.
+2. Put `QuantumConveyors.dll` in `BepInEx/plugins/QuantumConveyors/`. That one file is the whole mod: the model,
+   textures and pictures are inside it. Updating from 1.x: delete the folder's other files (models, pictures).
 
-- A port is either connected to a stock conveyor or occupied by a Quantum Conveyor endpoint; both cannot use the same port.
-- Initial wireless networks are unrestricted: no cost, range, power, or bandwidth limit.
-- Multiple sources and destinations share resources fairly.
-- Priority routing is a later optional feature, not required for the first working version.
-- Endpoint hardware is deliberately small and visible: a black portal square sits on top of the conveyor, with a tiny colored LED on top.
-- Channels are unbounded and isolated. Each channel can contain multiple outputs and inputs, while separate channels remain separate.
-- New endpoints begin unassigned and show an in-game channel menu when interacted with.
-- If the attached conveyor is deleted, the endpoint safely disables transfers instead of auto-deleting. Its setup prompt remains available, and reconnecting a conveyor re-enables it while preserving its channel assignment.
-- Links and endpoint placement should persist with the world save.
+Saves from 1.x load unchanged: same building ids, saved data, channel names and crew messages.
 
-## Development stages
+## Use
 
-1. Install and verify the IL2CPP modding runtime.
-2. Generate and inspect current 1.0.5 interop assemblies.
-3. Add a diagnostic plugin that identifies build-tool entries, compatible ports, conveyor networks, and cargo transfer methods.
-4. Add the Quantum Endpoint building-tool item and its visual marker.
-5. Implement one output to one input transfer.
-6. Add fair multi-channel, multi-source/multi-destination routing.
-7. Add save/load and multiplayer host synchronization.
-8. Add optional routing priorities and configurable limits.
+Walk up to an adapter and press **E**. The menu shows channel groups (folders) and channels:
 
-## Important boundaries
+- **New Channel** / **New Group**: made in the group you're looking at.
+- On a channel: **Assign** (or **Unassign**) this adapter, **Rename**, **Move** to another group, **Delete**.
+- On a group: **Open**, **Rename**, **Move**, **Delete** (what's inside moves up a level; no channel is deleted).
+- **Auto-group by name** files loose channels by the names they already have: `Iron-Line-2` goes into
+  `Iron > Line` as `2`. A group is only made when at least two channels share it.
+- **Unassigned** lists channels with no adapters; **Not grouped** lists channels outside any group.
 
-This is a runtime mod, not an official game extension. Game updates can change internal class names or method signatures. The mod should fail closed and leave stock conveyors working when compatibility checks fail.
+E, Esc or right-click closes the menu. The adapter's light: green ready or working, yellow blinking when the channel has
+no adapter on the other side or the receiving belt is full, red when it's waiting for a channel or its belt is missing.
 
-Do not distribute copies of Moon Sweepers game files or generated game assemblies. The project should distribute only the mod source, build output, and installation instructions.
+Settings (`BepInEx/config/tylerun.moonsweepers.quantumconveyors.cfg`): Adapter Price, Diagnostics, Brain Fart Naming
+(swaps the two adapters' names).
+
+In a crew the host moves the capsules; channel changes made by the host reach everyone.
+
+## How it works
+
+2.0 is a rewrite of 1.x's internals for big bases. 1.x got slower with every adapter: each adapter did work every frame,
+and every receiving adapter's frame searched every channel and every adapter. 2.0 does nothing per frame per adapter:
+
+| | 1.x | 2.0 |
+| --- | --- | --- |
+| Moving capsules | every receiver's Tick searched all channels and adapters | done when MoonFramework offers a capsule to a sender; each channel keeps its own adapter lists |
+| Full channels | every waiting capsule asked every receiver, every frame | a receiver that refused is skipped until the next hand-off pass; a full channel refuses at once, before the capsule is read out of the game |
+| Placing a capsule | port looked up by name and every port point asked for, per capsule | each receiver remembers its port point; the belt is looked up fresh |
+| Indicators | own material, a shadow-casting spot light and a halo per adapter, set every frame | a few shared materials; an adapter is touched only when its state changes |
+| MoonFramework's per-frame loops | adapters in Tick, Animate and the power step | left out (adapters need none of them) |
+| E key | every adapter's bounds and every robot searched every frame | looked up only when E is pressed |
+
+The changes to MoonFramework's loops are Harmony patches (`FrameworkPatches.cs`). Each one fails closed: if
+MoonFramework changes, that patch is skipped, the log says so, and the adapters still work the slow way.
+
+Source: `src/QuantumConveyors.Plugin/`
+
+| File | What it does |
+| --- | --- |
+| `Plugin.cs` | settings, the two buildings, the per-frame driver |
+| `Assets.cs` | unpacks the embedded model and pictures to `BepInEx/cache/QuantumConveyors/<version>/` |
+| `Network.cs` | channels, moving capsules, crew messages, the public API |
+| `Groups.cs`, `NameSplit.cs` | channel groups, and reading groups out of names |
+| `Machines.cs` | the two adapters |
+| `Indicators.cs` | indicator lights |
+| `Menu.cs` | the E menu |
+| `FrameworkPatches.cs` | MoonFramework patches |
+
+## Build
+
+Needs the .NET 6+ SDK and the game with BepInEx (run once, so `BepInEx/interop` exists) and MoonFramework installed;
+the project compiles against them.
+
+- Windows: `./build.ps1` (`-Install` copies the DLL into the game; `-MoonSweepersGameRoot` if the game isn't in
+  Steam's default folder)
+- Linux: `./build.sh` (`--install`; `MOONSWEEPERS_GAME_ROOT` for another folder)
+
+Output: `src/QuantumConveyors.Plugin/bin/Release/net6.0/QuantumConveyors.dll`.
+`tools/Package-QuantumConveyors.ps1` makes the release zip; see `RELEASE_AUTOMATION.md`.
+
+## Boundaries
+
+This is a runtime mod, not an official game extension; a game update can change what it relies on. Don't distribute
+the game's files or the generated interop assemblies, only the mod.
