@@ -1,6 +1,6 @@
 Version 2.0.0
 
-- Rewritten for speed: nothing runs per adapter per frame. Capsules move when MoonFramework offers one; adapters are left out of MoonFramework's per-frame Tick, Animate and power loops. Measured on a base with about 1,500 adapters: 20.7 fps with 1.1.2.
+- Rewritten for speed: nothing runs per adapter per frame. Capsules move when MoonFramework offers one; adapters are left out of MoonFramework's per-frame Tick, Animate and power loops. (Quantum Fast, the same design without this version's newer changes, took a ~1,500-adapter base from 20.7 to 29.6 fps.)
 - Each channel keeps its own list of adapters; a channel whose receiving adapters are all full stops being asked until the next capsule hand-off pass, and refused capsules are turned away before MoonFramework reads them out of the game.
 - Receiving adapters remember where their belt starts instead of looking up every port point for every capsule.
 - Indicators share a few materials and change only when an adapter's state changes. The spot light and halo sprite are gone (each adapter had a shadow-casting light updated every frame).
