@@ -27,7 +27,9 @@ internal static class Menu
     static string moving, movingGroup;   // a channel or group being moved: browse to a group and press "Move here"
     static readonly HashSet<string> expandedGroups = new(StringComparer.Ordinal);
     static bool unassignedExpanded, ungroupedExpanded;
-    static Sprite channelGradient, folderGradient, channelIcon, folderIcon;
+    static string focusEditingChannel = string.Empty;
+    static Sprite channelGradient, folderGradient, folderIcon;
+    static UnityEngine.UI.Button autoGroupButton;
     static BaseInputModule prevModule; static bool prevModuleOn;
     static MoonWalker walker; static bool prevBlocked; static bool prevWalkerEnabled;
     static InputActionAsset playerInput; static bool prevInputOn;
@@ -115,7 +117,7 @@ internal static class Menu
         var c = canvas.AddComponent<Canvas>(); c.renderMode = RenderMode.ScreenSpaceOverlay; c.sortingOrder = 1000;
         canvas.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
         raycaster = canvas.AddComponent<GraphicRaycaster>();
-        var win = Rect("Window", canvas.transform, new Vector2(640, 520), Vector2.zero, PanelColor); win.localScale = new Vector3(0.54f, 0.54f, 1f);
+        var win = Rect("Window", canvas.transform, new Vector2(640, 600), Vector2.zero, PanelColor); win.localScale = new Vector3(0.54f, 0.54f, 1f);
         win.gameObject.AddComponent<CanvasGroup>().blocksRaycasts = true;
         title = Label(win, "Quantum", new Vector2(0, 220), new Vector2(560, 42), 26, HeaderText, TextAnchor.MiddleCenter);
         Button(win, "New Channel", new Vector2(-88, 152), new Vector2(160, 40), NewChannel, true);
@@ -125,6 +127,13 @@ internal static class Menu
         view.gameObject.AddComponent<Mask>().showMaskGraphic = true;
         content = Rect("ChannelContent", view, new Vector2(580, 44), Vector2.zero, null);
         content.anchorMin = content.anchorMax = content.pivot = new Vector2(0.5f, 1f); content.anchoredPosition = Vector2.zero;
+        var autoPanel = Rect("AutoGroupPanel", win, new Vector2(580, 100), new Vector2(0, -245), PanelColor);
+        Label(autoPanel, "Auto Group", new Vector2(-205, 28), new Vector2(250, 30), 18, NameText, TextAnchor.MiddleLeft);
+        var explanation = Label(autoPanel,
+            "Turn this on to automatically nest new channels inside matching groups. For example, dust-left and dust-right become channels inside a dust group, named left and right. dust 1 and dust 2 are recognized the same way.",
+            new Vector2(-5, -22), new Vector2(515, 52), 12, NameText, TextAnchor.UpperLeft);
+        explanation.horizontalOverflow = HorizontalWrapMode.Wrap; explanation.verticalOverflow = VerticalWrapMode.Overflow;
+        autoGroupButton = Button(autoPanel, QuantumNetwork.AutoGroupOn ? "On" : "Off", new Vector2(230, 28), new Vector2(84, 34), ToggleAutoGroup, QuantumNetwork.AutoGroupOn);
         Refresh();
         var es = EventSystem.current;
         if (es == null) { var go = new GameObject("Quantum Conveyors EventSystem"); es = go.AddComponent<EventSystem>(); UnityEngine.Object.DontDestroyOnLoad(go); }
@@ -166,26 +175,26 @@ internal static class Menu
             return r;
         }
         void Empty(string text) => Label(content, text, new Vector2(0, -28 - row * rowH), new Vector2(560, 40), 18, HeaderText, TextAnchor.MiddleCenter);
-        void Icon(Transform parent, bool folder, int depth)
+        void Icon(Transform parent, int depth)
         {
             var r = Rect("Icon", parent, new Vector2(22, 22), new Vector2(-270 + depth * 18, 0), null);
-            var image = r.gameObject.AddComponent<Image>(); image.sprite = folder ? folderIcon : channelIcon; image.preserveAspect = true;
+            var image = r.gameObject.AddComponent<Image>(); image.sprite = folderIcon; image.preserveAspect = true;
         }
 
         void RenderChannel(ChannelSummary s, int depth, bool fullName)
         {
-            var r = Row(depth, false); Icon(r, false, depth);
+            var r = Row(depth, false);
             var indent = depth * 18;
             string label = fullName || depth == 0 ? s.Name : QuantumNetwork.ShortName(s.Id);
             if (editing == "c:" + s.Id)
             {
-                var field = Field(r, new Vector2(-120 + indent, 0), new Vector2(235, 34)); field.text = QuantumNetwork.ShortName(s.Id);
+                var field = Field(r, new Vector2(-145 + indent, 0), new Vector2(260, 34)); field.text = QuantumNetwork.ShortName(s.Id);
                 string id = s.Id;
                 Button(r, "Save", new Vector2(34, 0), new Vector2(76, 34), () => { if (QuantumNetwork.RenameChannel(id, field.text)) { editing = string.Empty; Refresh(); } }, true);
                 Button(r, "Cancel", new Vector2(130, 0), new Vector2(88, 34), () => { editing = string.Empty; Refresh(); });
                 return;
             }
-            var t = Label(r, label + (chMine == s.Id ? "  <color=#FF7A2E>(this adapter)</color>" : "") + "  " + DimTag + "(" + Plugin.DisplayCounts(s.Outputs, s.Inputs) + ")</color></size>", new Vector2(-145 + indent, 0), new Vector2(165 - indent, 40), 15, NameText, TextAnchor.MiddleLeft);
+            var t = Label(r, label + (chMine == s.Id ? "  <color=#FF7A2E>(this adapter)</color>" : "") + "  " + DimTag + "(" + Plugin.DisplayCounts(s.Outputs, s.Inputs) + ")</color></size>", new Vector2(-180 + indent, 0), new Vector2(190 - indent, 40), 15, NameText, TextAnchor.MiddleLeft);
             t.supportRichText = true;
             string cid = s.Id;
             if (what == null) Button(r, "Move", new Vector2(-40, 0), new Vector2(80, 34), () => { moving = cid; movingGroup = null; unassignedView = ungroupedView = false; Refresh(); });
@@ -199,7 +208,7 @@ internal static class Menu
 
         void RenderGroup(string gid, int depth)
         {
-            var r = Row(depth, true); Icon(r, true, depth);
+            var r = Row(depth, true); Icon(r, depth);
             var indent = depth * 18;
             if (editing == "g:" + gid)
             {
@@ -244,7 +253,7 @@ internal static class Menu
 
         void RenderSpecial(string label, string count, bool expanded, Action toggle, List<ChannelSummary> channels)
         {
-            var r = Row(0, true); Icon(r, true, 0);
+            var r = Row(0, true); Icon(r, 0);
             var t = Label(r, label + "  " + DimTag + count + "</color></size>", new Vector2(-145, 0), new Vector2(165, 40), 15, NameText, TextAnchor.MiddleLeft); t.supportRichText = true;
             Button(r, expanded ? "▾" : "▸", new Vector2(234, 0), new Vector2(48, 34), toggle, true);
             if (expanded)
@@ -262,10 +271,14 @@ internal static class Menu
             Button(mr, "Cancel", new Vector2(224, 0), new Vector2(110, 34), () => { moving = movingGroup = null; Refresh(); });
         }
 
-        bool autoGroup = QuantumNetwork.AutoGroupOn;
-        var auto = Row(0, true);
-        Label(auto, (autoGroup ? "[x]" : "[  ]") + "  Auto-group by name  " + DimTag + "(dust-north + dust-south → dust folder)</color></size>", new Vector2(-95, 0), new Vector2(360, 40), 15, NameText, TextAnchor.MiddleLeft).supportRichText = true;
-        Button(auto, autoGroup ? "On" : "Off", new Vector2(234, 0), new Vector2(84, 34), () => { QuantumNetwork.SetAutoGroup(!QuantumNetwork.AutoGroupOn); Refresh(); }, autoGroup);
+        var autoGroup = QuantumNetwork.AutoGroupOn;
+        if (autoGroupButton != null)
+        {
+            var buttonText = autoGroupButton.GetComponentInChildren<Text>();
+            if (buttonText != null) buttonText.text = autoGroup ? "On" : "Off";
+            var buttonImage = autoGroupButton.GetComponent<Image>();
+            if (buttonImage != null) buttonImage.color = autoGroup ? Accent : ButtonColor;
+        }
 
         var unassigned = new List<ChannelSummary>();
         foreach (var c in QuantumNetwork.Summaries()) if (c.Outputs + c.Inputs == 0) unassigned.Add(c);
@@ -276,14 +289,23 @@ internal static class Menu
         RenderSpecial("Not grouped", "(" + ungrouped.Count + " channels outside folders)", ungroupedExpanded, () => { ungroupedExpanded = !ungroupedExpanded; Refresh(); }, ungrouped);
 
         foreach (var gid in QuantumNetwork.ChildGroups(string.Empty)) RenderGroup(gid, 0);
-        if (ungroupedExpanded)
-        {
-            // The Not grouped dropdown owns loose channels, so they are not duplicated at the root.
-        }
         var maxScroll = Mathf.Max(0f, row * rowH - 330f);
         scroll = Mathf.Clamp(scroll, 0f, maxScroll);
         content.sizeDelta = new Vector2(580, Math.Max(44f, row * rowH));
         content.anchoredPosition = new Vector2(0f, scroll);
+
+        if (!string.IsNullOrEmpty(focusEditingChannel))
+        {
+            var field = content.GetComponentsInChildren<InputField>(true);
+            foreach (var candidate in field)
+                if (candidate.name == "NameField" && editing == "c:" + focusEditingChannel)
+                {
+                    var es = EventSystem.current;
+                    if (es != null) { es.SetSelectedGameObject(candidate.gameObject); candidate.ActivateInputField(); }
+                    break;
+                }
+            focusEditingChannel = string.Empty;
+        }
     }
 
     static bool CanHold(string into, string gid)                       // a group can't go inside itself
@@ -314,7 +336,10 @@ internal static class Menu
     }
     static void NewChannel()
     {
-        if (!Moon.IsAuthority || !QuantumNetwork.CreateChannelIn(string.Empty, out _)) return;
+        if (!Moon.IsAuthority || !QuantumNetwork.CreateChannelIn(string.Empty, out var channelId)) return;
+        unassignedExpanded = true;
+        editing = "c:" + channelId;
+        focusEditingChannel = channelId;
         Refresh();
     }
     static void NewGroup()
@@ -325,13 +350,18 @@ internal static class Menu
         string name = "New Group"; int n = 2; while (names.Contains(name)) name = "New Group " + n++;
         if (QuantumNetwork.CreateGroup(parent, name, out var gid)) { editing = "g:" + gid; Refresh(); }
     }
+    static void ToggleAutoGroup()
+    {
+        if (!Moon.IsAuthority) return;
+        QuantumNetwork.SetAutoGroup(!QuantumNetwork.AutoGroupOn);
+        Refresh();
+    }
 
     static void EnsureVisualAssets()
     {
         if (channelGradient != null) return;
         channelGradient = MakeGradient(new Color(1f, 0.478f, 0.180f, 0.22f), new Color(1f, 0.478f, 0.180f, 0f), "Quantum Channel Gradient");
         folderGradient = MakeGradient(new Color(0.110f, 0.133f, 0.196f, 0.24f), new Color(0.110f, 0.133f, 0.196f, 0f), "Quantum Folder Gradient");
-        channelIcon = MakeIcon(false, new Color(0.110f, 0.133f, 0.196f, 1f), "Quantum Channel Icon");
         folderIcon = MakeIcon(true, new Color(0.110f, 0.133f, 0.196f, 1f), "Quantum Folder Icon");
     }
 
