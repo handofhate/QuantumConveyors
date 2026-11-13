@@ -653,10 +653,10 @@ internal static class Menu
         var unassigned = new List<ChannelSummary>();
         foreach (var c in QuantumNetwork.Summaries()) if (c.Outputs + c.Inputs == 0) unassigned.Add(c);
         unassigned.Sort((a, b) => QuantumNetwork.Natural(a.Name, b.Name));
-        RenderSpecial("Unassigned", "(" + unassigned.Count + " channels with no adapters)", unassignedExpanded, () => { unassignedExpanded = !unassignedExpanded; animateNextRefresh = true; Refresh(); }, unassigned);
+        RenderSpecial("Unassigned", "(" + unassigned.Count + " channels with no adapters)", unassignedExpanded, () => { var wasOpen = unassignedExpanded; unassignedExpanded = !unassignedExpanded; animatedArrowKey = "s:unassigned"; animatedArrowWasOpen = wasOpen; animateNextRefresh = true; Refresh(); }, unassigned);
 
         var ungrouped = QuantumNetwork.ChannelsIn(string.Empty);
-        RenderSpecial("Not Grouped", "(" + ungrouped.Count + " channels outside folders)", ungroupedExpanded, () => { ungroupedExpanded = !ungroupedExpanded; animateNextRefresh = true; Refresh(); }, ungrouped);
+        RenderSpecial("Not Grouped", "(" + ungrouped.Count + " channels outside folders)", ungroupedExpanded, () => { var wasOpen = ungroupedExpanded; ungroupedExpanded = !ungroupedExpanded; animatedArrowKey = "s:ungrouped"; animatedArrowWasOpen = wasOpen; animateNextRefresh = true; Refresh(); }, ungrouped);
 
         foreach (var gid in QuantumNetwork.ChildGroups(string.Empty)) RenderGroup(gid, 0);
         var maxScroll = Mathf.Max(0f, row * rowH - 300f);
