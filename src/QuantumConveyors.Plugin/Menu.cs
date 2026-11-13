@@ -34,6 +34,14 @@ internal static class Menu
     static Sprite channelGradient, folderGradient, folderIcon, topFade, bottomFade;
     static Image topFadeImage, bottomFadeImage;
     static UnityEngine.UI.Button autoGroupButton;
+    sealed class DragRow
+    {
+        internal RectTransform Row; internal string ChannelId; internal string GroupId; internal bool RootDrop; internal Image Background;
+    }
+    static readonly List<DragRow> dragRows = new();
+    static DragRow dragCandidate, hoveredDrop;
+    static Vector2 dragStart;
+    static bool dragging;
     static BaseInputModule prevModule; static bool prevModuleOn;
     static MoonWalker walker; static bool prevBlocked; static bool prevWalkerEnabled;
     static InputActionAsset playerInput; static bool prevInputOn;
@@ -51,6 +59,8 @@ internal static class Menu
             if (mouse != null && mouse.rightButton.wasPressedThisFrame) { Close(); return; }
             if (kb != null && kb.escapeKey.wasPressedThisFrame) { Close(); return; }
             if (kb != null && kb.eKey.wasPressedThisFrame && !RenameFocused()) { Close(); return; }
+            if (mouse != null && mouse.leftButton.wasPressedThisFrame) BeginDragCandidate(mouse.position.ReadValue());
+            UpdateDrag(mouse);
             Click(); Scroll();
             return;
         }
@@ -161,10 +171,96 @@ internal static class Menu
         editing = string.Empty; Refresh();
     }
 
+    static void RegisterDragRow(RectTransform row, string channelId, string groupId, bool rootDrop)
+    {
+        dragRows.Add(new DragRow
+        {
+            Row = row,
+            ChannelId = channelId,
+            GroupId = groupId,
+            RootDrop = rootDrop,
+            Background = row.GetComponent<Image>()
+        });
+    }
+
+    static DragRow RowAt(Vector2 position, bool includeInteractive, out bool overInteractive)
+    {
+        overInteractive = false;
+        var es = EventSystem.current;
+        if (raycaster == null || es == null) return null;
+        var ev = new PointerEventData(es) { position = position };
+        var hits = new Il2CppSystem.Collections.Generic.List<RaycastResult>(); raycaster.Raycast(ev, hits);
+        var en = hits.GetEnumerator();
+        while (en.MoveNext())
+        {
+            var go = en.Current.gameObject; if (go == null) continue;
+            var interactive = go.GetComponentInParent<Button>() != null || go.GetComponentInParent<InputField>() != null;
+            if (interactive) overInteractive = true;
+            if (interactive && !includeInteractive) continue;
+            var t = go.transform;
+            while (t != null && t.name != "Row") t = t.parent;
+            if (t == null) continue;
+            var row = t as RectTransform;
+            foreach (var candidate in dragRows) if (candidate.Row == row) return candidate;
+        }
+        return null;
+    }
+
+    static void BeginDragCandidate(Vector2 position)
+    {
+        var row = RowAt(position, false, out var overInteractive);
+        if (overInteractive || row == null || (row.ChannelId == null && row.GroupId == null)) return;
+        dragCandidate = row; dragStart = position; dragging = false;
+    }
+
+    static bool CanDropOn(DragRow target)
+    {
+        if (target == null || dragCandidate == null) return false;
+        if (target.RootDrop) return true;
+        if (string.IsNullOrEmpty(target.GroupId)) return false;
+        if (!string.IsNullOrEmpty(dragCandidate.ChannelId)) return true;
+        return dragCandidate.GroupId != target.GroupId && CanHold(target.GroupId, dragCandidate.GroupId);
+    }
+
+    static void SetHoveredDrop(DragRow target)
+    {
+        if (hoveredDrop == target) return;
+        if (hoveredDrop?.Background != null) hoveredDrop.Background.color = Color.white;
+        hoveredDrop = CanDropOn(target) ? target : null;
+        if (hoveredDrop?.Background != null) hoveredDrop.Background.color = new Color(1f, 0.72f, 0.28f, 1f);
+    }
+
+    static void UpdateDrag(Mouse mouse)
+    {
+        if (dragCandidate == null || mouse == null) return;
+        var position = mouse.position.ReadValue();
+        if (mouse.leftButton.isPressed)
+        {
+            if (!dragging && (position - dragStart).sqrMagnitude >= 64f) dragging = true;
+            if (dragging) SetHoveredDrop(RowAt(position, true, out _));
+            return;
+        }
+        if (!mouse.leftButton.wasReleasedThisFrame) return;
+        if (dragging && hoveredDrop != null)
+        {
+            var targetGroup = hoveredDrop.RootDrop ? string.Empty : hoveredDrop.GroupId;
+            if (!string.IsNullOrEmpty(dragCandidate.ChannelId)) QuantumNetwork.MoveChannel(dragCandidate.ChannelId, targetGroup);
+            else if (!string.IsNullOrEmpty(dragCandidate.GroupId)) QuantumNetwork.MoveGroup(dragCandidate.GroupId, targetGroup);
+        }
+        ClearDragState(); Refresh();
+    }
+
+    static void ClearDragState()
+    {
+        if (hoveredDrop?.Background != null) hoveredDrop.Background.color = Color.white;
+        dragCandidate = hoveredDrop = null; dragging = false;
+    }
+
     static void Refresh()
     {
         if (content == null) return;
         for (int i = content.childCount - 1; i >= 0; i--) UnityEngine.Object.DestroyImmediate(content.GetChild(i).gameObject);
+        dragRows.Clear(); ClearDragState();
         pendingFocusField = null;
         const float rowH = 52f;
         string what = moving != null ? "Move channel " + QuantumNetwork.ShortName(moving) : movingGroup != null ? "Move group " + QuantumNetwork.GroupName(movingGroup) : null;
@@ -197,6 +293,7 @@ internal static class Menu
         void RenderChannel(ChannelSummary s, int depth, bool fullName)
         {
             var r = Row(depth, false);
+            RegisterDragRow(r, s.Id, null, false);
             var indent = depth * 14;
             string label = fullName || depth == 0 ? s.Name : QuantumNetwork.ShortName(s.Id);
             if (editing == "c:" + s.Id)
@@ -223,6 +320,7 @@ internal static class Menu
         void RenderGroup(string gid, int depth)
         {
             var r = Row(depth, true); Icon(r, depth);
+            RegisterDragRow(r, null, gid, false);
             var indent = depth * 14;
             if (editing == "g:" + gid)
             {
@@ -278,6 +376,7 @@ internal static class Menu
         void RenderSpecial(string label, string count, bool expanded, Action toggle, List<ChannelSummary> channels)
         {
             var r = Row(0, true); Icon(r, 0);
+            RegisterDragRow(r, null, null, label == "Not Grouped");
             var t = Label(r, label + "  " + DimTag + count + "</color></size>", new Vector2(-23.5f, 0), new Vector2(467, 40), 15, NameText, TextAnchor.MiddleLeft); t.supportRichText = true;
             t.horizontalOverflow = HorizontalWrapMode.Overflow; t.verticalOverflow = VerticalWrapMode.Truncate;
             Button(r, expanded ? "▾" : "▸", new Vector2(276, 0), new Vector2(48, 34), toggle, true);
@@ -493,6 +592,7 @@ internal static class Menu
         canvas = null; raycaster = null; content = null; editing = string.Empty; moving = movingGroup = null;
         pendingNewChannel = pendingNewGroup = null; pendingNewChannelWasUnassignedExpanded = false; focusEditingChannel = string.Empty; pendingFocusField = null; autoGroupButton = null;
         topFadeImage = bottomFadeImage = null;
+        ClearDragState(); dragRows.Clear();
         if (prevModule != null) prevModule.enabled = prevModuleOn; prevModule = null;
         Unfreeze();
     }
