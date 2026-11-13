@@ -21,18 +21,20 @@ Saves from 1.x load unchanged: same building ids, saved data, channel names and 
 
 Walk up to an adapter and press **E**. The menu shows channel groups (folders) and channels:
 
-- **New Channel** / **New Group**: made in the group you're looking at.
-- On a channel: **Assign** (or **Unassign**) this adapter, **Rename**, **Move** to another group, **Delete**.
-- On a group: **Open**, **Rename**, **Move**, **Delete** (what's inside moves up a level; no channel is deleted).
-- **Auto-group by name** files loose channels by the names they already have: `Iron-Line-2` goes into
-  `Iron > Line` as `2`. A group is only made when at least two channels share it.
+- **New Channel** creates a channel and immediately opens its rename field. **New Group** creates a root-level folder.
+- Click anywhere on a folder row to expand or collapse it. Folders can be nested to any depth.
+- Drag channel and folder rows to move them. The menu provides a drag preview, drop feedback, edge auto-scroll, and animated expansion/collapse.
+- On a channel: **Assign** (or **Unassign**) this adapter, **Rename**, and **Delete**.
+- On a group: **Rename** and **Delete**. Deleting a group moves its contents up a level; it does not delete channels.
+- **Auto Group** files only channels created while it is enabled. Matching is case-insensitive: `Iron-Line-2` can become
+  `Iron > Line` as `2`, and an existing matching folder is reused.
 - **Unassigned** lists channels with no adapters; **Not grouped** lists channels outside any group.
 
-E, Esc or right-click closes the menu. The adapter's light: green ready or working, yellow blinking when the channel has
+E, Escape, or right-click closes the menu. The adapter's light: green ready or working, yellow blinking when the channel has
 no adapter on the other side or the receiving belt is full, red when it's waiting for a channel or its belt is missing.
 
 Settings (`BepInEx/config/tylerun.moonsweepers.quantumconveyors.cfg`): Adapter Price, Diagnostics, Brain Fart Naming
-(swaps the two adapters' names).
+(This swaps the names of the adapters. Proper semantics is now optional.).
 
 In a crew the host moves the capsules; channel changes made by the host reach everyone.
 

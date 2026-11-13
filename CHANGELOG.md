@@ -1,16 +1,18 @@
 Version 2.0.0
 
-- Rewritten for speed: nothing runs per adapter per frame. Capsules move when MoonFramework offers one; adapters are left out of MoonFramework's per-frame Tick, Animate and power loops. On a 1,480-adapter base: +43% fps against 1.1.2 (see the README's "Measured").
-- Each channel keeps its own list of adapters; a channel whose receiving adapters are all full stops being asked until the next capsule hand-off pass, and refused capsules are turned away before MoonFramework reads them out of the game.
-- Capsules at a Quantum Input wait in their channel's own list instead of MoonFramework's: each hand-off a channel is offered capsules only until it is full, so a full base costs per channel, not per waiting capsule.
-- MoonFramework's table of input positions (rebuilt twice a second) no longer asks the game for every adapter's ports: a Quantum Input's place is remembered until it is built or moved, and receiving adapters are left out.
-- Receiving adapters remember where their belt starts instead of looking up every port point for every capsule.
-- Indicators share a few materials and change only when an adapter's state changes; the 3-second "sending/receiving" and "belt full" states run out from a timer queue, and receivers check their belt only when belts are built or removed. The spot light and halo sprite are gone (each adapter had a shadow-casting light updated every frame).
-- Fixed: a Quantum Input whose belt ends a few millimetres from its port could never take a capsule (MoonFramework matches belt ends to inputs by rounding to the centimetre, and the two points could round apart). A belt ending within about a centimetre of the port now counts.
-- The E key looks for an adapter only when pressed, among adapters within 6 m with nothing in front of them.
-- Channel groups: folders for channels, as deep as you like (New Group, Open, Rename, Move, Delete; Move for channels). An "Auto-group by name" switch files channels by the names they already have ("Iron-Line-2" goes into Iron > Line as "2"). "Unassigned" lists channels with no adapters.
-- One file: the model, textures and build-menu pictures are inside QuantumConveyors.dll. Delete the old QuantumConveyors folder's other files when updating (the DLL alone is enough).
-- Saves, building ids, channel names and crew messages are unchanged: 1.x worlds load as they are.
+- Rewritten the transport internals for large bases: capsules move when MoonFramework offers one, rather than every adapter doing work every frame. Quantum adapters are removed from MoonFramework's per-frame Tick, Animate, and power loops when the compatibility patches apply.
+- Added per-channel adapter lists and waiting queues. Full receiving belts are skipped, refused transfers stay on the source belt, and a full channel stops being queried until the next hand-off pass.
+- Added remembered round-robin selection for receiving adapters, while source belts still compete according to the game's conveyor update order.
+- Cached input positions and receiving belt start points instead of repeatedly searching every adapter and port. A belt ending within about a centimetre of a Quantum Input now counts, fixing the old dead-input edge case.
+- Optimized indicators: shared materials, state-change updates, timed sending/receiving and belt-full states, and no per-adapter shadow-casting light update.
+- Added channel folders with unlimited nesting, inline expand/collapse, Unassigned and Not Grouped sections, scrolling, edge fades, drag-and-drop organization, drag auto-scroll, drop previews, and animated folder/list changes.
+- Added Auto Group by name. It is case-insensitive, only affects channels created while enabled, leaves older channels alone, and reuses matching groups when possible.
+- Reworked the configuration menu: full-row expansion, focused rename fields, correct creation cancellation, keyboard/input focus protection, E/Escape/right-click closing, help tooltips, improved status text, and a visual refresh matching the in-game Mod Manager.
+- Removed the old Move buttons; channels and folders are organized by dragging their rows.
+- Refined E targeting so the adapter gateway is selectable without accidentally opening through nearby machines or objects.
+- Added native move-tool support so moved adapters can reconnect and resume their saved channel assignment.
+- Added proper build-menu preview images and embedded the model, textures, and previews in the single QuantumConveyors.dll file.
+- Saves, building ids, channel names, groups, and crew messages remain compatible with the 1.x data format.
 
 Version 1.1.2
 
