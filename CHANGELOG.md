@@ -1,3 +1,7 @@
+Version 2.1.0
+
+- Answers HTTP requests for tools, through a public HandleHttp method that a mod serving HTTP can pass requests on to (without such a mod nothing calls it): list channels and adapters (GET /quantum/channels), create, rename, assign and delete channels, file build-named channels into groups, and see how much each channel moved lately and which receivers placed nothing (GET /quantum/flow). Changes work on the host only, as in the menu.
+
 Version 2.0.0
 
 - Rewritten the transport internals for large bases: capsules move when MoonFramework offers one, rather than every adapter doing work every frame. Quantum adapters are removed from MoonFramework's per-frame Tick, Animate, and power loops when the compatibility patches apply.

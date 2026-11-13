@@ -24,7 +24,7 @@ public sealed class Plugin : BasePlugin
 {
     public const string PluginGuid = "tylerun.moonsweepers.quantumconveyors";
     public const string PluginName = "Quantum Conveyors";
-    public const string PluginVersion = "2.0.0";
+    public const string PluginVersion = "2.1.0";
 
     static ConfigEntry<int> adapterPrice;
     static ConfigEntry<bool> diagnostics, brainFart;
@@ -61,6 +61,10 @@ public sealed class Plugin : BasePlugin
         FrameworkPatches.Install(new Harmony(PluginGuid), Log);
         Log.LogInfo($"{PluginName} {PluginVersion} loaded: {DisplayNameFor(true)} and {DisplayNameFor(false)} registered.");
     }
+
+    // HTTP requests a mod that serves HTTP passes on to plugins (Http.cs): /quantum/... answered, anything else isn't
+    // ours (null). Without such a mod nothing calls this.
+    public string HandleHttp(string method, string path, System.Collections.Specialized.NameValueCollection query, string body) => Http.Handle(method, path, query);
 
     // The ids are 1.x's, so saved adapters load as these. A sender has an input port, a receiver an output port, both on
     // top of the body where a belt end meets them.

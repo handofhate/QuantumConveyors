@@ -85,6 +85,20 @@ Source: `src/QuantumConveyors.Plugin/`
 | `Menu.cs` | the E menu |
 | `FrameworkPatches.cs` | MoonFramework patches |
 
+## For tools: HTTP requests
+
+Quantum Conveyors has a public `HandleHttp(method, path, query, body)` on its plugin class, for mods that serve HTTP and
+pass requests on to plugins. Nothing calls it on its own. Reads are GET; changes are POST and work on the host only.
+
+| Request | What it does |
+|---|---|
+| `GET /quantum/channels` | Every channel (id, name, group, outputs, inputs) and every adapter (id, kind, role, position, channel, attached) |
+| `POST /quantum/channels/create?name=` | A new channel; a build name such as `Iron-Line-2` is filed into its group |
+| `POST /quantum/channels/modify` | `adapter=&channel=` puts an adapter on a channel; `adapter=` alone takes it off; `channel=&name=` renames |
+| `POST /quantum/channels/remove?channel=` | Delete a channel |
+| `POST /quantum/convert` | File every ungrouped build-named channel into groups |
+| `GET /quantum/flow?minutes=5` | Per channel: capsules moved in the last minutes (up to 10), and the receivers that placed none |
+
 ## Build
 
 Needs the .NET 6+ SDK and the game with BepInEx (run once, so `BepInEx/interop` exists) and MoonFramework installed;
