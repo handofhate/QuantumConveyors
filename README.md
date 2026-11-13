@@ -44,11 +44,27 @@ and every receiving adapter's frame searched every channel and every adapter. 2.
 | | 1.x | 2.0 |
 | --- | --- | --- |
 | Moving capsules | every receiver's Tick searched all channels and adapters | done when MoonFramework offers a capsule to a sender; each channel keeps its own adapter lists |
-| Full channels | every waiting capsule asked every receiver, every frame | a receiver that refused is skipped until the next hand-off pass; a full channel refuses at once, before the capsule is read out of the game |
+| Full channels | every waiting capsule asked every receiver, every frame | capsules at a Quantum Input wait in their channel's own list; each hand-off pass a channel is offered capsules only until it's full, so a full base costs per channel, not per waiting capsule |
+| MoonFramework's input table | rebuilt twice a second by asking the game for every adapter's ports | a Quantum Input's place in it is remembered until the adapter is built or moved; receivers are left out |
 | Placing a capsule | port looked up by name and every port point asked for, per capsule | each receiver remembers its port point; the belt is looked up fresh |
-| Indicators | own material, a shadow-casting spot light and a halo per adapter, set every frame | a few shared materials; an adapter is touched only when its state changes |
+| Indicators | own material, a shadow-casting spot light and a halo per adapter, set every frame | a few shared materials; an adapter is redrawn only when its state changes, timed states run out from a queue, belts re-checked only when belts change |
 | MoonFramework's per-frame loops | adapters in Tick, Animate and the power step | left out (adapters need none of them) |
 | E key | every adapter's bounds and every robot searched every frame | looked up only when E is pressed |
+| Belt ends | MoonFramework matches a belt end to an input rounded to the centimetre; a few millimetres off could miss for good | a Quantum Input also takes belts ending in the neighbouring centimetre |
+
+### Measured
+
+Measured with 1,480 adapters, 1.1.2 against 2.0:
+
+| | change from 1.1.2 |
+| --- | --- |
+| fps | **+43%** |
+| whole frame | -30% |
+| game and mod scripts | -35% |
+| MoonFramework driver (all framework machines) | -54% |
+| capsule hand-offs (Intake.Process) | -41% |
+| power step | -35% |
+| adapters' per-frame Tick | -100% |
 
 The changes to MoonFramework's loops are Harmony patches (`FrameworkPatches.cs`). Each one fails closed: if
 MoonFramework changes, that patch is skipped, the log says so, and the adapters still work the slow way.

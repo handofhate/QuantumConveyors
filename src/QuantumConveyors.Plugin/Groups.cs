@@ -284,7 +284,7 @@ public static partial class QuantumNetwork
         return at;
     }
 
-    // for MoonGateway's /quantum/create: name a channel with a build name, filed into its groups when the name is known
+    // public, for other mods: name a channel with a build name, filed into its groups when the name is known
     public static bool FileByCode(string channelId, string name)
     {
         EnsureLoaded(); var c = ChannelOf(channelId);

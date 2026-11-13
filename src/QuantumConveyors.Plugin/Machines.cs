@@ -33,6 +33,28 @@ internal sealed class QuantumOutputMachine : Machine
 
     string Configure => string.IsNullOrWhiteSpace(ChannelId) ? "Disabled: Press E to configure" : "Press E to configure";
 
+    // Where a belt must end to feed it, as MoonFramework's input table keys it (FrameworkPatches.RefreshPrefix): asked
+    // twice a second, worked out again only when the adapter's record changes (built, moved).
+    IntPtr keyOf; float kx, ky, kz, kyaw, kqy, kqw; (int, int, int) key; int keyPort = -1;
+    internal bool InputKey(MoonWorld world, out (int, int, int) k, out int port)
+    {
+        k = key; port = keyPort;
+        var rec = Record; if (rec == null) return false;
+        float x = rec.x, y = rec.y, z = rec.z, yaw = rec.yaw, qy = rec.qy, qw = rec.qw;
+        if (keyPort >= 0 && rec.Pointer == keyOf && x == kx && y == ky && z == kz && yaw == kyaw && qy == kqy && qw == kqw) return true;
+        keyPort = -1;
+        var ports = Building.Definition?.conveyorPorts; var points = world.PortPoints(rec);
+        if (ports == null || points == null) return false;
+        for (int i = 0; i < ports.Length && i < points.Count; i++)
+        {
+            if (ports[i].output) continue;
+            key = FrameworkPatches.Key(points.get_Item(i)); keyPort = i;
+            keyOf = rec.Pointer; kx = x; ky = y; kz = z; kyaw = yaw; kqy = qy; kqw = qw;
+            k = key; port = i; return true;
+        }
+        return false;
+    }
+
     // Asked before MoonFramework reads an offered capsule out of the game (FrameworkPatches.OfferPrefix): false when
     // Accept would refuse it anyway, with the same bookkeeping as that refusal.
     internal bool MayAccept()
@@ -50,13 +72,13 @@ internal sealed class QuantumOutputMachine : Machine
         if (r != QuantumTransferResult.Sent) { Refused(r); return false; }
         bool wasActive = ActiveUntil > Time.unscaledTime;
         BeltFullSince = -1f; ActiveUntil = Time.unscaledTime + 3f; Status = "Sending"; Tone = MachineTone.Working;
-        if (!wasActive) Indicators.Touch(this);
+        if (!wasActive) { Indicators.Touch(this); Indicators.Due(this); }
         return true;
     }
 
-    void Refused(QuantumTransferResult r)
+    internal void Refused(QuantumTransferResult r)
     {
-        if (r == QuantumTransferResult.DestinationUnavailable && BeltFullSince < 0f) { BeltFullSince = Time.unscaledTime; Indicators.Touch(this); }
+        if (r == QuantumTransferResult.DestinationUnavailable && BeltFullSince < 0f) { BeltFullSince = Time.unscaledTime; Indicators.Touch(this); Indicators.Due(this); }
         if (r == QuantumTransferResult.NoMatchingAdapter && BeltFullSince >= 0f) { BeltFullSince = -1f; Indicators.Touch(this); }
         Tone = MachineTone.Idle;
     }
@@ -64,8 +86,10 @@ internal sealed class QuantumOutputMachine : Machine
     internal bool TryDeliverTo(QuantumInputMachine r)
     {
         if (pending.Count == 0 || !r.TryReceive(pending.Peek())) return false;
+        bool wasActive = ActiveUntil > Time.unscaledTime;
         pending.Dequeue(); BeltFullSince = -1f; ActiveUntil = Time.unscaledTime + 3f; Status = "Sending";
         Tone = pending.Count != 0 ? MachineTone.Working : MachineTone.Idle;
+        if (!wasActive) { Indicators.Touch(this); Indicators.Due(this); }
         return true;
     }
 
@@ -103,12 +127,19 @@ internal sealed class QuantumOutputMachine : Machine
         if (BeltFullSince >= 0f && Time.unscaledTime - BeltFullSince >= 3f) return QuantumIndicatorState.OutputBeltFull;
         return QuantumIndicatorState.Ready;
     }
+    // when the timed state next runs out (active ends, or refusals have lasted 3 s and the belt shows full); 0: never
+    internal float NextChange()
+    {
+        float now = Time.unscaledTime, a = ActiveUntil > now ? ActiveUntil : 0f;
+        float f = BeltFullSince >= 0f && BeltFullSince + 3f > now ? BeltFullSince + 3f : 0f;
+        return a == 0f ? f : f == 0f ? a : Math.Min(a, f);
+    }
     internal GameObject IndicatorPart() => Part("Indicator");
 }
 
 // The receiving adapter (kind "quantumconveyors.input", shown as Quantum Output): puts capsules from its channel on
-// the belt starting at it. Whether a belt is attached is checked when a capsule is placed and by a slow round robin
-// (Indicators.cs), not per frame.
+// the belt starting at it. Whether a belt is attached is checked when a capsule is placed and when the world's belts
+// change (Indicators.cs), not per frame.
 internal sealed class QuantumInputMachine : Machine
 {
     internal float ActiveUntil, BeltFullSince = -1f;
@@ -162,7 +193,7 @@ internal sealed class QuantumInputMachine : Machine
         catch { portKnown = false; return null; }
     }
 
-    // the round robin's check: true when it changed
+    // the belt check (Indicators.CheckBelts, SetChannel): true when it changed
     internal bool RecheckAttached()
     {
         bool now = Belt() != null; if (now == IsAttached) return false;
@@ -175,12 +206,12 @@ internal sealed class QuantumInputMachine : Machine
         if (!IsAttached) return false;
         if (!Place(capsule))
         {
-            if (BeltFullSince < 0f) { BeltFullSince = Time.unscaledTime; Indicators.Touch(this); }
+            if (BeltFullSince < 0f) { BeltFullSince = Time.unscaledTime; Indicators.Touch(this); Indicators.Due(this); }
             return false;
         }
         bool wasActive = ActiveUntil > Time.unscaledTime;
         BeltFullSince = -1f; ActiveUntil = Time.unscaledTime + 3f; Status = "Receiving"; Tone = MachineTone.Working;
-        if (!wasActive) Indicators.Touch(this);
+        if (!wasActive) { Indicators.Touch(this); Indicators.Due(this); }
         return true;
     }
 
@@ -220,6 +251,13 @@ internal sealed class QuantumInputMachine : Machine
         if (ActiveUntil > Time.unscaledTime) return QuantumIndicatorState.Active;
         if (BeltFullSince >= 0f && Time.unscaledTime - BeltFullSince >= 3f) return QuantumIndicatorState.OutputBeltFull;
         return QuantumIndicatorState.Ready;
+    }
+    // when the timed state next runs out (active ends, or refusals have lasted 3 s and the belt shows full); 0: never
+    internal float NextChange()
+    {
+        float now = Time.unscaledTime, a = ActiveUntil > now ? ActiveUntil : 0f;
+        float f = BeltFullSince >= 0f && BeltFullSince + 3f > now ? BeltFullSince + 3f : 0f;
+        return a == 0f ? f : f == 0f ? a : Math.Min(a, f);
     }
     internal GameObject IndicatorPart() => Part("Indicator");
 }

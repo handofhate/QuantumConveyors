@@ -77,7 +77,7 @@ public sealed class Plugin : BasePlugin
     });
 }
 
-// one updater for everything per-frame: indicators (only what changed + a slow round robin), saved pending capsules,
+// one updater for everything per-frame: indicators (only what changed, timed states and belt changes), saved pending capsules,
 // and the channel menu
 public sealed class Driver : MonoBehaviour
 {

@@ -29,7 +29,7 @@ Conveyors Nexus Mods page.
 2. Add the matching version section at the top of `CHANGELOG.md`.
 3. Commit and push those changes.
 4. Create and publish a GitHub Release whose tag matches the version, for
-   example `v1.1.3`.
+   example `v2.0.0`.
 
 The `release-nexus.yml` workflow checks out the release tag, builds the plugin,
 creates the normal `BepInEx/plugins/QuantumConveyors` archive, and uploads it to

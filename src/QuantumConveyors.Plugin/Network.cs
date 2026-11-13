@@ -260,7 +260,7 @@ public static partial class QuantumNetwork
         return list;
     }
 
-    // for MoonGateway's /quantum/status: every adapter's attached state by structure id
+    // public, for other mods: every adapter's attached state by structure id
     public static Dictionary<long, bool> AttachedById()
     {
         var d = new Dictionary<long, bool>();

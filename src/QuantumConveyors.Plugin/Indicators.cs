@@ -1,35 +1,56 @@
 using System;
 using System.Collections.Generic;
+using MoonFramework;
 using UnityEngine;
 
 namespace QuantumConveyors;
 
 internal enum QuantumIndicatorState { WaitingForSetup, NoMatchingAdapter, ConveyorMissing, Ready, Active, OutputBeltFull }
 
-// Indicator colours, from one updater instead of every adapter every frame:
-//  - an adapter whose state may have changed (channel, belt, activity) is "touched" and redrawn next frame;
-//  - a round robin looks at RoundRobinPerFrame adapters a frame: re-checks a receiver's belt and lets the timed states
-//    (active for 3 s, belt full after 3 s) run out;
-//  - every indicator uses one of a few shared materials (red, yellow, green; steady or blinking), so an adapter is
-//    only touched when its state changes, and blinking is three colour changes four times a second for all of them.
-//    1.x gave every adapter its own material, a shadow-casting spot light and a halo sprite, updated every frame.
+// Indicator colours, from one updater, with no work per adapter per frame:
+//  - an adapter whose state may have changed (channel, belt, a capsule sent or refused) is "touched" and redrawn next
+//    frame; a redraw that comes out the same changes nothing;
+//  - the timed states (active for 3 s after a capsule, belt full after 3 s of refusals) are run out by a queue of due
+//    times, one entry per adapter (Due);
+//  - receivers re-check their belt only when the world's belt count has changed (looked at every 0.5 s); a receiver
+//    also finds out on its own when it places a capsule;
+//  - every indicator uses one of a few shared materials (red, yellow, green; steady or blinking), so blinking is three
+//    colour changes four times a second for all of them. 1.x gave every adapter its own material, a shadow-casting spot
+//    light and a halo sprite, updated every frame.
 internal static class Indicators
 {
-    const int RoundRobinPerFrame = 25;
-    static readonly List<object> all = new();
+    const float BeltCheckEvery = 0.5f;
+    static readonly List<QuantumInputMachine> receivers = new();
     static readonly HashSet<object> touched = new();
+    static readonly List<object> drawing = new();
     static readonly Dictionary<object, (Renderer r, int look)> drawn = new();
-    static int rr; static float nextBlink; static bool blinkLit = true;
+    static readonly PriorityQueue<object, float> due = new();
+    static readonly Dictionary<object, float> dueAt = new();                  // each adapter's one queued time
+    static float nextBlink, nextBeltCheck; static bool blinkLit = true; static int beltCount = -1;
     static readonly Color[] Colors = { new(1f, 0.06f, 0.03f, 1f), new(1f, 0.78f, 0.04f, 1f), new(0.08f, 1f, 0.18f, 1f) };   // red, yellow, green
 
     // shared materials: (the model's own indicator material, look) -> ours; look = colour * 2 + (blinking ? 1 : 0)
     static readonly Dictionary<(IntPtr, int), Material> shared = new();
     static readonly Dictionary<IntPtr, Material> templateOf = new();          // one of ours -> the model's material it copies
 
-    internal static void Register(object m) { all.Add(m); touched.Add(m); }
-    internal static void Unregister(object m) { all.Remove(m); touched.Remove(m); drawn.Remove(m); }
+    internal static void Register(object m) { if (m is QuantumInputMachine i) receivers.Add(i); touched.Add(m); }
+    internal static void Unregister(object m)
+    {
+        if (m is QuantumInputMachine i) receivers.Remove(i);
+        touched.Remove(m); drawn.Remove(m); dueAt.Remove(m);                  // a stale queue entry is skipped when it comes up
+    }
     internal static void Touch(object m) { if (m != null) touched.Add(m); }
     internal static void Touch(Channel c) { foreach (var o in c.Senders) touched.Add(o); foreach (var i in c.Receivers) touched.Add(i); }
+
+    // a timed state started: redraw when it runs out (the adapter is asked again then, in case it was extended)
+    internal static void Due(object m)
+    {
+        float at = NextChange(m);
+        if (at <= 0f || (dueAt.TryGetValue(m, out var q) && q <= at)) return;
+        dueAt[m] = at; due.Enqueue(m, at);
+    }
+
+    static float NextChange(object m) => m is QuantumOutputMachine o ? o.NextChange() : ((QuantumInputMachine)m).NextChange();
 
     internal static string Text(QuantumIndicatorState s, bool sender) => s switch
     {
@@ -58,25 +79,34 @@ internal static class Indicators
     // once a frame, from the plugin's updater
     internal static void Frame()
     {
-        int n = all.Count;
-        for (int k = 0; k < Math.Min(RoundRobinPerFrame, n); k++)
+        float now = Time.unscaledTime;
+        while (due.TryPeek(out var m, out var at) && at <= now)
         {
-            if (rr >= all.Count) rr = 0;
-            var m = all[rr++];
-            if (m is QuantumInputMachine i && i.RecheckAttached())
-            {
-                var c = QuantumNetwork.ChannelOf(i.ChannelId); if (c != null) Touch(c);
-            }
-            touched.Add(m);                                   // timed states run out here
+            due.Dequeue();
+            if (!dueAt.TryGetValue(m, out var q) || q != at) continue;       // superseded, or the adapter is gone
+            dueAt.Remove(m); touched.Add(m); Due(m);                          // extended meanwhile: queued again
         }
-        if (Time.unscaledTime >= nextBlink)
+        if (now >= nextBeltCheck) { nextBeltCheck = now + BeltCheckEvery; CheckBelts(); }
+        if (now >= nextBlink)
         {
-            nextBlink = Time.unscaledTime + 0.25f; blinkLit = !blinkLit;
+            nextBlink = now + 0.25f; blinkLit = !blinkLit;
             foreach (var kv in shared) if ((kv.Key.Item2 & 1) == 1) Paint(kv.Value, Colors[kv.Key.Item2 >> 1], blinkLit);
         }
         if (touched.Count == 0) return;
-        var list = new List<object>(touched); touched.Clear();
-        foreach (var m in list) Draw(m);
+        drawing.AddRange(touched); touched.Clear();
+        foreach (var m in drawing) Draw(m);
+        drawing.Clear();
+    }
+
+    // belts built or removed since the last look: every receiver checks its own (a rebuild that keeps the count is
+    // noticed by the receiver when it next places a capsule)
+    static void CheckBelts()
+    {
+        var belts = Moon.World?.conveyors; if (belts == null) return;
+        int n = belts.Count; if (n == beltCount) return;
+        beltCount = n;
+        foreach (var r in receivers)
+            if (r.RecheckAttached()) { var c = QuantumNetwork.ChannelOf(r.ChannelId); if (c != null) Touch(c); else touched.Add(r); }
     }
 
     static void Draw(object m)

@@ -6,27 +6,56 @@ Quantum Conveyors adds small wireless adapters to the normal Building Tool. Plac
 
 ## Current release
 
-- Mod: Quantum Conveyors 1.1.2
+- Mod: Quantum Conveyors 2.0
 - Target game build: Moon Sweepers 1.0.5
-- Status: Stable 1.1 release; single-player behavior is tested, with host-authoritative multiplayer support included
+- Status: 2.0 is a rewrite of the internals for big bases (see Performance). Single-player behavior is tested on bases with hundreds of adapters; host-authoritative multiplayer support is included.
 
 Please back up your save before using any mods.
+
+## What's new in 2.0
+
+- **Much faster on big bases:** +43% fps on a 1,480-adapter base (see Performance).
+- **Channel groups in the E menu:** put channels in folders, as deep as you like. New Group, and Open, Rename, Move and Delete on each group; channels can be moved between groups.
+- **Auto-group by name:** a switch in the menu that files channels by the names they already have (`Iron-Line-2` goes into `Iron > Line` as `2`).
+- **Unassigned** lists channels with no adapters on them, and **Not grouped** lists channels outside any group.
+- **< Back** in the menu, and **Esc** closes it as well as E and right-click.
+- **E picks the adapter you're looking at:** within a few metres, with nothing in front of it, and not through a robot.
+- **Simpler lights:** one steady or flashing light per adapter (see Status indicators). The halo and the spot light are gone; they cost a lot on big bases.
+- **One file:** the model, textures and preview images are inside QuantumConveyors.dll.
+- **No more dead inputs:** a Quantum Input whose conveyor ends a few millimetres from its port now takes capsules (in 1.x it could stay dead).
+
+Your 1.x saves and channels load unchanged.
 
 ## Features
 
 - Quantum Output and Quantum Input building-tool entries under Logistics
 - Industrial gateway-style adapter model mounted over the conveyor
-- Corrected industrial gateway preview images in the Building Tool
-- Red, yellow, and green status indicator with flashing warning/activity states
-- Soft colored LED halo and directional illumination
-- Named wireless channels
-- Unlimited channels
+- Build-menu preview images
+- Red, yellow, and green status indicator with flashing warning states
+- Named wireless channels, unlimited channels
 - Multiple outputs and multiple inputs per channel
+- Channel groups: folders for channels, as deep as you like, and an "Auto-group by name" switch
 - No wireless range, power, bandwidth, or operating cost
 - Destination-belt backpressure: if the receiving belt cannot accept a resource, the source resource remains on its original belt
-- Channel assignments and adapter state persist with the save
-- Host-authoritative routing intended for multiplayer
+- Channel assignments, groups and adapter state persist with the save
+- Host-authoritative routing for multiplayer
 - In-game configuration menu using the normal interact key
+- Built for big bases: no work per adapter per frame (see Performance)
+- One file: the model, textures and preview images are inside QuantumConveyors.dll
+
+## Performance
+
+2.0 rewrote how the mod does its work. 1.x got slower with every adapter: each adapter did work every frame, and each receiving adapter searched every channel and every adapter. 2.0 does nothing per adapter per frame: capsules move only when the game offers one to an adapter, each channel keeps its own list of adapters, a full channel refuses at once, and indicators change only when an adapter's state changes.
+
+Measured with 1,480 adapters, 1.1.2 against 2.0:
+
+| | change from 1.1.2 |
+|---|---|
+| Frames per second | **+43%** |
+| Whole frame | -30% |
+| MoonFramework's per-frame work | -54% |
+| Capsule hand-offs | -41% |
+| Adapters' own per-frame work | -100% |
 
 ## Mod Manager settings
 
@@ -40,7 +69,7 @@ Install these prerequisites before installing Quantum Conveyors:
 
 1. BepInEx 6 IL2CPP for Moon Sweepers
 2. The Moon Sweepers BepInEx compatibility patcher required by the game
-3. MoonFramework 1.0.5.2
+3. MoonFramework
 4. Moon Sweepers 1.0.5
 
 Every player who joins a multiplayer session should use the same game build, BepInEx setup, MoonFramework version, and Quantum Conveyors version.
@@ -53,23 +82,19 @@ Every player who joins a multiplayer session should use the same game build, Bep
 2. Install and verify BepInEx and its Moon Sweepers compatibility patcher.
 3. Install MoonFramework.
 4. Extract the Quantum Conveyors archive into the Moon Sweepers installation directory.
-5. Confirm that the files are located like this:
+5. Confirm that the file is located like this:
 
    ```text
    Moon Sweepers/
    └─ BepInEx/
       └─ plugins/
          └─ QuantumConveyors/
-            ├─ QuantumConveyors.dll
-            ├─ quantum-input.obj
-            ├─ quantum-input.mtl
-            ├─ quantum-output.obj
-            ├─ quantum-output.mtl
-            ├─ quantum-endpoint-collision.obj
-            ├─ quantum-input-preview.png
-            └─ quantum-output-preview.png
+            └─ QuantumConveyors.dll
    ```
 
+### Updating from 1.x
+
+Close the game, replace `QuantumConveyors.dll`, and delete the other files in the `QuantumConveyors` folder (the `.obj`, `.mtl` and `.png` files); 2.0 carries them inside the DLL. Your channels are stored in your save, not in this folder, so they are kept: saves load unchanged, with the same building ids, channel names and multiplayer messages.
 
 ## First-time setup
 
@@ -78,8 +103,8 @@ Every player who joins a multiplayer session should use the same game build, Bep
 3. Build a **Quantum Input** on the conveyor that should send resources.
 4. Build a **Quantum Output** on the conveyor that should receive resources.
 5. Look directly at an adapter and press **E**.
-6. Press **New channel**.
-7. Select **Rename**, type a useful name such as `Moon Dust`, and press **Save**.
+6. Press **New Channel**.
+7. Press **Rename**, type a useful name such as `Moon Dust`, and save it.
 8. Press **Assign** for that channel.
 9. Configure the other adapter and assign it to the same channel.
 
@@ -87,14 +112,16 @@ The output and input must be attached to conveyors. The wireless connection repl
 
 ## Configuration menu
 
-- **New channel** creates an unassigned channel named `New Channel`.
-- **Assign** connects the currently selected adapter to that channel.
-- **Unassign** removes the adapter from that channel.
-- **Rename** changes the channel name.
-- **Delete** removes the channel and unassigns every adapter using it.
-- **×** closes the menu.
+The menu shows channel groups (folders) and channels:
 
-Channel names are limited to 24 characters. Channel names are labels only; the actual channel identity is stored separately, so renaming a channel does not break its connections.
+- **New Channel** and **New Group** are made in the group you're looking at.
+- On a channel: **Assign** (or **Unassign**) this adapter, **Rename**, **Move** to another group, **Delete**.
+- On a group: **Open**, **Rename**, **Move**, **Delete** (what's inside moves up a level; no channel is deleted).
+- **Auto-group by name** files loose channels by the names they already have: `Iron-Line-2` goes into `Iron > Line` as `2`. A group is only made when at least two channels share it.
+- **Unassigned** lists channels with no adapters; **Not grouped** lists channels outside any group.
+- **< Back** goes up a level. **E**, **Esc** or right-click closes the menu.
+
+Channel names are limited to 24 characters. Channel names are labels only; the actual channel identity is stored separately, so renaming a channel or moving it between groups does not break its connections.
 
 Only the host has authority to create, rename, delete, or assign channels in multiplayer.
 
@@ -102,20 +129,18 @@ Only the host has authority to create, rename, delete, or assign channels in mul
 
 Adapters on different channels never share resources. If a channel contains several outputs and several inputs, the channel acts as one shared wireless pool.
 
-At present, multiple destinations are selected using a remembered round-robin cursor where possible. Multiple source belts can still compete according to the game's conveyor update order because source belts offer capsules independently. Fully fair source/input scheduling is planned but is not yet guaranteed.
+The receiving adapters on a channel take turns, using a remembered round-robin cursor. A receiver whose belt is full is skipped until the next hand-off, and when every receiver on a channel is full the channel refuses at once, so the source capsule stays on its belt. Multiple source belts can still compete according to the game's conveyor update order because source belts offer capsules independently.
 
-Resource type compatibility is left to the receiving conveyor and game cargo rules. If the receiving belt is full or unavailable, the source capsule is not intentionally discarded; normal belt backpressure should stop the source belt from feeding the adapter.
+Resource type compatibility is left to the receiving conveyor and game cargo rules. If the receiving belt is full or unavailable, the source capsule is not discarded; normal belt backpressure stops the source belt from feeding the adapter.
 
 ## Status indicators
 
 | Indicator | Meaning |
 |---|---|
 | Solid red | Waiting for setup; the adapter has not been assigned to a channel |
-| Solid yellow | No matching adapter is assigned to the same channel |
 | Flashing red | Conveyor missing or unusable for the adapter's required connection |
-| Solid green | Ready to send or ready to receive resources |
-| Flashing green | Sending or receiving |
-| Flashing yellow | The destination/output belt is full |
+| Flashing yellow | No matching adapter is assigned to the same channel, or the destination/output belt is full |
+| Solid green | Ready, or sending/receiving |
 
 The hover panel also shows the channel and a short operational status.
 
@@ -151,11 +176,11 @@ Yes. A channel can contain multiple outputs and inputs. They share resources thr
 
 ### Can one input feed several outputs?
 
-Yes. The current router can deliver to multiple attached outputs, but source/input fairness is still being improved. The game may offer capsules from competing source belts in its own update order.
+Yes. The receiving adapters take turns.
 
 ### Can several inputs feed one output?
 
-Yes. The inputs share the channel and compete to send through the shared network according to the current routing behavior.
+Yes. The inputs share the channel and compete to send through the shared network according to the game's conveyor update order.
 
 ### Does distance matter?
 
@@ -167,7 +192,7 @@ It can avoid the intermediate canister chain required by a very long physical co
 
 ### What happens if a receiving belt is full?
 
-The Quantum Input transfers only when the destination Quantum Output can accept the resource. If it cannot, the source capsule remains on its original belt and normal conveyor backpressure should prevent additional transfer.
+The Quantum Input transfers only when the destination Quantum Output can accept the resource. If it cannot, the source capsule remains on its original belt and normal conveyor backpressure prevents additional transfer.
 
 ### What happens if I delete a conveyor under an adapter?
 
@@ -177,12 +202,16 @@ The adapter remains, disables transfer, and keeps its channel assignment. Reconn
 
 Yes, but make a backup first. Loading a save with the mod enabled is not expected to change anything unless you build or configure Quantum Conveyors adapters. Never test an unverified game/mod update on your only copy of a save.
 
+### Will my 1.x save and channels still work?
+
+Yes. 2.0 uses the same building ids, saved data and channel names.
+
 ## Known issues and limitations
 
 - **Moving adapters:** The game's new move feature does not reliably resnap splitter/merger-style structures to a new conveyor location. If an adapter is moved away from its original conveyor, deleting and rebuilding it is currently the reliable workaround.
 - **Underlying splitter/merger clearance:** Although the visible Quantum adapter is an industrial gateway, the game evaluates its placement using the underlying splitter/merger footprint and overlap rules. An adapter may not fit directly against a merger, machine, or another structure if there is not enough clearance. A short conveyor segment or stub may be needed to give the adapter room to place. This can also occur when the conveyor segment being used at a machine is too short.
 - **Multiple inputs:** Multiple source belts can compete based on the game's update order. Fair round-robin source scheduling is planned.
-- **Game update compatibility:** Moon Sweepers updates can change internal APIs used by BepInEx, MoonFramework, conveyor handling, or save loading. A game update should be treated as untested until the mod is verified.
+- **Game update compatibility:** Moon Sweepers updates can change internal APIs used by BepInEx, MoonFramework, conveyor handling, or save loading. A game update should be treated as untested until the mod is verified. 2.0's speed-ups are patches to MoonFramework; if MoonFramework changes, a patch that no longer fits is skipped (the log says so) and the adapters still work, more slowly.
 - **Save compatibility without the mod:** The adapters are stored using vanilla-compatible building identities. Without the mod, they may appear as ordinary splitter/merger structures and will not provide wireless behavior. Back up saves before disabling or uninstalling the mod.
 - **No wireless operating limits:** Power use, range, bandwidth, and channel limits are not currently configurable because the network is unrestricted.
 - **Terrain cleanup footprint:** The dusty-ground cleanup area currently follows the stock splitter/merger construction body and may be larger than the visible gateway model.
@@ -195,13 +224,12 @@ Yes, but make a backup first. Loading a save with the mod enabled is not expecte
 
 - Confirm BepInEx, the Moon Sweepers patcher, and MoonFramework are installed.
 - Confirm the DLL is under `BepInEx/plugins/QuantumConveyors/`.
-- Confirm the `.obj` and `.mtl` files are beside the DLL.
 - Confirm the game is the supported 1.0.5 build.
 - Close and relaunch the game after changing mod files.
 
 ### Pressing E does nothing
 
-- Stand close to the adapter.
+- Stand within a few metres of the adapter.
 - Aim at the adapter gateway itself, not the conveyor or nearby machine.
 - Make sure another object is not between the camera and the adapter.
 - Confirm the adapter's hover panel appears.
@@ -215,6 +243,8 @@ Yes, but make a backup first. Loading a save with the mod enabled is not expecte
 - Confirm the destination belt has room.
 - Check the LEDs and hover status for `No matching adapter`, `Conveyor missing`, or `Output belt full`.
 - Verify that all multiplayer players have the same mod and framework versions.
+
+A Quantum Input takes a conveyor ending within about a centimetre of its port. (In 1.x, one a few millimetres off could stay dead.)
 
 ### The adapter appears as a splitter or merger
 
@@ -231,8 +261,7 @@ Do not remove the mod from a save you care about without a backup. Without Quant
 
 ## Development roadmap
 
-- Fair round-robin scheduling across multiple source/output adapters
-- More reliable conveyor attachment and missing-conveyor detection
+- Fair round-robin scheduling across multiple source adapters
 - Adapter movement that resnaps to conveyor ports
 - Optional channel costs, power use, range, bandwidth, and limits
 - Optional priority routing

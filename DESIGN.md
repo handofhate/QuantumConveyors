@@ -1,5 +1,8 @@
 # Quantum Conveyors design brief
 
+The original brief for 1.x: what the mod does for the player still holds. How 2.0 does the work inside (no per-adapter
+frame work, per-channel lists, MoonFramework patches) is in the README's "How it works".
+
 ## Player experience
 
 The player opens the normal Building Tool and chooses a tiny **Quantum Output** or **Quantum Input** endpoint card. Separate cards are the safest first implementation because MoonFramework registers each building's conveyor ports when the build menu is created; it also keeps the interaction obvious for a non-technical player. A later panel can add a mode switch if the framework and placement rules make that useful.

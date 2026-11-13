@@ -92,7 +92,7 @@ internal static class Menu
         try
         {
             if (Physics.Raycast(cam.transform.position, cam.transform.forward, out var hit, 5f))
-                return hit.collider != null && hit.collider.GetComponentInParent<MoonJoonasRig>() != null;
+                return hit.collider != null && hit.collider.GetComponentInParent(Il2CppType.Of<MoonJoonasRig>()) != null;   // non-generic: see Freeze
         }
         catch { }
         return false;
@@ -291,9 +291,10 @@ internal static class Menu
         {
             if (walker == null)
             {
-                var cam = Camera.main;
-                if (cam != null) walker = cam.GetComponentInParent<MoonWalker>() ?? cam.transform.root.GetComponentInChildren<MoonWalker>();
-                if (walker == null) walker = UnityEngine.Object.FindObjectOfType<MoonWalker>();
+                // the non-generic lookups: the generic ones need IL2CPP method unstripping, which fails for game types
+                var t = Il2CppType.Of<MoonWalker>(); var cam = Camera.main;
+                if (cam != null) walker = cam.GetComponentInParent(t)?.TryCast<MoonWalker>() ?? cam.transform.root.GetComponentInChildren(t, true)?.TryCast<MoonWalker>();
+                if (walker == null) walker = UnityEngine.Object.FindObjectOfType(t)?.TryCast<MoonWalker>();
             }
             if (walker != null)
             {
