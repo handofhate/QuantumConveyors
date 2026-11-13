@@ -33,6 +33,8 @@ internal static class Menu
     static InputField pendingFocusField;
     static Sprite channelGradient, folderGradient, folderIcon, topFade, bottomFade;
     static Image topFadeImage, bottomFadeImage;
+    static RectTransform viewport, dragGhost;
+    static Text dragGhostLabel;
     static UnityEngine.UI.Button autoGroupButton;
     sealed class DragRow
     {
@@ -137,7 +139,8 @@ internal static class Menu
         Button(win, "New Channel", new Vector2(-88, 168), new Vector2(160, 40), NewChannel, true);
         Button(win, "New Group", new Vector2(88, 168), new Vector2(160, 40), NewGroup);
         Button(win, "×", new Vector2(287, 264), new Vector2(42, 42), Close);
-        var view = Rect("ChannelViewport", win, new Vector2(620, 300), new Vector2(0, -15.5f), PanelColor);
+        viewport = Rect("ChannelViewport", win, new Vector2(620, 300), new Vector2(0, -15.5f), PanelColor);
+        var view = viewport;
         view.gameObject.AddComponent<Mask>().showMaskGraphic = true;
         content = Rect("ChannelContent", view, new Vector2(600, 44), Vector2.zero, null);
         content.anchorMin = content.anchorMax = content.pivot = new Vector2(0.5f, 1f); content.anchoredPosition = Vector2.zero;
@@ -237,8 +240,17 @@ internal static class Menu
         var position = mouse.position.ReadValue();
         if (mouse.leftButton.isPressed)
         {
-            if (!dragging && (position - dragStart).sqrMagnitude >= 64f) dragging = true;
-            if (dragging) SetHoveredDrop(RowAt(position, true, out _));
+            if (!dragging && (position - dragStart).sqrMagnitude >= 64f)
+            {
+                dragging = true;
+                CreateDragGhost();
+            }
+            if (dragging)
+            {
+                UpdateDragGhost(position);
+                AutoScrollDuringDrag(position);
+                SetHoveredDrop(RowAt(position, true, out _));
+            }
             return;
         }
         if (!mouse.leftButton.wasReleasedThisFrame) return;
@@ -263,7 +275,46 @@ internal static class Menu
     static void ClearDragState()
     {
         if (hoveredDrop?.Background != null) hoveredDrop.Background.color = Color.white;
+        if (dragGhost != null) UnityEngine.Object.Destroy(dragGhost.gameObject);
+        dragGhost = null; dragGhostLabel = null;
         dragCandidate = hoveredDrop = null; dragging = false;
+    }
+
+    static void CreateDragGhost()
+    {
+        if (canvas == null || dragCandidate == null) return;
+        var text = !string.IsNullOrEmpty(dragCandidate.ChannelId)
+            ? QuantumNetwork.ShortName(dragCandidate.ChannelId)
+            : QuantumNetwork.GroupName(dragCandidate.GroupId);
+        dragGhost = Rect("Quantum Drag Preview", canvas.transform, new Vector2(230, 36), Vector2.zero, ButtonColor);
+        var image = dragGhost.GetComponent<Image>(); if (image != null) image.raycastTarget = false;
+        var group = dragGhost.gameObject.AddComponent<CanvasGroup>(); group.alpha = 0.92f; group.blocksRaycasts = false;
+        dragGhostLabel = Label(dragGhost, (!string.IsNullOrEmpty(dragCandidate.ChannelId) ? "Channel: " : "Folder: ") + text,
+            Vector2.zero, new Vector2(214, 30), 15, ChannelText, TextAnchor.MiddleCenter);
+        dragGhostLabel.raycastTarget = false;
+        dragGhost.SetAsLastSibling();
+    }
+
+    static void UpdateDragGhost(Vector2 position)
+    {
+        if (dragGhost == null) return;
+        dragGhost.position = new Vector3(position.x + 18f, position.y - 18f, 0f);
+    }
+
+    static void AutoScrollDuringDrag(Vector2 position)
+    {
+        if (viewport == null || content == null) return;
+        if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(viewport, position, null, out var local)) return;
+        const float edge = 42f;
+        var halfHeight = viewport.rect.height * 0.5f;
+        var delta = 0f;
+        if (local.y > halfHeight - edge) delta = -(local.y - (halfHeight - edge)) / edge;
+        else if (local.y < -halfHeight + edge) delta = -((local.y + halfHeight - edge) / edge);
+        if (Mathf.Abs(delta) < 0.01f) return;
+        var max = Mathf.Max(0f, content.rect.height - viewport.rect.height);
+        scroll = Mathf.Clamp(scroll + delta * 420f * Time.unscaledDeltaTime, 0f, max);
+        content.anchoredPosition = new Vector2(0f, scroll);
+        UpdateFadeVisibility(max);
     }
 
     static void Refresh()
@@ -601,7 +652,7 @@ internal static class Menu
         if (canvas != null) UnityEngine.Object.Destroy(canvas);
         canvas = null; raycaster = null; content = null; editing = string.Empty; moving = movingGroup = null;
         pendingNewChannel = pendingNewGroup = null; pendingNewChannelWasUnassignedExpanded = false; focusEditingChannel = string.Empty; pendingFocusField = null; autoGroupButton = null;
-        topFadeImage = bottomFadeImage = null;
+        viewport = null; topFadeImage = bottomFadeImage = null;
         ClearDragState(); dragRows.Clear();
         if (prevModule != null) prevModule.enabled = prevModuleOn; prevModule = null;
         Unfreeze();
