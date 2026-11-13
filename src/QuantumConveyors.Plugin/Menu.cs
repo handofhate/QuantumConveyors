@@ -38,12 +38,17 @@ internal static class Menu
     static UnityEngine.UI.Button autoGroupButton;
     sealed class DragRow
     {
-        internal RectTransform Row; internal string ChannelId; internal string GroupId; internal bool RootDrop; internal string Section; internal Image Background;
+        internal RectTransform Row; internal string ChannelId; internal string GroupId; internal bool RootDrop; internal string Section; internal Image Background; internal Image DropHighlight;
     }
     static readonly List<DragRow> dragRows = new();
     static DragRow dragCandidate, hoveredDrop;
     static Vector2 dragStart;
+    static Vector2 dragGhostOffset;
     static bool dragging;
+    static string revealChannelId, revealGroupId;
+    static RectTransform revealRow;
+    static Image selectedHighlight;
+    static float selectedHighlightUntil;
     static BaseInputModule prevModule; static bool prevModuleOn;
     static MoonWalker walker; static bool prevBlocked; static bool prevWalkerEnabled;
     static InputActionAsset playerInput; static bool prevInputOn;
@@ -72,7 +77,15 @@ internal static class Menu
         if (hit.HasValue && !AimingAtRobot(cam)) OpenFor(hit.Value);
     }
 
-    internal static void LateUpdate() { if (canvas != null) { Cursor.lockState = CursorLockMode.None; Cursor.visible = true; } }
+    internal static void LateUpdate()
+    {
+        if (canvas != null) { Cursor.lockState = CursorLockMode.None; Cursor.visible = true; }
+        if (selectedHighlight != null && Time.unscaledTime >= selectedHighlightUntil)
+        {
+            selectedHighlight.gameObject.SetActive(false);
+            selectedHighlight = null;
+        }
+    }
 
     // the adapter under the crosshair: within 4.5 m, its screen ellipse containing the screen centre, nearest wins
     static int? Target(Camera cam)
@@ -176,15 +189,22 @@ internal static class Menu
 
     static void RegisterDragRow(RectTransform row, string channelId, string groupId, bool rootDrop, string section = null)
     {
-        dragRows.Add(new DragRow
+        var highlightRoot = new GameObject("Drop Highlight");
+        var highlightRect = highlightRoot.AddComponent<RectTransform>(); highlightRect.SetParent(row, false);
+        highlightRect.anchorMin = Vector2.zero; highlightRect.anchorMax = Vector2.one; highlightRect.offsetMin = Vector2.zero; highlightRect.offsetMax = Vector2.zero;
+        var highlight = highlightRoot.AddComponent<Image>(); highlight.color = new Color(1f, 0.478f, 0.180f, 0.28f); highlight.raycastTarget = false; highlightRoot.SetActive(false);
+        var item = new DragRow
         {
             Row = row,
             ChannelId = channelId,
             GroupId = groupId,
             RootDrop = rootDrop,
             Section = section,
-            Background = row.GetComponent<Image>()
-        });
+            Background = row.GetComponent<Image>(),
+            DropHighlight = highlight
+        };
+        dragRows.Add(item);
+        if ((!string.IsNullOrEmpty(channelId) && channelId == revealChannelId) || (!string.IsNullOrEmpty(groupId) && groupId == revealGroupId)) revealRow = row;
     }
 
     static DragRow RowAt(Vector2 position, bool includeInteractive, out bool overInteractive)
@@ -214,7 +234,7 @@ internal static class Menu
     {
         var row = RowAt(position, false, out var overInteractive);
         if (overInteractive || row == null || (row.ChannelId == null && row.GroupId == null && row.Section == null)) return;
-        dragCandidate = row; dragStart = position; dragging = false;
+        dragCandidate = row; dragStart = position; dragGhostOffset = RectTransformUtility.WorldToScreenPoint(null, row.Row.position) - position; dragging = false;
     }
 
     static bool CanDropOn(DragRow target)
@@ -230,8 +250,10 @@ internal static class Menu
     {
         if (hoveredDrop == target) return;
         if (hoveredDrop?.Background != null) hoveredDrop.Background.color = Color.white;
+        if (hoveredDrop?.DropHighlight != null) hoveredDrop.DropHighlight.gameObject.SetActive(false);
         hoveredDrop = CanDropOn(target) ? target : null;
         if (hoveredDrop?.Background != null) hoveredDrop.Background.color = new Color(1f, 0.72f, 0.28f, 1f);
+        if (hoveredDrop?.DropHighlight != null) hoveredDrop.DropHighlight.gameObject.SetActive(true);
     }
 
     static void UpdateDrag(Mouse mouse)
@@ -257,8 +279,17 @@ internal static class Menu
         if (dragging && hoveredDrop != null)
         {
             var targetGroup = hoveredDrop.RootDrop ? string.Empty : hoveredDrop.GroupId;
-            if (!string.IsNullOrEmpty(dragCandidate.ChannelId)) QuantumNetwork.MoveChannel(dragCandidate.ChannelId, targetGroup);
-            else if (!string.IsNullOrEmpty(dragCandidate.GroupId)) QuantumNetwork.MoveGroup(dragCandidate.GroupId, targetGroup);
+            var moved = false;
+            if (!string.IsNullOrEmpty(dragCandidate.ChannelId))
+            {
+                moved = QuantumNetwork.MoveChannel(dragCandidate.ChannelId, targetGroup);
+                if (moved) PrepareReveal(targetGroup, dragCandidate.ChannelId, null);
+            }
+            else if (!string.IsNullOrEmpty(dragCandidate.GroupId))
+            {
+                moved = QuantumNetwork.MoveGroup(dragCandidate.GroupId, targetGroup);
+                if (moved) PrepareReveal(targetGroup, null, dragCandidate.GroupId);
+            }
             ClearDragState(); Refresh();
             return;
         }
@@ -275,9 +306,19 @@ internal static class Menu
     static void ClearDragState()
     {
         if (hoveredDrop?.Background != null) hoveredDrop.Background.color = Color.white;
+        if (hoveredDrop?.DropHighlight != null) hoveredDrop.DropHighlight.gameObject.SetActive(false);
         if (dragGhost != null) UnityEngine.Object.Destroy(dragGhost.gameObject);
         dragGhost = null; dragGhostLabel = null;
+        dragGhostOffset = Vector2.zero;
         dragCandidate = hoveredDrop = null; dragging = false;
+    }
+
+    static void PrepareReveal(string targetGroup, string channelId, string groupId)
+    {
+        revealChannelId = channelId; revealGroupId = groupId;
+        if (!string.IsNullOrEmpty(targetGroup))
+            for (var parent = targetGroup; !string.IsNullOrEmpty(parent); parent = QuantumNetwork.GroupParent(parent)) expandedGroups.Add(parent);
+        else if (!string.IsNullOrEmpty(channelId)) ungroupedExpanded = true;
     }
 
     static void CreateDragGhost()
@@ -316,7 +357,8 @@ internal static class Menu
     static void UpdateDragGhost(Vector2 position)
     {
         if (dragGhost == null) return;
-        dragGhost.position = new Vector3(position.x, position.y, 0f);
+        var ghostPosition = position + dragGhostOffset;
+        dragGhost.position = new Vector3(ghostPosition.x, ghostPosition.y, 0f);
     }
 
     static void AutoScrollDuringDrag(Vector2 position)
@@ -340,6 +382,7 @@ internal static class Menu
         if (content == null) return;
         for (int i = content.childCount - 1; i >= 0; i--) UnityEngine.Object.DestroyImmediate(content.GetChild(i).gameObject);
         dragRows.Clear(); ClearDragState();
+        revealRow = null; selectedHighlight = null;
         pendingFocusField = null;
         const float rowH = 52f;
         string what = moving != null ? "Move channel " + QuantumNetwork.ShortName(moving) : movingGroup != null ? "Move group " + QuantumNetwork.GroupName(movingGroup) : null;
@@ -495,6 +538,22 @@ internal static class Menu
         var maxScroll = Mathf.Max(0f, row * rowH - 300f);
         scroll = Mathf.Clamp(scroll, 0f, maxScroll);
         content.sizeDelta = new Vector2(600, Math.Max(44f, row * rowH));
+        if (revealRow != null)
+        {
+            var itemTop = -revealRow.anchoredPosition.y;
+            var itemBottom = itemTop + rowH;
+            if (itemTop < scroll) scroll = itemTop;
+            else if (itemBottom > scroll + viewport.rect.height) scroll = itemBottom - viewport.rect.height;
+            scroll = Mathf.Clamp(scroll, 0f, maxScroll);
+            foreach (var item in dragRows)
+                if (item.Row == revealRow) { selectedHighlight = item.DropHighlight; break; }
+            if (selectedHighlight != null)
+            {
+                selectedHighlight.gameObject.SetActive(true);
+                selectedHighlightUntil = Time.unscaledTime + 1.25f;
+            }
+            revealRow = null; revealChannelId = revealGroupId = null;
+        }
         content.anchoredPosition = new Vector2(0f, scroll);
         UpdateFadeVisibility(maxScroll);
 
@@ -671,6 +730,7 @@ internal static class Menu
         canvas = null; raycaster = null; content = null; editing = string.Empty; moving = movingGroup = null;
         pendingNewChannel = pendingNewGroup = null; pendingNewChannelWasUnassignedExpanded = false; focusEditingChannel = string.Empty; pendingFocusField = null; autoGroupButton = null;
         viewport = null; topFadeImage = bottomFadeImage = null;
+        revealChannelId = revealGroupId = null; revealRow = null; selectedHighlight = null;
         ClearDragState(); dragRows.Clear();
         if (prevModule != null) prevModule.enabled = prevModuleOn; prevModule = null;
         Unfreeze();
