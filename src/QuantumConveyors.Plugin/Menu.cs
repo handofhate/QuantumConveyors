@@ -906,7 +906,7 @@ internal static class Menu
             pixels[y * width + x] = colour;
         }
         texture.SetPixels(pixels); texture.Apply(false, true);
-        return Sprite.Create(texture, new Rect(0, 0, width, height), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect, new Vector4(radius, radius, radius, radius));
+        return Sprite.Create(texture, new Rect(0, 0, width, height), new Vector2(0.5f, 0.5f), 200f, 0, SpriteMeshType.FullRect, new Vector4(radius, radius, radius, radius));
     }
 
     static Sprite MakeRoundedSprite(int width, int height, int radius, string name)
@@ -915,7 +915,7 @@ internal static class Menu
         var pixels = new Color[width * height];
         for (var y = 0; y < height; y++) for (var x = 0; x < width; x++) pixels[y * width + x] = new Color(1f, 1f, 1f, RoundedAlpha(x + 0.5f, y + 0.5f, width, height, radius));
         texture.SetPixels(pixels); texture.Apply(false, true);
-        return Sprite.Create(texture, new Rect(0, 0, width, height), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect, new Vector4(radius, radius, radius, radius));
+        return Sprite.Create(texture, new Rect(0, 0, width, height), new Vector2(0.5f, 0.5f), 200f, 0, SpriteMeshType.FullRect, new Vector4(radius, radius, radius, radius));
     }
 
     static float RoundedAlpha(float x, float y, float width, float height, float radius)
@@ -938,7 +938,7 @@ internal static class Menu
             pixels[y] = new Color(1f, 1f, 1f, alpha);
         }
         texture.SetPixels(pixels); texture.Apply(false, true);
-        return Sprite.Create(texture, new Rect(0, 0, 1, height), new Vector2(0.5f, 0.5f), 100f);
+        return Sprite.Create(texture, new Rect(0, 0, 1, height), new Vector2(0.5f, 0.5f), 200f);
     }
 
     static Image AddFade(Transform parent, string name, Sprite sprite, Vector2 position)
@@ -985,7 +985,7 @@ internal static class Menu
             }
         }
         texture.SetPixels(pixels); texture.Apply(false, true);
-        return Sprite.Create(texture, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f);
+        return Sprite.Create(texture, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 200f);
     }
 
     static void Close()
