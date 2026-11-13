@@ -778,6 +778,7 @@ internal static class Menu
             QuantumNetwork.DeleteChannel(id);
             var wasOpen = unassignedExpanded;
             unassignedExpanded = pendingNewChannelWasUnassignedExpanded;
+            animateNextRefresh = true;
             if (wasOpen != unassignedExpanded)
             {
                 animatedArrowKey = "s:unassigned"; animatedArrowWasOpen = wasOpen; animateNextRefresh = true;
@@ -792,6 +793,7 @@ internal static class Menu
         if (pendingNewGroup == id)
         {
             QuantumNetwork.DeleteGroup(id);
+            animateNextRefresh = true;
             pendingNewGroup = null;
         }
         editing = string.Empty; Refresh();
@@ -808,6 +810,7 @@ internal static class Menu
     {
         if (!Moon.IsAuthority || !QuantumNetwork.CreateChannelIn(string.Empty, out var channelId)) return;
         pendingNewChannelWasUnassignedExpanded = unassignedExpanded;
+        animateNextRefresh = true;
         if (!unassignedExpanded)
         {
             animatedArrowKey = "s:unassigned"; animatedArrowWasOpen = false; animateNextRefresh = true;
@@ -824,7 +827,7 @@ internal static class Menu
         string parent = string.Empty;
         var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase); foreach (var g in QuantumNetwork.ChildGroups(parent)) names.Add(QuantumNetwork.GroupName(g));
         string name = "New Group"; int n = 2; while (names.Contains(name)) name = "New Group " + n++;
-        if (QuantumNetwork.CreateGroup(parent, name, out var gid)) { pendingNewGroup = gid; editing = "g:" + gid; Refresh(); }
+        if (QuantumNetwork.CreateGroup(parent, name, out var gid)) { pendingNewGroup = gid; editing = "g:" + gid; animateNextRefresh = true; Refresh(); }
     }
     static void ToggleAutoGroup()
     {
