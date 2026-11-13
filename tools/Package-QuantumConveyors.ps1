@@ -4,7 +4,6 @@ param(
     [string]$Version,
 
     [string]$OutputDirectory,
-    [string]$BepInExStage,
     [string]$MoonSweepersGameRoot
 )
 
@@ -17,9 +16,6 @@ $buildOutput = Join-Path $projectRoot 'src\QuantumConveyors.Plugin\bin\Release\n
 if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
     $OutputDirectory = Join-Path $projectRoot 'dist'
 }
-if ([string]::IsNullOrWhiteSpace($BepInExStage)) {
-    $BepInExStage = Join-Path $projectRoot 'work\staging\BepInEx'
-}
 if ([string]::IsNullOrWhiteSpace($MoonSweepersGameRoot)) {
     $MoonSweepersGameRoot = 'C:\Program Files (x86)\Steam\steamapps\common\Moon Sweepers'
 }
@@ -30,9 +26,6 @@ if ($Version -notmatch '^\d+(\.\d+){1,2}$') {
 if (-not (Test-Path -LiteralPath $project)) {
     throw "Plugin project was not found: $project"
 }
-if (-not (Test-Path -LiteralPath $BepInExStage)) {
-    throw "BepInEx build staging folder was not found: $BepInExStage. Set MOONSWEEPERS_BEPINEX_STAGE for the self-hosted runner."
-}
 if (-not (Test-Path -LiteralPath $MoonSweepersGameRoot)) {
     throw "Moon Sweepers was not found: $MoonSweepersGameRoot. Set MOONSWEEPERS_GAME_ROOT for the self-hosted runner."
 }
@@ -42,7 +35,7 @@ if ($pluginSource -notmatch ('PluginVersion\s*=\s*"' + [regex]::Escape($Version)
     throw "Plugin.cs does not declare version $Version. Update PluginVersion before publishing this release."
 }
 
-& $buildScript -BepInExStage $BepInExStage -MoonSweepersGameRoot $MoonSweepersGameRoot
+& $buildScript -MoonSweepersGameRoot $MoonSweepersGameRoot
 if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
@@ -62,15 +55,10 @@ if (Test-Path -LiteralPath $archivePath) {
 }
 New-Item -ItemType Directory -Force -Path $pluginDestination | Out-Null
 
-Get-ChildItem -LiteralPath $buildOutput -File |
-    Where-Object { $_.Extension -in @('.dll', '.obj', '.mtl', '.png', '.jpg', '.jpeg') } |
-    Copy-Item -Destination $pluginDestination -Force
+# one file: the model, textures and pictures are embedded in the DLL
+Copy-Item -LiteralPath (Join-Path $buildOutput 'QuantumConveyors.dll') -Destination $pluginDestination -Force
 
-$readmeSource = Join-Path $projectRoot 'RELEASE_README_1.1.txt'
-if (-not (Test-Path -LiteralPath $readmeSource)) {
-    $readmeSource = Join-Path $projectRoot 'README.md'
-}
-Copy-Item -LiteralPath $readmeSource -Destination (Join-Path $packageRoot 'README.txt') -Force
+Copy-Item -LiteralPath (Join-Path $projectRoot 'README.md') -Destination (Join-Path $packageRoot 'README.txt') -Force
 Copy-Item -LiteralPath (Join-Path $projectRoot 'CHANGELOG.md') -Destination (Join-Path $packageRoot 'CHANGELOG.txt') -Force
 
 Compress-Archive -Path (Join-Path $packageRoot '*') -DestinationPath $archivePath -CompressionLevel Optimal

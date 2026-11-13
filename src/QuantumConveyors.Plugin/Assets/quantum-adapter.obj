@@ -1,6 +1,6 @@
 # Blender 5.2.3 LTS
 # www.blender.org
-mtllib quantum-input.mtl
+mtllib quantum-adapter.mtl
 o GatewayBody
 v 0.792343 -0.969798 -1.500617
 v 0.786313 -0.969798 -1.530936

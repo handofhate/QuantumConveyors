@@ -8,15 +8,14 @@ Conveyors Nexus Mods page.
 
 1. In the GitHub repository, open **Settings > Actions > Runners** and add a
    **new self-hosted runner** for Windows x64.
-2. Install the runner on the same PC that has the Moon Sweepers game, BepInEx
-   build staging, and the working `work\staging\BepInEx` folder. Give the
+2. Install the runner on the same PC that has the Moon Sweepers game with BepInEx and
+   MoonFramework installed. Give the
    runner the custom label `moonsweepers`.
 3. Add these repository variables under **Settings > Secrets and variables >
    Actions > Variables**:
 
-   - `MOONSWEEPERS_BEPINEX_STAGE`: the full path to a usable BepInEx staging
-     folder, such as `C:\Users\Ty\Documents\Projects\Moon Sweepers\Quantum Conveyors\work\staging\BepInEx`.
-   - `MOONSWEEPERS_GAME_ROOT`: the full Moon Sweepers install path.
+   - `MOONSWEEPERS_GAME_ROOT`: the full Moon Sweepers install path (the build
+     compiles against its BepInEx and MoonFramework).
    - `NEXUSMODS_FILE_ID`: the file ID for the main Quantum Conveyors file on
      Nexus. This is visible in Nexus file management/advanced details.
 
@@ -30,7 +29,7 @@ Conveyors Nexus Mods page.
 2. Add the matching version section at the top of `CHANGELOG.md`.
 3. Commit and push those changes.
 4. Create and publish a GitHub Release whose tag matches the version, for
-   example `v1.1.3`.
+   example `v2.0.0`.
 
 The `release-nexus.yml` workflow checks out the release tag, builds the plugin,
 creates the normal `BepInEx/plugins/QuantumConveyors` archive, and uploads it to
