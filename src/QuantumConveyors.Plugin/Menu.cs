@@ -176,10 +176,9 @@ internal static class Menu
         int row = 0;
         RectTransform Row(int depth, bool folder)
         {
-            var indent = depth * 14f;
-            var r = Rect("Row", content, new Vector2(600 - indent, 46), new Vector2(indent * 0.5f, -row * rowH), null);
+            var r = Rect("Row", content, new Vector2(600, 46), new Vector2(0, -row * rowH), null);
             var image = r.gameObject.AddComponent<Image>(); image.sprite = folder ? folderGradient : channelGradient; image.color = Color.white;
-            r.anchorMin = r.anchorMax = r.pivot = new Vector2(0.5f, 1f); r.anchoredPosition = new Vector2(indent * 0.5f, -row * rowH); row++;
+            r.anchorMin = r.anchorMax = r.pivot = new Vector2(0.5f, 1f); r.anchoredPosition = new Vector2(0, -row * rowH); row++;
             return r;
         }
         void Empty(string text, int depth)
@@ -434,7 +433,8 @@ internal static class Menu
         for (var y = 0; y < height; y++)
         {
             var t = y / (float)(height - 1);
-            pixels[y] = top ? Color.Lerp(Color.clear, PanelColor, t) : Color.Lerp(PanelColor, Color.clear, t);
+            var alpha = top ? t : 1f - t;
+            pixels[y] = new Color(1f, 1f, 1f, alpha);
         }
         texture.SetPixels(pixels); texture.Apply(false, true);
         return Sprite.Create(texture, new Rect(0, 0, 1, height), new Vector2(0.5f, 0.5f), 100f);
@@ -443,7 +443,7 @@ internal static class Menu
     static Image AddFade(Transform parent, string name, Sprite sprite, Vector2 position)
     {
         var r = Rect(name, parent, new Vector2(620, 32), position, null);
-        var image = r.gameObject.AddComponent<Image>(); image.sprite = sprite; image.raycastTarget = false;
+        var image = r.gameObject.AddComponent<Image>(); image.sprite = sprite; image.color = PanelColor; image.raycastTarget = false;
         image.transform.SetAsLastSibling(); image.gameObject.SetActive(false);
         return image;
     }
