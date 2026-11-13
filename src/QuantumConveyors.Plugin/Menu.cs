@@ -30,7 +30,7 @@ internal static class Menu
     static string pendingNewChannel, pendingNewGroup;
     static bool pendingNewChannelWasUnassignedExpanded;
     static InputField pendingFocusField;
-    static Sprite roundedSprite, buttonSprite, fieldSprite, circleSprite, channelGradient, folderGradient, folderIcon, topFade, bottomFade;
+    static Sprite roundedSprite, buttonSprite, circleSprite, channelGradient, folderGradient, folderIcon, topFade, bottomFade;
     static Image topFadeImage, bottomFadeImage;
     static RectTransform viewport, transition, dragGhost;
     static CanvasGroup transitionGroup;
@@ -225,7 +225,7 @@ internal static class Menu
         var headerTooltipImage = headerTooltip.GetComponent<Image>(); if (headerTooltipImage != null) headerTooltipImage.raycastTarget = false;
         headerTooltipGroup = headerTooltip.gameObject.AddComponent<CanvasGroup>(); headerTooltipGroup.blocksRaycasts = false; headerTooltipGroup.interactable = false;
         var headerTooltipText = Label(headerTooltip,
-            "Quantum Conveyors sends capsules wirelessly between matching quantum input and output adapters.\n\n1. Build a Quantum Input where capsules leave a belt and a Quantum Output where they should reappear.\n2. Press 'E' on an adapter, create a new channel or choose an existing one, and assign the adapter to that channel. Assign input and output adapters to the same channel to connect them together. Any number of inputs and outputs can share a channel.\n\nChannels and Groups below can be dragged and dropped to organize them as needed. Keep in mind that the list below is not a list of individual adapters, but rather a list of the associated channels that multiple adapters may be assigned to. In multiplayer, only the host can control channels and transfers.",
+            "Quantum Conveyors sends capsules wirelessly between matching quantum input and output adapters.\n\n1. Build a Quantum Input where capsules leave a belt and a Quantum Output where they should reappear.\n\n2. Press 'E' on an adapter, create a new channel or choose an existing one, and assign the adapter to that channel. Assign input and output adapters to the same channel to connect them together. Any number of inputs and outputs can share a channel.\n\nChannels and Groups below can be dragged and dropped to organize them as needed. Keep in mind that the list below is not a list of individual adapters, but rather a list of the associated channels that multiple adapters may be assigned to. In multiplayer, only the host can control channels and transfers.",
             Vector2.zero, new Vector2(534, 226), 13, ChannelText, TextAnchor.UpperLeft);
         headerTooltipText.horizontalOverflow = HorizontalWrapMode.Wrap; headerTooltipText.verticalOverflow = VerticalWrapMode.Overflow;
         headerTooltip.SetAsLastSibling(); headerTooltipGroup.gameObject.SetActive(false);
@@ -251,7 +251,7 @@ internal static class Menu
         var tooltipImage = autoTooltip.GetComponent<Image>(); if (tooltipImage != null) tooltipImage.raycastTarget = false;
         autoTooltipGroup = autoTooltip.gameObject.AddComponent<CanvasGroup>(); autoTooltipGroup.blocksRaycasts = false; autoTooltipGroup.interactable = false;
         var tooltipText = Label(autoTooltip,
-            "While this is enabled, new channels will be nested inside matching groups if applicable. For example, channels 'Dust-Left' and 'Dust-Right' would become 'Left' and 'Right' inside a group called 'Dust'. 'Dust 1' and 'Dust 2' are recognized the same way, and would result in channels named '1' and '2' inside a 'Dust' group. This only applies to channels created while this setting is enabled and won't affect any channels created before turning on Auto Group or after turning it off.",
+            "While this is enabled, new channels will be nested inside matching groups if applicable. For example, channels 'Dust-Left' and 'Dust-Right' would become 'Left' and 'Right' inside a group called 'Dust'. 'Dust 1' and 'Dust 2' are recognized the same way, and would result in channels named '1' and '2' inside a 'Dust' group.\n\nThis only applies to channels created while this setting is enabled and won't affect any channels created before turning on Auto Group or after turning it off.",
             Vector2.zero, new Vector2(514, 96), 13, ChannelText, TextAnchor.UpperLeft);
         tooltipText.horizontalOverflow = HorizontalWrapMode.Wrap; tooltipText.verticalOverflow = VerticalWrapMode.Overflow;
         autoTooltip.SetAsLastSibling(); autoTooltipGroup.gameObject.SetActive(false);
@@ -613,7 +613,6 @@ internal static class Menu
                 if (focusEditingChannel == id) pendingFocusField = field;
                 Button(r, "Save", new Vector2(28, 0), new Vector2(76, 34), () => { if (QuantumNetwork.RenameChannel(id, field.text)) { if (pendingNewChannel == id) pendingNewChannel = null; editing = string.Empty; Refresh(); } }, true);
                 Button(r, "Cancel", new Vector2(115, 0), new Vector2(88, 34), () => CancelChannelEdit(id));
-                AddEditingGapGuides(r);
                 return;
             }
             var t = Label(r, label + (chMine == s.Id ? "  <color=#FF7A2E>(this adapter)</color>" : "") + "  " + DimTag + "(" + Plugin.DisplayCounts(s.Outputs, s.Inputs) + ")</color></size>", new Vector2(-125 + indent, 0), new Vector2(260 - indent, 40), 15, NameText, TextAnchor.MiddleLeft);
@@ -640,7 +639,6 @@ internal static class Menu
                 string id = gid;
                 Button(r, "Save", new Vector2(28, 0), new Vector2(76, 34), () => { if (QuantumNetwork.RenameGroup(id, field.text)) { if (pendingNewGroup == id) pendingNewGroup = null; editing = string.Empty; Refresh(); } }, true);
                 Button(r, "Cancel", new Vector2(115, 0), new Vector2(88, 34), () => CancelGroupEdit(id));
-                AddEditingGapGuides(r);
                 return;
             }
             counts.TryGetValue(gid, out var n);
@@ -892,7 +890,6 @@ internal static class Menu
         // circular help buttons noticeably smoother.
         roundedSprite = MakeRoundedSprite(256, 256, 24, "Quantum Rounded Surface");
         buttonSprite = MakeRoundedSprite(256, 256, 12, "Quantum Button Surface");
-        fieldSprite = buttonSprite;
         circleSprite = MakeRoundedSprite(256, 256, 128, "Quantum Circle Surface");
         channelGradient = MakeGradient(new Color(1f, 0.478f, 0.180f, 0.22f), new Color(1f, 0.478f, 0.180f, 0f), "Quantum Channel Gradient");
         folderGradient = MakeGradient(new Color(0.110f, 0.133f, 0.196f, 0.24f), new Color(0.110f, 0.133f, 0.196f, 0f), "Quantum Folder Gradient");
@@ -993,17 +990,6 @@ internal static class Menu
         }
         texture.SetPixels(pixels); texture.Apply(false, true);
         return Sprite.Create(texture, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 200f);
-    }
-
-    // Temporary visual guides for the rename-field/Save gap. The cyan and
-    // magenta bars mark the two actual RectTransform edges; the gap between
-    // them should match the other action-button gaps. Remove after visual QA.
-    static void AddEditingGapGuides(RectTransform row)
-    {
-        var fieldEdge = Rect("Guide Field Edge", row, new Vector2(2, 38), new Vector2(-15, 0), null);
-        var fieldImage = fieldEdge.gameObject.AddComponent<Image>(); fieldImage.color = new Color(0.05f, 0.85f, 1f, 0.85f); fieldImage.raycastTarget = false;
-        var saveEdge = Rect("Guide Save Edge", row, new Vector2(2, 38), new Vector2(-10, 0), null);
-        var saveImage = saveEdge.gameObject.AddComponent<Image>(); saveImage.color = new Color(1f, 0.12f, 0.75f, 0.85f); saveImage.raycastTarget = false;
     }
 
     static void Close()
@@ -1213,7 +1199,7 @@ internal static class Menu
     static InputField Field(Transform parent, Vector2 pos, Vector2 size)
     {
         var r = Rect("NameField", parent, size, pos, ButtonColor); var f = r.gameObject.AddComponent<InputField>();
-        var surface = r.GetComponent<Image>(); if (surface != null) { surface.sprite = fieldSprite; surface.type = Image.Type.Sliced; }
+        var surface = r.GetComponent<Image>(); if (surface != null) { surface.sprite = buttonSprite; surface.type = Image.Type.Sliced; }
         f.targetGraphic = r.GetComponent<Image>();
         f.textComponent = Label(r, string.Empty, Vector2.zero, size - new Vector2(16, 4), 18, ChannelText, TextAnchor.MiddleLeft);
         f.textComponent.rectTransform.anchoredPosition = new Vector2(8, 0); f.characterLimit = 24;
