@@ -33,12 +33,13 @@ internal static class Menu
     static InputField pendingFocusField;
     static Sprite channelGradient, folderGradient, folderIcon, topFade, bottomFade;
     static Image topFadeImage, bottomFadeImage;
-    static RectTransform viewport, dragGhost;
+    static RectTransform viewport, transition, dragGhost;
+    static CanvasGroup transitionGroup;
     static Text dragGhostLabel;
     static UnityEngine.UI.Button autoGroupButton;
     sealed class DragRow
     {
-        internal RectTransform Row; internal string ChannelId; internal string GroupId; internal bool RootDrop; internal string Section; internal Image Background; internal Image DropHighlight;
+        internal RectTransform Row; internal string ChannelId; internal string GroupId; internal bool RootDrop; internal string Section; internal string AnimationKey; internal string ParentKey; internal Image Background; internal Image DropHighlight;
     }
     static readonly List<DragRow> dragRows = new();
     static DragRow dragCandidate, hoveredDrop;
@@ -58,6 +59,7 @@ internal static class Menu
     }
     static readonly List<RowAnimation> rowAnimations = new();
     static readonly List<ArrowAnimation> arrowAnimations = new();
+    static float transitionFadeUntil;
     static string revealChannelId, revealGroupId;
     static RectTransform revealRow;
     static BaseInputModule prevModule; static bool prevModuleOn;
@@ -104,6 +106,16 @@ internal static class Menu
             var t = Mathf.Clamp01(1f - (animation.Until - Time.unscaledTime) / 0.22f);
             animation.Arrow.localRotation = Quaternion.Euler(0f, 0f, Mathf.LerpUnclamped(animation.From, animation.To, Smooth(t)));
             if (t >= 1f) arrowAnimations.RemoveAt(i);
+        }
+        if (transitionGroup != null && transitionFadeUntil > 0f)
+        {
+            var t = Mathf.Clamp01(1f - (transitionFadeUntil - Time.unscaledTime) / 0.06f);
+            transitionGroup.alpha = 1f - Smooth(t);
+            if (t >= 1f)
+            {
+                for (var i = transition.childCount - 1; i >= 0; i--) UnityEngine.Object.Destroy(transition.GetChild(i).gameObject);
+                transitionGroup.alpha = 1f; transitionFadeUntil = 0f;
+            }
         }
     }
 
@@ -170,7 +182,7 @@ internal static class Menu
         raycaster = canvas.AddComponent<GraphicRaycaster>();
         var win = Rect("Window", canvas.transform, new Vector2(640, 600), Vector2.zero, PanelColor); win.localScale = new Vector3(0.54f, 0.54f, 1f);
         win.gameObject.AddComponent<CanvasGroup>().blocksRaycasts = true;
-        title = Label(win, "Quantum", new Vector2(0, 250), new Vector2(620, 42), 26, HeaderText, TextAnchor.MiddleCenter);
+        title = Label(win, "Quantum", new Vector2(0, 250), new Vector2(620, 42), 26, NameText, TextAnchor.MiddleCenter);
         Button(win, "New Channel", new Vector2(-88, 168), new Vector2(160, 40), NewChannel, true);
         Button(win, "New Group", new Vector2(88, 168), new Vector2(160, 40), NewGroup);
         Button(win, "×", new Vector2(287, 264), new Vector2(42, 42), Close);
@@ -179,6 +191,9 @@ internal static class Menu
         view.gameObject.AddComponent<Mask>().showMaskGraphic = true;
         content = Rect("ChannelContent", view, new Vector2(600, 44), Vector2.zero, null);
         content.anchorMin = content.anchorMax = content.pivot = new Vector2(0.5f, 1f); content.anchoredPosition = Vector2.zero;
+        transition = Rect("ChannelTransition", view, new Vector2(600, 44), Vector2.zero, null);
+        transition.anchorMin = transition.anchorMax = transition.pivot = new Vector2(0.5f, 1f); transition.anchoredPosition = Vector2.zero;
+        transitionGroup = transition.gameObject.AddComponent<CanvasGroup>(); transitionGroup.blocksRaycasts = false; transitionGroup.interactable = false;
         topFadeImage = AddFade(view, "TopFade", topFade, new Vector2(0, 134));
         bottomFadeImage = AddFade(view, "BottomFade", bottomFade, new Vector2(0, -134));
         var autoPanel = Rect("AutoGroupPanel", win, new Vector2(580, 100), new Vector2(0, -232), PanelColor);
@@ -209,7 +224,7 @@ internal static class Menu
         editing = string.Empty; Refresh();
     }
 
-    static void RegisterDragRow(RectTransform row, string channelId, string groupId, bool rootDrop, string section = null)
+    static void RegisterDragRow(RectTransform row, string channelId, string groupId, bool rootDrop, string section = null, string animationKey = null, string parentKey = null)
     {
         var highlightRoot = new GameObject("Drop Highlight");
         var highlightRect = highlightRoot.AddComponent<RectTransform>(); highlightRect.SetParent(row, false);
@@ -222,6 +237,8 @@ internal static class Menu
             GroupId = groupId,
             RootDrop = rootDrop,
             Section = section,
+            AnimationKey = animationKey,
+            ParentKey = parentKey,
             Background = row.GetComponent<Image>(),
             DropHighlight = highlight
         };
@@ -231,6 +248,7 @@ internal static class Menu
 
     static string RowKey(DragRow row)
     {
+        if (!string.IsNullOrEmpty(row.AnimationKey)) return row.AnimationKey;
         if (!string.IsNullOrEmpty(row.ChannelId)) return "c:" + row.ChannelId;
         if (!string.IsNullOrEmpty(row.GroupId)) return "g:" + row.GroupId;
         if (!string.IsNullOrEmpty(row.Section)) return "s:" + row.Section;
@@ -359,8 +377,19 @@ internal static class Menu
     {
         revealChannelId = channelId; revealGroupId = groupId;
         if (!string.IsNullOrEmpty(targetGroup))
+        {
+            if (!expandedGroups.Contains(targetGroup))
+            {
+                animatedArrowKey = "g:" + targetGroup; animatedArrowWasOpen = false; animateNextRefresh = true;
+            }
             for (var parent = targetGroup; !string.IsNullOrEmpty(parent); parent = QuantumNetwork.GroupParent(parent)) expandedGroups.Add(parent);
-        else if (!string.IsNullOrEmpty(channelId)) ungroupedExpanded = true;
+        }
+        else if (!string.IsNullOrEmpty(channelId))
+        {
+            var wasOpen = ungroupedExpanded;
+            if (!wasOpen) { animatedArrowKey = "s:ungrouped"; animatedArrowWasOpen = false; animateNextRefresh = true; }
+            ungroupedExpanded = true;
+        }
     }
 
     static void CreateDragGhost()
@@ -424,14 +453,32 @@ internal static class Menu
     {
         if (content == null) return;
         Dictionary<string, Vector2> previousPositions = null;
+        var previousRows = new Dictionary<string, RectTransform>(StringComparer.Ordinal);
+        var previousRowInfo = new Dictionary<string, DragRow>(StringComparer.Ordinal);
+        if (transition != null)
+        {
+            for (var i = transition.childCount - 1; i >= 0; i--) UnityEngine.Object.Destroy(transition.GetChild(i).gameObject);
+            transitionFadeUntil = 0f;
+            if (transitionGroup != null) transitionGroup.alpha = 1f;
+        }
         if (animateNextRefresh)
         {
             previousPositions = new Dictionary<string, Vector2>(StringComparer.Ordinal);
             foreach (var oldRow in dragRows)
             {
                 var key = RowKey(oldRow);
-                if (!string.IsNullOrEmpty(key) && oldRow.Row != null) previousPositions[key] = oldRow.Row.anchoredPosition;
+                if (!string.IsNullOrEmpty(key) && oldRow.Row != null)
+                {
+                    previousPositions[key] = oldRow.Row.anchoredPosition;
+                    previousRows[key] = oldRow.Row;
+                    previousRowInfo[key] = oldRow;
+                    if (transition != null) oldRow.Row.SetParent(transition, false);
+                }
             }
+        }
+        else
+        {
+            rowAnimations.Clear(); arrowAnimations.Clear();
         }
         for (int i = content.childCount - 1; i >= 0; i--) UnityEngine.Object.DestroyImmediate(content.GetChild(i).gameObject);
         dragRows.Clear(); ClearDragState();
@@ -450,7 +497,10 @@ internal static class Menu
         RectTransform Row(int depth, bool folder)
         {
             var r = Rect("Row", content, new Vector2(600, 46), new Vector2(0, -row * rowH), null);
-            var image = r.gameObject.AddComponent<Image>(); image.sprite = folder ? folderGradient : channelGradient; image.color = Color.white;
+            var image = r.gameObject.AddComponent<Image>(); image.color = PanelColor;
+            var gradient = Rect("Row Gradient", r, Vector2.zero, Vector2.zero, null);
+            gradient.anchorMin = Vector2.zero; gradient.anchorMax = Vector2.one; gradient.offsetMin = Vector2.zero; gradient.offsetMax = Vector2.zero;
+            var gradientImage = gradient.gameObject.AddComponent<Image>(); gradientImage.sprite = folder ? folderGradient : channelGradient; gradientImage.color = Color.white; gradientImage.raycastTarget = false;
             r.anchorMin = r.anchorMax = r.pivot = new Vector2(0.5f, 1f); r.anchoredPosition = new Vector2(0, -row * rowH); row++;
             return r;
         }
@@ -481,11 +531,13 @@ internal static class Menu
             var image = r.gameObject.AddComponent<Image>(); image.sprite = folderIcon; image.preserveAspect = true;
         }
 
-        void RenderChannel(ChannelSummary s, int depth, bool fullName)
+        void RenderChannel(ChannelSummary s, int depth, bool fullName, string section = null)
         {
             var r = Row(depth, false);
-            RememberRow("c:" + s.Id, r);
-            RegisterDragRow(r, s.Id, null, false);
+            var key = section == null ? "c:" + s.Id : "x:" + section + ":" + s.Id;
+            var parentKey = section == null ? (string.IsNullOrEmpty(QuantumNetwork.GroupOf(s.Id)) ? null : "g:" + QuantumNetwork.GroupOf(s.Id)) : "s:" + section;
+            RememberRow(key, r);
+            RegisterDragRow(r, s.Id, null, false, null, key, parentKey);
             var indent = depth * 14;
             string label = fullName || depth == 0 ? s.Name : QuantumNetwork.ShortName(s.Id);
             if (editing == "c:" + s.Id)
@@ -512,7 +564,8 @@ internal static class Menu
         void RenderGroup(string gid, int depth)
         {
             var r = Row(depth, true); RememberRow("g:" + gid, r); Icon(r, depth);
-            RegisterDragRow(r, null, gid, false);
+            var parentGroup = QuantumNetwork.GroupParent(gid);
+            RegisterDragRow(r, null, gid, false, null, "g:" + gid, string.IsNullOrEmpty(parentGroup) ? null : "g:" + parentGroup);
             var indent = depth * 14;
             if (editing == "g:" + gid)
             {
@@ -576,7 +629,7 @@ internal static class Menu
             if (expanded)
             {
                 if (channels.Count == 0) Empty(label == "Unassigned" ? "No channels are currently unassigned." : "Every channel is inside a folder.", 1);
-                foreach (var channel in channels) RenderChannel(channel, 1, true);
+                foreach (var channel in channels) RenderChannel(channel, 1, true, section);
             }
         }
 
@@ -635,6 +688,26 @@ internal static class Menu
                     rowAnimations.Add(new RowAnimation { Row = item.Value, From = from, To = to, Until = Time.unscaledTime + 0.22f });
                 }
             }
+            var hasClosingRows = false;
+            foreach (var old in previousRows)
+            {
+                if (newRows.ContainsKey(old.Key))
+                {
+                    UnityEngine.Object.DestroyImmediate(old.Value.gameObject);
+                    continue;
+                }
+                if (transition == null || !previousRowInfo.TryGetValue(old.Key, out var info)) continue;
+                var from = previousPositions[old.Key];
+                var to = CollapseTarget(info, previousPositions, newRows);
+                if ((from - to).sqrMagnitude > 0.01f)
+                    rowAnimations.Add(new RowAnimation { Row = old.Value, From = from, To = to, Until = Time.unscaledTime + 0.22f });
+                hasClosingRows = true;
+            }
+            if (hasClosingRows)
+            {
+                transitionGroup.alpha = 1f;
+                transitionFadeUntil = Time.unscaledTime + 0.22f;
+            }
             if (!string.IsNullOrEmpty(animatedArrowKey) && newArrows.TryGetValue(animatedArrowKey, out var arrowTransform))
             {
                 var from = arrowTransform.localEulerAngles.z;
@@ -673,6 +746,18 @@ internal static class Menu
         if (key == "s:ungrouped") return ungroupedExpanded;
         return key != null && key.StartsWith("g:", StringComparison.Ordinal) && expandedGroups.Contains(key.Substring(2));
     }
+
+    static Vector2 CollapseTarget(DragRow row, Dictionary<string, Vector2> previousPositions, Dictionary<string, RectTransform> newRows)
+    {
+        for (var parent = row.ParentKey; !string.IsNullOrEmpty(parent); )
+        {
+            if (newRows.ContainsKey(parent) && previousPositions.TryGetValue(parent, out var position)) return position;
+            if (!parent.StartsWith("g:", StringComparison.Ordinal)) break;
+            var next = QuantumNetwork.GroupParent(parent.Substring(2));
+            parent = string.IsNullOrEmpty(next) ? null : "g:" + next;
+        }
+        return row.Row != null ? row.Row.anchoredPosition + new Vector2(0f, 16f) : Vector2.zero;
+    }
     static void MoveToGroup(string gid)
     {
         if (moving != null) QuantumNetwork.MoveChannel(moving, gid);
@@ -691,7 +776,12 @@ internal static class Menu
         if (pendingNewChannel == id)
         {
             QuantumNetwork.DeleteChannel(id);
+            var wasOpen = unassignedExpanded;
             unassignedExpanded = pendingNewChannelWasUnassignedExpanded;
+            if (wasOpen != unassignedExpanded)
+            {
+                animatedArrowKey = "s:unassigned"; animatedArrowWasOpen = wasOpen; animateNextRefresh = true;
+            }
             pendingNewChannel = null;
         }
         editing = string.Empty; Refresh();
@@ -718,6 +808,10 @@ internal static class Menu
     {
         if (!Moon.IsAuthority || !QuantumNetwork.CreateChannelIn(string.Empty, out var channelId)) return;
         pendingNewChannelWasUnassignedExpanded = unassignedExpanded;
+        if (!unassignedExpanded)
+        {
+            animatedArrowKey = "s:unassigned"; animatedArrowWasOpen = false; animateNextRefresh = true;
+        }
         unassignedExpanded = true;
         pendingNewChannel = channelId;
         editing = "c:" + channelId;
@@ -826,8 +920,8 @@ internal static class Menu
         if (canvas != null) UnityEngine.Object.Destroy(canvas);
         canvas = null; raycaster = null; content = null; editing = string.Empty; moving = movingGroup = null;
         pendingNewChannel = pendingNewGroup = null; pendingNewChannelWasUnassignedExpanded = false; focusEditingChannel = string.Empty; pendingFocusField = null; autoGroupButton = null;
-        viewport = null; topFadeImage = bottomFadeImage = null;
-        rowAnimations.Clear(); arrowAnimations.Clear(); animateNextRefresh = false; animatedArrowKey = null;
+        viewport = null; transition = null; transitionGroup = null; topFadeImage = bottomFadeImage = null;
+        rowAnimations.Clear(); arrowAnimations.Clear(); transitionFadeUntil = 0f; animateNextRefresh = false; animatedArrowKey = null;
         revealChannelId = revealGroupId = null; revealRow = null;
         ClearDragState(); dragRows.Clear();
         if (prevModule != null) prevModule.enabled = prevModuleOn; prevModule = null;
