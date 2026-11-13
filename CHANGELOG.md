@@ -1,7 +1,7 @@
 Version 2.1.0
 
 - Can be reloaded in place while the game runs, by a mod loader that reloads plugins: Conveyors starts and stops as a whole, the adapter buildings are registered once at game start (Boot), and on a reload each adapter's machine is saved, stopped and recreated by the new copy from the same saved data. Channels and groups carry over; nothing changes for players, and it still installs as a normal BepInEx plugin.
-- Answers HTTP requests for tools, through a public HandleHttp method (and lists them through HttpHelp) that a mod serving HTTP can pass requests on to (without such a mod nothing calls it): list channels and adapters (GET /quantum/channels), create, rename, assign and delete channels, file build-named channels into groups, and see how much each channel moved lately and which receivers placed nothing (GET /quantum/flow). Changes work on the host only, as in the menu.
+- Answers HTTP requests for tools, through a public HandleHttp method (and lists them through HttpHelp), for mods that serve HTTP and pass requests on (nothing calls it otherwise): a summary (GET /quantum); channels, adapters and groups each with their own list and changes (create, rename, move, assign, delete); filing build-named channels into groups; and how much each channel moved lately, with the receivers that placed nothing (GET /quantum/flow). Changes work on the host only, as in the menu.
 
 Version 2.0.0
 
