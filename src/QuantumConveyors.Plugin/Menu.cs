@@ -123,15 +123,15 @@ internal static class Menu
         var win = Rect("Window", canvas.transform, new Vector2(640, 600), Vector2.zero, PanelColor); win.localScale = new Vector3(0.54f, 0.54f, 1f);
         win.gameObject.AddComponent<CanvasGroup>().blocksRaycasts = true;
         title = Label(win, "Quantum", new Vector2(0, 250), new Vector2(560, 42), 26, HeaderText, TextAnchor.MiddleCenter);
-        Button(win, "New Channel", new Vector2(-88, 152), new Vector2(160, 40), NewChannel, true);
-        Button(win, "New Group", new Vector2(88, 152), new Vector2(160, 40), NewGroup);
+        Button(win, "New Channel", new Vector2(-88, 168), new Vector2(160, 40), NewChannel, true);
+        Button(win, "New Group", new Vector2(88, 168), new Vector2(160, 40), NewGroup);
         Button(win, "×", new Vector2(287, 264), new Vector2(42, 42), Close);
-        var view = Rect("ChannelViewport", win, new Vector2(600, 330), new Vector2(0, -45.5f), PanelColor);
+        var view = Rect("ChannelViewport", win, new Vector2(600, 340), new Vector2(0, -35.5f), PanelColor);
         view.gameObject.AddComponent<Mask>().showMaskGraphic = true;
         content = Rect("ChannelContent", view, new Vector2(580, 44), Vector2.zero, null);
         content.anchorMin = content.anchorMax = content.pivot = new Vector2(0.5f, 1f); content.anchoredPosition = Vector2.zero;
-        var autoPanel = Rect("AutoGroupPanel", win, new Vector2(580, 100), new Vector2(0, -245), PanelColor);
-        Label(autoPanel, "Auto Group", new Vector2(-88, 28), new Vector2(160, 30), 18, NameText, TextAnchor.MiddleLeft);
+        var autoPanel = Rect("AutoGroupPanel", win, new Vector2(580, 100), new Vector2(0, -232), PanelColor);
+        Label(autoPanel, "Auto Group", new Vector2(-88, 28), new Vector2(160, 30), 18, NameText, TextAnchor.MiddleCenter);
         var explanation = Label(autoPanel,
             "Turn this on to automatically nest new channels inside matching groups. For example, 'dust-left' and 'dust-right' become channels inside a 'dust' group, named 'left' and 'right'. 'dust 1' and 'dust 2' are recognized the same way.",
             new Vector2(6, -22), new Vector2(467, 52), 12, NameText, TextAnchor.UpperLeft);
@@ -311,7 +311,7 @@ internal static class Menu
         RenderSpecial("Not grouped", "(" + ungrouped.Count + " channels outside folders)", ungroupedExpanded, () => { ungroupedExpanded = !ungroupedExpanded; Refresh(); }, ungrouped);
 
         foreach (var gid in QuantumNetwork.ChildGroups(string.Empty)) RenderGroup(gid, 0);
-        var maxScroll = Mathf.Max(0f, row * rowH - 330f);
+        var maxScroll = Mathf.Max(0f, row * rowH - 340f);
         scroll = Mathf.Clamp(scroll, 0f, maxScroll);
         content.sizeDelta = new Vector2(580, Math.Max(44f, row * rowH));
         content.anchoredPosition = new Vector2(0f, scroll);
@@ -627,7 +627,7 @@ internal static class Menu
     {
         if (content == null || Mouse.current == null) return;
         float y = Mouse.current.scroll.ReadValue().y; if (Math.Abs(y) < 0.01f) return;
-        float max = Mathf.Max(0f, content.rect.height - 330f); if (max <= 0f) return;
+        float max = Mathf.Max(0f, content.rect.height - 340f); if (max <= 0f) return;
         scroll = Mathf.Clamp(scroll - (Math.Abs(y) > 10f ? y / 6f : y * 30f), 0f, max);
         content.anchoredPosition = new Vector2(0, scroll);
     }
