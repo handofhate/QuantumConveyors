@@ -608,12 +608,12 @@ internal static class Menu
             string label = fullName || depth == 0 ? s.Name : QuantumNetwork.ShortName(s.Id);
             if (editing == "c:" + s.Id)
             {
-                var field = Field(r, new Vector2(-145 + indent, 0), new Vector2(260, 34)); field.text = QuantumNetwork.ShortName(s.Id);
+                var field = Field(r, new Vector2(-145 + indent * 0.5f, 0), new Vector2(260 - indent, 34)); field.text = QuantumNetwork.ShortName(s.Id);
                 string id = s.Id;
                 if (focusEditingChannel == id) pendingFocusField = field;
                 Button(r, "Save", new Vector2(28, 0), new Vector2(76, 34), () => { if (QuantumNetwork.RenameChannel(id, field.text)) { if (pendingNewChannel == id) pendingNewChannel = null; editing = string.Empty; Refresh(); } }, true);
                 Button(r, "Cancel", new Vector2(115, 0), new Vector2(88, 34), () => CancelChannelEdit(id));
-                AddEditingGapGuides(r, indent);
+                AddEditingGapGuides(r);
                 return;
             }
             var t = Label(r, label + (chMine == s.Id ? "  <color=#FF7A2E>(this adapter)</color>" : "") + "  " + DimTag + "(" + Plugin.DisplayCounts(s.Outputs, s.Inputs) + ")</color></size>", new Vector2(-125 + indent, 0), new Vector2(260 - indent, 40), 15, NameText, TextAnchor.MiddleLeft);
@@ -636,11 +636,11 @@ internal static class Menu
             var indent = depth * 14;
             if (editing == "g:" + gid)
             {
-                var field = Field(r, new Vector2(-145 + indent, 0), new Vector2(260, 34)); field.text = QuantumNetwork.GroupName(gid);
+                var field = Field(r, new Vector2(-145 + indent * 0.5f, 0), new Vector2(260 - indent, 34)); field.text = QuantumNetwork.GroupName(gid);
                 string id = gid;
                 Button(r, "Save", new Vector2(28, 0), new Vector2(76, 34), () => { if (QuantumNetwork.RenameGroup(id, field.text)) { if (pendingNewGroup == id) pendingNewGroup = null; editing = string.Empty; Refresh(); } }, true);
                 Button(r, "Cancel", new Vector2(115, 0), new Vector2(88, 34), () => CancelGroupEdit(id));
-                AddEditingGapGuides(r, indent);
+                AddEditingGapGuides(r);
                 return;
             }
             counts.TryGetValue(gid, out var n);
@@ -892,7 +892,7 @@ internal static class Menu
         // circular help buttons noticeably smoother.
         roundedSprite = MakeRoundedSprite(256, 256, 24, "Quantum Rounded Surface");
         buttonSprite = MakeRoundedSprite(256, 256, 12, "Quantum Button Surface");
-        fieldSprite = MakeRoundedSprite(256, 256, 6, "Quantum Field Surface");
+        fieldSprite = buttonSprite;
         circleSprite = MakeRoundedSprite(256, 256, 128, "Quantum Circle Surface");
         channelGradient = MakeGradient(new Color(1f, 0.478f, 0.180f, 0.22f), new Color(1f, 0.478f, 0.180f, 0f), "Quantum Channel Gradient");
         folderGradient = MakeGradient(new Color(0.110f, 0.133f, 0.196f, 0.24f), new Color(0.110f, 0.133f, 0.196f, 0f), "Quantum Folder Gradient");
@@ -998,11 +998,11 @@ internal static class Menu
     // Temporary visual guides for the rename-field/Save gap. The cyan and
     // magenta bars mark the two actual RectTransform edges; the gap between
     // them should match the other action-button gaps. Remove after visual QA.
-    static void AddEditingGapGuides(RectTransform row, int indent)
+    static void AddEditingGapGuides(RectTransform row)
     {
-        var fieldEdge = Rect("Guide Field Edge", row, new Vector2(2, 38), new Vector2(-15 + indent, 0), null);
+        var fieldEdge = Rect("Guide Field Edge", row, new Vector2(2, 38), new Vector2(-15, 0), null);
         var fieldImage = fieldEdge.gameObject.AddComponent<Image>(); fieldImage.color = new Color(0.05f, 0.85f, 1f, 0.85f); fieldImage.raycastTarget = false;
-        var saveEdge = Rect("Guide Save Edge", row, new Vector2(2, 38), new Vector2(-10 + indent, 0), null);
+        var saveEdge = Rect("Guide Save Edge", row, new Vector2(2, 38), new Vector2(-10, 0), null);
         var saveImage = saveEdge.gameObject.AddComponent<Image>(); saveImage.color = new Color(1f, 0.12f, 0.75f, 0.85f); saveImage.raycastTarget = false;
     }
 
