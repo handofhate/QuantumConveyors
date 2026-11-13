@@ -29,6 +29,7 @@ internal static class Menu
     static bool unassignedExpanded, ungroupedExpanded;
     static string focusEditingChannel = string.Empty;
     static string pendingNewChannel, pendingNewGroup;
+    static bool pendingNewChannelWasUnassignedExpanded;
     static InputField pendingFocusField;
     static Sprite channelGradient, folderGradient, folderIcon;
     static UnityEngine.UI.Button autoGroupButton;
@@ -130,12 +131,12 @@ internal static class Menu
         content = Rect("ChannelContent", view, new Vector2(580, 44), Vector2.zero, null);
         content.anchorMin = content.anchorMax = content.pivot = new Vector2(0.5f, 1f); content.anchoredPosition = Vector2.zero;
         var autoPanel = Rect("AutoGroupPanel", win, new Vector2(580, 100), new Vector2(0, -245), PanelColor);
-        Label(autoPanel, "Auto Group", new Vector2(-165, 28), new Vector2(185, 30), 18, NameText, TextAnchor.MiddleLeft);
+        Label(autoPanel, "Auto Group", new Vector2(-88, 28), new Vector2(160, 30), 18, NameText, TextAnchor.MiddleLeft);
         var explanation = Label(autoPanel,
             "Turn this on to automatically nest new channels inside matching groups. For example, 'dust-left' and 'dust-right' become channels inside a 'dust' group, named 'left' and 'right'. 'dust 1' and 'dust 2' are recognized the same way.",
             new Vector2(6, -22), new Vector2(467, 52), 12, NameText, TextAnchor.UpperLeft);
         explanation.horizontalOverflow = HorizontalWrapMode.Wrap; explanation.verticalOverflow = VerticalWrapMode.Overflow;
-        autoGroupButton = Button(autoPanel, QuantumNetwork.AutoGroupOn ? "On" : "Off", new Vector2(230, 28), new Vector2(84, 34), ToggleAutoGroup, QuantumNetwork.AutoGroupOn);
+        autoGroupButton = Button(autoPanel, QuantumNetwork.AutoGroupOn ? "On" : "Off", new Vector2(88, 28), new Vector2(84, 34), ToggleAutoGroup, QuantumNetwork.AutoGroupOn);
         Refresh();
         var es = EventSystem.current;
         if (es == null) { var go = new GameObject("Quantum Conveyors EventSystem"); es = go.AddComponent<EventSystem>(); UnityEngine.Object.DontDestroyOnLoad(go); }
@@ -181,8 +182,8 @@ internal static class Menu
         {
             var r = Rect("Empty", content, new Vector2(580, 46), new Vector2(0, -row * rowH), null);
             r.anchorMin = r.anchorMax = r.pivot = new Vector2(0.5f, 1f); r.anchoredPosition = new Vector2(0, -row * rowH); row++;
-            var t = Label(r, text, new Vector2(-165 + depth * 14, 0), new Vector2(185 - depth * 14, 40), 13, Dim, TextAnchor.MiddleLeft);
-            t.horizontalOverflow = HorizontalWrapMode.Wrap; t.verticalOverflow = VerticalWrapMode.Overflow;
+            var t = Label(r, text, new Vector2(0, 0), new Vector2(540, 40), 13, Dim, TextAnchor.MiddleCenter);
+            t.horizontalOverflow = HorizontalWrapMode.Overflow; t.verticalOverflow = VerticalWrapMode.Truncate;
         }
         void Icon(Transform parent, int depth)
         {
@@ -274,7 +275,8 @@ internal static class Menu
         void RenderSpecial(string label, string count, bool expanded, Action toggle, List<ChannelSummary> channels)
         {
             var r = Row(0, true); Icon(r, 0);
-            var t = Label(r, label + "  " + DimTag + count + "</color></size>", new Vector2(-165, 0), new Vector2(185, 40), 15, NameText, TextAnchor.MiddleLeft); t.supportRichText = true;
+            var t = Label(r, label + "  " + DimTag + count + "</color></size>", new Vector2(-23.5f, 0), new Vector2(467, 40), 15, NameText, TextAnchor.MiddleLeft); t.supportRichText = true;
+            t.horizontalOverflow = HorizontalWrapMode.Overflow; t.verticalOverflow = VerticalWrapMode.Truncate;
             Button(r, expanded ? "▾" : "▸", new Vector2(252, 0), new Vector2(48, 34), toggle, true);
             if (expanded)
             {
@@ -351,6 +353,7 @@ internal static class Menu
         if (pendingNewChannel == id)
         {
             QuantumNetwork.DeleteChannel(id);
+            unassignedExpanded = pendingNewChannelWasUnassignedExpanded;
             pendingNewChannel = null;
         }
         editing = string.Empty; Refresh();
@@ -376,6 +379,7 @@ internal static class Menu
     static void NewChannel()
     {
         if (!Moon.IsAuthority || !QuantumNetwork.CreateChannelIn(string.Empty, out var channelId)) return;
+        pendingNewChannelWasUnassignedExpanded = unassignedExpanded;
         unassignedExpanded = true;
         pendingNewChannel = channelId;
         editing = "c:" + channelId;
@@ -451,7 +455,7 @@ internal static class Menu
     {
         if (canvas != null) UnityEngine.Object.Destroy(canvas);
         canvas = null; raycaster = null; content = null; editing = string.Empty; moving = movingGroup = null;
-        pendingNewChannel = pendingNewGroup = null; focusEditingChannel = string.Empty; pendingFocusField = null; autoGroupButton = null;
+        pendingNewChannel = pendingNewGroup = null; pendingNewChannelWasUnassignedExpanded = false; focusEditingChannel = string.Empty; pendingFocusField = null; autoGroupButton = null;
         if (prevModule != null) prevModule.enabled = prevModuleOn; prevModule = null;
         Unfreeze();
     }
