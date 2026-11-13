@@ -222,7 +222,14 @@ internal static class Menu
             if (what != null)
             {
                 var can = movingGroup == null || CanHold(gid, movingGroup);
-                if (can && (moving != null || movingGroup != gid)) Button(r, "Move here", new Vector2(234, 0), new Vector2(84, 34), () => MoveToGroup(gid), true);
+                if (can && (moving != null || movingGroup != gid)) Button(r, "Move here", new Vector2(180, 0), new Vector2(90, 34), () => MoveToGroup(gid), true);
+                var open = expandedGroups.Contains(gid);
+                Button(r, open ? "▾" : "▸", new Vector2(270, 0), new Vector2(40, 34), () => { if (open) expandedGroups.Remove(gid); else expandedGroups.Add(gid); Refresh(); }, true);
+                if (open)
+                {
+                    foreach (var child in QuantumNetwork.ChildGroups(gid)) RenderGroup(child, depth + 1);
+                    foreach (var channel in QuantumNetwork.ChannelsIn(gid)) RenderChannel(channel, depth + 1);
+                }
             }
             else
             {
