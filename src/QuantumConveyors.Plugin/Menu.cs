@@ -247,12 +247,12 @@ internal static class Menu
         var helpText = Label(autoHelp, "?", Vector2.zero, new Vector2(24, 24), 16, ChannelText, TextAnchor.MiddleCenter);
         helpText.fontStyle = FontStyle.Bold;
         autoGroupButton = Button(autoPanel, QuantumNetwork.AutoGroupOn ? "On" : "Off", new Vector2(88, 10), new Vector2(84, 34), ToggleAutoGroup, QuantumNetwork.AutoGroupOn);
-        autoTooltip = Rect("AutoGroupTooltip", win, new Vector2(540, 112), new Vector2(0, -145), RowColor);
+        autoTooltip = Rect("AutoGroupTooltip", win, new Vector2(540, 128), new Vector2(0, -145), RowColor);
         var tooltipImage = autoTooltip.GetComponent<Image>(); if (tooltipImage != null) tooltipImage.raycastTarget = false;
         autoTooltipGroup = autoTooltip.gameObject.AddComponent<CanvasGroup>(); autoTooltipGroup.blocksRaycasts = false; autoTooltipGroup.interactable = false;
         var tooltipText = Label(autoTooltip,
             "While this is enabled, new channels will be nested inside matching groups if applicable. For example, channels 'Dust-Left' and 'Dust-Right' would become 'Left' and 'Right' inside a group called 'Dust'. 'Dust 1' and 'Dust 2' are recognized the same way, and would result in channels named '1' and '2' inside a 'Dust' group.\n\nThis only applies to channels created while this setting is enabled and won't affect any channels created before turning on Auto Group or after turning it off.",
-            Vector2.zero, new Vector2(514, 96), 13, ChannelText, TextAnchor.UpperLeft);
+            Vector2.zero, new Vector2(514, 112), 13, ChannelText, TextAnchor.UpperLeft);
         tooltipText.horizontalOverflow = HorizontalWrapMode.Wrap; tooltipText.verticalOverflow = VerticalWrapMode.Overflow;
         autoTooltip.SetAsLastSibling(); autoTooltipGroup.gameObject.SetActive(false);
         Refresh();
