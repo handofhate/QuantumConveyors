@@ -30,7 +30,7 @@ internal static class Menu
     static string pendingNewChannel, pendingNewGroup;
     static bool pendingNewChannelWasUnassignedExpanded;
     static InputField pendingFocusField;
-    static Sprite roundedSprite, circleSprite, channelGradient, folderGradient, folderIcon, topFade, bottomFade;
+    static Sprite roundedSprite, buttonSprite, circleSprite, channelGradient, folderGradient, folderIcon, topFade, bottomFade;
     static Image topFadeImage, bottomFadeImage;
     static RectTransform viewport, transition, dragGhost;
     static CanvasGroup transitionGroup;
@@ -229,7 +229,7 @@ internal static class Menu
             Vector2.zero, new Vector2(534, 226), 13, ChannelText, TextAnchor.UpperLeft);
         headerTooltipText.horizontalOverflow = HorizontalWrapMode.Wrap; headerTooltipText.verticalOverflow = VerticalWrapMode.Overflow;
         headerTooltip.SetAsLastSibling(); headerTooltipGroup.gameObject.SetActive(false);
-        viewport = Rect("ChannelViewport", win, new Vector2(620, 320), new Vector2(0, -23.5f), PanelColor);
+        viewport = Rect("ChannelViewport", win, new Vector2(620, 330), new Vector2(0, -26.5f), PanelColor);
         var view = viewport;
         view.gameObject.AddComponent<Mask>().showMaskGraphic = true;
         content = Rect("ChannelContent", view, new Vector2(600, 44), Vector2.zero, null);
@@ -238,8 +238,8 @@ internal static class Menu
         transition.anchorMin = transition.anchorMax = transition.pivot = new Vector2(0.5f, 1f); transition.anchoredPosition = Vector2.zero;
         transition.SetSiblingIndex(content.GetSiblingIndex());
         transitionGroup = transition.gameObject.AddComponent<CanvasGroup>(); transitionGroup.blocksRaycasts = false; transitionGroup.interactable = false;
-        topFadeImage = AddFade(view, "TopFade", topFade, new Vector2(0, 154));
-        bottomFadeImage = AddFade(view, "BottomFade", bottomFade, new Vector2(0, -154));
+        topFadeImage = AddFade(view, "TopFade", topFade, new Vector2(0, 159));
+        bottomFadeImage = AddFade(view, "BottomFade", bottomFade, new Vector2(0, -159));
         var autoPanel = Rect("AutoGroupPanel", win, new Vector2(580, 60), new Vector2(0, -250), PanelColor);
         Label(autoPanel, "Auto Group", new Vector2(-88, 10), new Vector2(160, 30), 18, NameText, TextAnchor.MiddleCenter);
         autoHelp = Rect("AutoGroupHelp", autoPanel, new Vector2(28, 28), new Vector2(155, 10), ButtonColor);
@@ -617,7 +617,7 @@ internal static class Menu
             string cid = s.Id;
             Button(r, chMine == s.Id ? "Unassign" : "Assign", new Vector2(48, 0), new Vector2(86, 34), () => Toggle(cid));
             Button(r, "Rename", new Vector2(140, 0), new Vector2(88, 34), () => { editing = "c:" + cid; Refresh(); });
-            Button(r, "Delete", new Vector2(258, 0), new Vector2(84, 34), () => { if (QuantumNetwork.DeleteChannel(cid)) { if (editing == "c:" + cid) editing = string.Empty; if (pendingNewChannel == cid) pendingNewChannel = null; Refresh(); } }, true);
+            Button(r, "Delete", new Vector2(231, 0), new Vector2(84, 34), () => { if (QuantumNetwork.DeleteChannel(cid)) { if (editing == "c:" + cid) editing = string.Empty; if (pendingNewChannel == cid) pendingNewChannel = null; Refresh(); } });
         }
 
         void RenderGroup(string gid, int depth)
@@ -638,8 +638,8 @@ internal static class Menu
             var t = Label(r, QuantumNetwork.GroupName(gid) + (mineGroups.Contains(gid) ? "  <color=#FF7A2E>(this adapter)</color>" : "") + "  " + DimTag + "(" + CountPhrase(n.channels, "channel") + ", " + CountPhrase(n.adapters, "adapter") + ")</color></size>", new Vector2(-95 + indent, 0), new Vector2(320 - indent, 40), 15, NameText, TextAnchor.MiddleLeft);
             t.supportRichText = true;
             t.horizontalOverflow = HorizontalWrapMode.Overflow;
-            Button(r, "Rename", new Vector2(140, 0), new Vector2(86, 34), () => { editing = "g:" + gid; Refresh(); });
-            Button(r, "Delete", new Vector2(230, 0), new Vector2(84, 34), () => { if (QuantumNetwork.DeleteGroup(gid)) { expandedGroups.Remove(gid); Refresh(); } });
+            Button(r, "Rename", new Vector2(115, 0), new Vector2(86, 34), () => { editing = "g:" + gid; Refresh(); });
+            Button(r, "Delete", new Vector2(205, 0), new Vector2(84, 34), () => { if (QuantumNetwork.DeleteGroup(gid)) { expandedGroups.Remove(gid); Refresh(); } });
             var open = expandedGroups.Contains(gid);
             AddArrow(r, "g:" + gid, open, () => { var wasOpen = expandedGroups.Contains(gid); if (wasOpen) expandedGroups.Remove(gid); else { expandedGroups.Add(gid); scrollAnchorKey = "g:" + gid; } QueueArrowAnimation("g:" + gid, wasOpen); Refresh(); });
             if (open)
@@ -878,7 +878,8 @@ internal static class Menu
     static void EnsureVisualAssets()
     {
         if (channelGradient != null) return;
-        roundedSprite = MakeRoundedSprite(128, 128, 24, "Quantum Rounded Surface");
+        roundedSprite = MakeRoundedSprite(128, 128, 12, "Quantum Rounded Surface");
+        buttonSprite = MakeRoundedSprite(128, 128, 6, "Quantum Button Surface");
         circleSprite = MakeRoundedSprite(128, 128, 64, "Quantum Circle Surface");
         channelGradient = MakeGradient(new Color(1f, 0.478f, 0.180f, 0.22f), new Color(1f, 0.478f, 0.180f, 0f), "Quantum Channel Gradient");
         folderGradient = MakeGradient(new Color(0.110f, 0.133f, 0.196f, 0.24f), new Color(0.110f, 0.133f, 0.196f, 0f), "Quantum Folder Gradient");
@@ -1197,6 +1198,8 @@ internal static class Menu
     {
         bool close = label == "×";
         var r = Rect("Button", parent, size, pos, accent ? Accent : (close ? new Color(0, 0, 0, 0) : ButtonColor));
+        var surface = r.GetComponent<Image>();
+        if (surface != null) { surface.sprite = buttonSprite; surface.type = Image.Type.Sliced; }
         var b = r.gameObject.AddComponent<UnityEngine.UI.Button>(); b.targetGraphic = r.GetComponent<Image>();
         UnityAction call = action; b.onClick.AddListener(call);
         Label(r, label, Vector2.zero, size - new Vector2(8, 4), close ? 28 : 16, accent ? AccentText : (close ? HeaderText : ChannelText), TextAnchor.MiddleCenter);
