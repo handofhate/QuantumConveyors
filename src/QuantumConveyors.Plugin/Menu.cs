@@ -47,8 +47,7 @@ internal static class Menu
     static Vector2 dragGhostOffset;
     static bool dragging;
     static bool animateNextRefresh;
-    static string animatedArrowKey;
-    static bool animatedArrowWasOpen;
+    static readonly Dictionary<string, bool> animatedArrows = new(StringComparer.Ordinal);
     sealed class RowAnimation
     {
         internal RectTransform Row; internal Vector2 From; internal Vector2 To; internal float Until;
@@ -120,6 +119,13 @@ internal static class Menu
     }
 
     static float Smooth(float t) => t * t * (3f - 2f * t);
+
+    static void QueueArrowAnimation(string key, bool wasOpen)
+    {
+        if (string.IsNullOrEmpty(key)) return;
+        animatedArrows[key] = wasOpen;
+        animateNextRefresh = true;
+    }
 
     // the adapter under the crosshair: within 4.5 m, its screen ellipse containing the screen centre, nearest wins
     static int? Target(Camera cam)
@@ -193,6 +199,7 @@ internal static class Menu
         content.anchorMin = content.anchorMax = content.pivot = new Vector2(0.5f, 1f); content.anchoredPosition = Vector2.zero;
         transition = Rect("ChannelTransition", view, new Vector2(600, 44), Vector2.zero, null);
         transition.anchorMin = transition.anchorMax = transition.pivot = new Vector2(0.5f, 1f); transition.anchoredPosition = Vector2.zero;
+        transition.SetSiblingIndex(content.GetSiblingIndex());
         transitionGroup = transition.gameObject.AddComponent<CanvasGroup>(); transitionGroup.blocksRaycasts = false; transitionGroup.interactable = false;
         topFadeImage = AddFade(view, "TopFade", topFade, new Vector2(0, 134));
         bottomFadeImage = AddFade(view, "BottomFade", bottomFade, new Vector2(0, -134));
@@ -328,6 +335,9 @@ internal static class Menu
         if (dragging && hoveredDrop != null)
         {
             var targetGroup = hoveredDrop.RootDrop ? string.Empty : hoveredDrop.GroupId;
+            var sourceGroup = !string.IsNullOrEmpty(dragCandidate.ChannelId)
+                ? QuantumNetwork.GroupOf(dragCandidate.ChannelId)
+                : !string.IsNullOrEmpty(dragCandidate.GroupId) ? QuantumNetwork.GroupParent(dragCandidate.GroupId) : null;
             var moved = false;
             if (!string.IsNullOrEmpty(dragCandidate.ChannelId))
             {
@@ -339,6 +349,14 @@ internal static class Menu
                 moved = QuantumNetwork.MoveGroup(dragCandidate.GroupId, targetGroup);
                 if (moved) PrepareReveal(targetGroup, null, dragCandidate.GroupId);
             }
+            if (moved)
+            {
+                animateNextRefresh = true;
+                if (!string.IsNullOrEmpty(sourceGroup) && sourceGroup != targetGroup && !IsAncestorOf(sourceGroup, targetGroup))
+                {
+                    if (expandedGroups.Remove(sourceGroup)) QueueArrowAnimation("g:" + sourceGroup, true);
+                }
+            }
             ClearDragState(); Refresh();
             return;
         }
@@ -347,18 +365,17 @@ internal static class Menu
             var wasOpen = expandedGroups.Contains(dragCandidate.GroupId);
             if (wasOpen) expandedGroups.Remove(dragCandidate.GroupId);
             else expandedGroups.Add(dragCandidate.GroupId);
-            animatedArrowKey = "g:" + dragCandidate.GroupId; animatedArrowWasOpen = wasOpen;
-            animateNextRefresh = true;
+            QueueArrowAnimation("g:" + dragCandidate.GroupId, wasOpen);
         }
         else if (!dragging && dragCandidate.Section == "unassigned")
         {
             var wasOpen = unassignedExpanded; unassignedExpanded = !unassignedExpanded;
-            animatedArrowKey = "s:unassigned"; animatedArrowWasOpen = wasOpen; animateNextRefresh = true;
+            QueueArrowAnimation("s:unassigned", wasOpen);
         }
         else if (!dragging && dragCandidate.Section == "ungrouped")
         {
             var wasOpen = ungroupedExpanded; ungroupedExpanded = !ungroupedExpanded;
-            animatedArrowKey = "s:ungrouped"; animatedArrowWasOpen = wasOpen; animateNextRefresh = true;
+            QueueArrowAnimation("s:ungrouped", wasOpen);
         }
         ClearDragState(); Refresh();
     }
@@ -380,14 +397,14 @@ internal static class Menu
         {
             if (!expandedGroups.Contains(targetGroup))
             {
-                animatedArrowKey = "g:" + targetGroup; animatedArrowWasOpen = false; animateNextRefresh = true;
+                QueueArrowAnimation("g:" + targetGroup, false);
             }
             for (var parent = targetGroup; !string.IsNullOrEmpty(parent); parent = QuantumNetwork.GroupParent(parent)) expandedGroups.Add(parent);
         }
         else if (!string.IsNullOrEmpty(channelId))
         {
             var wasOpen = ungroupedExpanded;
-            if (!wasOpen) { animatedArrowKey = "s:ungrouped"; animatedArrowWasOpen = false; animateNextRefresh = true; }
+            if (!wasOpen) QueueArrowAnimation("s:ungrouped", false);
             ungroupedExpanded = true;
         }
     }
@@ -501,6 +518,7 @@ internal static class Menu
             var gradient = Rect("Row Gradient", r, Vector2.zero, Vector2.zero, null);
             gradient.anchorMin = Vector2.zero; gradient.anchorMax = Vector2.one; gradient.offsetMin = Vector2.zero; gradient.offsetMax = Vector2.zero;
             var gradientImage = gradient.gameObject.AddComponent<Image>(); gradientImage.sprite = folder ? folderGradient : channelGradient; gradientImage.color = Color.white; gradientImage.raycastTarget = false;
+            gradient.SetAsFirstSibling();
             r.anchorMin = r.anchorMax = r.pivot = new Vector2(0.5f, 1f); r.anchoredPosition = new Vector2(0, -row * rowH); row++;
             return r;
         }
@@ -511,10 +529,12 @@ internal static class Menu
         void AddArrow(RectTransform parent, string key, bool open, Action toggle)
         {
             var arrow = Button(parent, "▶", new Vector2(276, 0), new Vector2(48, 34), toggle, true);
+            arrow.transform.SetAsLastSibling();
             var text = arrow.GetComponentInChildren<Text>();
             if (text == null) return;
+            text.fontSize = 8;
             var initial = open ? -90f : 0f;
-            if (animateNextRefresh && animatedArrowKey == key) initial = animatedArrowWasOpen ? -90f : 0f;
+            if (animateNextRefresh && animatedArrows.TryGetValue(key, out var wasOpen)) initial = wasOpen ? -90f : 0f;
             text.rectTransform.localRotation = Quaternion.Euler(0f, 0f, initial);
             newArrows[key] = text.rectTransform;
         }
@@ -589,7 +609,7 @@ internal static class Menu
                 var can = movingGroup == null || CanHold(gid, movingGroup);
                 if (can && (moving != null || movingGroup != gid)) Button(r, "Move here", new Vector2(180, 0), new Vector2(90, 34), () => MoveToGroup(gid), true);
                 var open = expandedGroups.Contains(gid);
-                AddArrow(r, "g:" + gid, open, () => { var wasOpen = expandedGroups.Contains(gid); if (wasOpen) expandedGroups.Remove(gid); else expandedGroups.Add(gid); animatedArrowKey = "g:" + gid; animatedArrowWasOpen = wasOpen; animateNextRefresh = true; Refresh(); });
+                AddArrow(r, "g:" + gid, open, () => { var wasOpen = expandedGroups.Contains(gid); if (wasOpen) expandedGroups.Remove(gid); else expandedGroups.Add(gid); QueueArrowAnimation("g:" + gid, wasOpen); Refresh(); });
                 if (open)
                 {
                     var childGroups = QuantumNetwork.ChildGroups(gid); var childChannels = QuantumNetwork.ChannelsIn(gid);
@@ -604,7 +624,7 @@ internal static class Menu
             else
             {
                 var open = expandedGroups.Contains(gid);
-                AddArrow(r, "g:" + gid, open, () => { var wasOpen = expandedGroups.Contains(gid); if (wasOpen) expandedGroups.Remove(gid); else expandedGroups.Add(gid); animatedArrowKey = "g:" + gid; animatedArrowWasOpen = wasOpen; animateNextRefresh = true; Refresh(); });
+                AddArrow(r, "g:" + gid, open, () => { var wasOpen = expandedGroups.Contains(gid); if (wasOpen) expandedGroups.Remove(gid); else expandedGroups.Add(gid); QueueArrowAnimation("g:" + gid, wasOpen); Refresh(); });
                 if (open)
                 {
                     var childGroups = QuantumNetwork.ChildGroups(gid); var childChannels = QuantumNetwork.ChannelsIn(gid);
@@ -653,10 +673,13 @@ internal static class Menu
         var unassigned = new List<ChannelSummary>();
         foreach (var c in QuantumNetwork.Summaries()) if (c.Outputs + c.Inputs == 0) unassigned.Add(c);
         unassigned.Sort((a, b) => QuantumNetwork.Natural(a.Name, b.Name));
-        RenderSpecial("Unassigned", "(" + unassigned.Count + " channels with no adapters)", unassignedExpanded, () => { var wasOpen = unassignedExpanded; unassignedExpanded = !unassignedExpanded; animatedArrowKey = "s:unassigned"; animatedArrowWasOpen = wasOpen; animateNextRefresh = true; Refresh(); }, unassigned);
+        RenderSpecial("Unassigned", "(" + unassigned.Count + " channels with no adapters)", unassignedExpanded, () => { var wasOpen = unassignedExpanded; unassignedExpanded = !unassignedExpanded; QueueArrowAnimation("s:unassigned", wasOpen); Refresh(); }, unassigned);
 
-        var ungrouped = QuantumNetwork.ChannelsIn(string.Empty);
-        RenderSpecial("Not Grouped", "(" + ungrouped.Count + " channels outside folders)", ungroupedExpanded, () => { var wasOpen = ungroupedExpanded; ungroupedExpanded = !ungroupedExpanded; animatedArrowKey = "s:ungrouped"; animatedArrowWasOpen = wasOpen; animateNextRefresh = true; Refresh(); }, ungrouped);
+        var ungrouped = new List<ChannelSummary>();
+        foreach (var c in QuantumNetwork.Summaries())
+            if (string.IsNullOrEmpty(QuantumNetwork.GroupOf(c.Id)) && c.Outputs + c.Inputs > 0) ungrouped.Add(c);
+        ungrouped.Sort((a, b) => QuantumNetwork.Natural(a.Name, b.Name));
+        RenderSpecial("Not Grouped", "(" + ungrouped.Count + " channels with adapters outside folders)", ungroupedExpanded, () => { var wasOpen = ungroupedExpanded; ungroupedExpanded = !ungroupedExpanded; QueueArrowAnimation("s:ungrouped", wasOpen); Refresh(); }, ungrouped);
 
         foreach (var gid in QuantumNetwork.ChildGroups(string.Empty)) RenderGroup(gid, 0);
         var maxScroll = Mathf.Max(0f, row * rowH - 300f);
@@ -708,16 +731,17 @@ internal static class Menu
                 transitionGroup.alpha = 1f;
                 transitionFadeUntil = Time.unscaledTime + 0.22f;
             }
-            if (!string.IsNullOrEmpty(animatedArrowKey) && newArrows.TryGetValue(animatedArrowKey, out var arrowTransform))
+            foreach (var queuedArrow in animatedArrows)
             {
+                if (!newArrows.TryGetValue(queuedArrow.Key, out var arrowTransform)) continue;
                 var from = arrowTransform.localEulerAngles.z;
                 if (from > 180f) from -= 360f;
-                var to = ArrowIsOpen(animatedArrowKey) ? -90f : 0f;
+                var to = ArrowIsOpen(queuedArrow.Key) ? -90f : 0f;
                 if (Mathf.Abs(from - to) > 0.01f)
                     arrowAnimations.Add(new ArrowAnimation { Arrow = arrowTransform, From = from, To = to, Until = Time.unscaledTime + 0.22f });
             }
             animateNextRefresh = false;
-            animatedArrowKey = null;
+            animatedArrows.Clear();
         }
 
         if (!string.IsNullOrEmpty(focusEditingChannel))
@@ -758,6 +782,14 @@ internal static class Menu
         }
         return row.Row != null ? row.Row.anchoredPosition + new Vector2(0f, 16f) : Vector2.zero;
     }
+
+    static bool IsAncestorOf(string ancestor, string group)
+    {
+        for (var current = group; !string.IsNullOrEmpty(current); current = QuantumNetwork.GroupParent(current))
+            if (current == ancestor) return true;
+        return false;
+    }
+
     static void MoveToGroup(string gid)
     {
         if (moving != null) QuantumNetwork.MoveChannel(moving, gid);
@@ -781,7 +813,7 @@ internal static class Menu
             animateNextRefresh = true;
             if (wasOpen != unassignedExpanded)
             {
-                animatedArrowKey = "s:unassigned"; animatedArrowWasOpen = wasOpen; animateNextRefresh = true;
+                QueueArrowAnimation("s:unassigned", wasOpen);
             }
             pendingNewChannel = null;
         }
@@ -813,7 +845,7 @@ internal static class Menu
         animateNextRefresh = true;
         if (!unassignedExpanded)
         {
-            animatedArrowKey = "s:unassigned"; animatedArrowWasOpen = false; animateNextRefresh = true;
+            QueueArrowAnimation("s:unassigned", false);
         }
         unassignedExpanded = true;
         pendingNewChannel = channelId;
@@ -924,7 +956,7 @@ internal static class Menu
         canvas = null; raycaster = null; content = null; editing = string.Empty; moving = movingGroup = null;
         pendingNewChannel = pendingNewGroup = null; pendingNewChannelWasUnassignedExpanded = false; focusEditingChannel = string.Empty; pendingFocusField = null; autoGroupButton = null;
         viewport = null; transition = null; transitionGroup = null; topFadeImage = bottomFadeImage = null;
-        rowAnimations.Clear(); arrowAnimations.Clear(); transitionFadeUntil = 0f; animateNextRefresh = false; animatedArrowKey = null;
+        rowAnimations.Clear(); arrowAnimations.Clear(); animatedArrows.Clear(); transitionFadeUntil = 0f; animateNextRefresh = false;
         revealChannelId = revealGroupId = null; revealRow = null;
         ClearDragState(); dragRows.Clear();
         if (prevModule != null) prevModule.enabled = prevModuleOn; prevModule = null;
