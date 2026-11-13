@@ -20,6 +20,7 @@ internal sealed class Group
 public static partial class QuantumNetwork
 {
     const string GroupKey = Plugin.PluginGuid + ".groups";
+    const string AutoCreatedPrefix = "auto.created.";
     const string GroupsMsg = Plugin.PluginGuid + ".groups";
     const string QuantumFastKey = "swheet.moonsweepers.quantumfast";   // where Quantum Fast (an earlier fork) kept them
     internal const string Sep = " > ";
@@ -28,6 +29,26 @@ public static partial class QuantumNetwork
 
     static IDictionary<string, string> GroupData() { try { return Moon.WorldData(GroupKey); } catch { return null; } }
     static IDictionary<string, string> NameData() { try { return Moon.WorldData(WorldKey); } catch { return null; } }
+
+    static void MarkAutoGroupCandidate(string channelId)
+    {
+        var gd = GroupData();
+        if (gd != null && AutoGroupOn) gd[AutoCreatedPrefix + channelId] = "1";
+    }
+
+    static bool IsAutoGroupCandidate(string channelId)
+    {
+        var gd = GroupData();
+        return gd != null && gd.TryGetValue(AutoCreatedPrefix + channelId, out var value) && value == "1";
+    }
+
+    static void ClearAutoGroupCandidate(string channelId) => GroupData()?.Remove(AutoCreatedPrefix + channelId);
+
+    static void ClearAutoGroupCandidates()
+    {
+        var gd = GroupData(); if (gd == null) return;
+        foreach (var key in new List<string>(gd.Keys)) if (key.StartsWith(AutoCreatedPrefix, StringComparison.Ordinal)) gd.Remove(key);
+    }
 
     // a world's data appears after its load: then every saved channel (with adapters or not) and every group is read
     static void EnsureLoaded()
@@ -106,7 +127,7 @@ public static partial class QuantumNetwork
         if (gd != null)
         {
             if (c.Group == null) { gd.Remove("in." + c.Id); gd.Remove("short." + c.Id); }
-            else { gd["in." + c.Id] = c.Group; gd["short." + c.Id] = shortName; }
+            else { gd["in." + c.Id] = c.Group; gd["short." + c.Id] = shortName; ClearAutoGroupCandidate(c.Id); }
         }
         SetName(c, tell);
     }
@@ -304,22 +325,23 @@ public static partial class QuantumNetwork
     }
 
     // ------------------------------------------------------------ "Auto-group by name" (a tick box in the menu, saved per world)
-    // Reads groups out of whatever names people already use (NameSplit), for channels outside any group. Runs when the
-    // box is ticked, when the menu opens and when a channel outside a group is named - never while the world loads.
+    // Only channels created while the box is on are candidates. They are checked when renamed; turning the box on does
+    // not reorganize existing channels, and turning it off clears any still-pending candidates without undoing groups.
     public static bool AutoGroupOn { get { var gd = GroupData(); return gd != null && gd.TryGetValue("auto", out var v) && v == "1"; } }
     public static int SetAutoGroup(bool on)
     {
         EnsureLoaded(); if (!Moon.IsAuthority) return 0;
         var gd = GroupData(); if (gd != null) { if (on) gd["auto"] = "1"; else gd.Remove("auto"); }
-        return on ? AutoGroup() : 0;
+        if (!on) ClearAutoGroupCandidates();
+        return 0;
     }
     internal static int AutoGroupIfOn() => AutoGroupOn && Moon.IsAuthority ? AutoGroup() : 0;
 
-    // every channel outside a group whose name shares a group with another -> filed there; returns how many
+    // every eligible channel outside a group whose name shares a group with another -> filed there; returns how many
     public static int AutoGroup()
     {
         EnsureLoaded(); if (!Moon.IsAuthority) return 0;
-        var loose = new List<Channel>(); foreach (var c in channels.Values) if (c.Group == null) loose.Add(c);
+        var loose = new List<Channel>(); foreach (var c in channels.Values) if (c.Group == null && IsAutoGroupCandidate(c.Id)) loose.Add(c);
         if (loose.Count == 0) return 0;
         var names = new List<string>(); foreach (var c in loose) names.Add(c.Name);
         var plan = NameSplit.Plan(names); int n = 0;
@@ -329,6 +351,7 @@ public static partial class QuantumNetwork
             string gid = EnsurePath(path.ToArray());
             foreach (var o in channels.Values) if (o != loose[i] && o.Group == gid && string.Equals(o.Short, s, StringComparison.OrdinalIgnoreCase)) { s = loose[i].Name; break; }
             Place(loose[i], gid, s); n++;
+            ClearAutoGroupCandidate(loose[i].Id);
         }
         if (n > 0) SendGroups();
         return n;

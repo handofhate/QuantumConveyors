@@ -59,6 +59,7 @@ internal static class Menu
     static readonly List<RowAnimation> rowAnimations = new();
     static readonly List<ArrowAnimation> arrowAnimations = new();
     static float transitionFadeUntil;
+    static float scrollAnimationFrom, scrollAnimationTo, scrollAnimationUntil, scrollAnimationMax;
     static string revealChannelId, revealGroupId;
     static RectTransform revealRow;
     static BaseInputModule prevModule; static bool prevModuleOn;
@@ -105,6 +106,15 @@ internal static class Menu
             var t = Mathf.Clamp01(1f - (animation.Until - Time.unscaledTime) / 0.22f);
             animation.Arrow.localRotation = Quaternion.Euler(0f, 0f, Mathf.LerpUnclamped(animation.From, animation.To, Smooth(t)));
             if (t >= 1f) arrowAnimations.RemoveAt(i);
+        }
+        if (scrollAnimationUntil > 0f && content != null)
+        {
+            var t = Mathf.Clamp01(1f - (scrollAnimationUntil - Time.unscaledTime) / 0.22f);
+            scroll = Mathf.LerpUnclamped(scrollAnimationFrom, scrollAnimationTo, Smooth(t));
+            content.anchoredPosition = new Vector2(0f, scroll);
+            if (transition != null) transition.anchoredPosition = new Vector2(0f, scroll);
+            UpdateFadeVisibility(scrollAnimationMax);
+            if (t >= 1f) scrollAnimationUntil = 0f;
         }
         if (transitionGroup != null && transitionFadeUntil > 0f)
         {
@@ -192,7 +202,7 @@ internal static class Menu
         Button(win, "New Channel", new Vector2(-88, 168), new Vector2(160, 40), NewChannel, true);
         Button(win, "New Group", new Vector2(88, 168), new Vector2(160, 40), NewGroup);
         Button(win, "×", new Vector2(287, 264), new Vector2(42, 42), Close);
-        viewport = Rect("ChannelViewport", win, new Vector2(620, 300), new Vector2(0, -15.5f), PanelColor);
+        viewport = Rect("ChannelViewport", win, new Vector2(620, 280), new Vector2(0, -15.5f), PanelColor);
         var view = viewport;
         view.gameObject.AddComponent<Mask>().showMaskGraphic = true;
         content = Rect("ChannelContent", view, new Vector2(600, 44), Vector2.zero, null);
@@ -203,11 +213,11 @@ internal static class Menu
         transitionGroup = transition.gameObject.AddComponent<CanvasGroup>(); transitionGroup.blocksRaycasts = false; transitionGroup.interactable = false;
         topFadeImage = AddFade(view, "TopFade", topFade, new Vector2(0, 134));
         bottomFadeImage = AddFade(view, "BottomFade", bottomFade, new Vector2(0, -134));
-        var autoPanel = Rect("AutoGroupPanel", win, new Vector2(580, 100), new Vector2(0, -232), PanelColor);
+        var autoPanel = Rect("AutoGroupPanel", win, new Vector2(580, 134), new Vector2(0, -215), PanelColor);
         Label(autoPanel, "Auto Group", new Vector2(-88, 28), new Vector2(160, 30), 18, NameText, TextAnchor.MiddleCenter);
         var explanation = Label(autoPanel,
-            "Turn this on to automatically nest new channels inside matching groups. For example, 'dust-left' and 'dust-right' become channels inside a 'dust' group, named 'left' and 'right'. 'dust 1' and 'dust 2' are recognized the same way.",
-            new Vector2(6, -22), new Vector2(467, 52), 12, Dim, TextAnchor.UpperLeft);
+            "While this is enabled, new channels will be nested inside matching groups if applicable. For example, channels 'Dust-Left' and 'Dust-Right' would become 'Left' and 'Right' inside a group called 'Dust'. 'Dust 1' and 'Dust 2' are recognized the same way, and would result in channels named '1' and '2' inside a 'Dust' group. This only applies to channels created while this setting is enabled and won't affect any channels created before turning on Auto Group or after turning it off.",
+            new Vector2(6, -27), new Vector2(467, 86), 12, Dim, TextAnchor.UpperLeft);
         explanation.horizontalOverflow = HorizontalWrapMode.Wrap; explanation.verticalOverflow = VerticalWrapMode.Overflow;
         autoGroupButton = Button(autoPanel, QuantumNetwork.AutoGroupOn ? "On" : "Off", new Vector2(88, 28), new Vector2(84, 34), ToggleAutoGroup, QuantumNetwork.AutoGroupOn);
         Refresh();
@@ -469,6 +479,8 @@ internal static class Menu
     static void Refresh()
     {
         if (content == null) return;
+        var previousScroll = scroll;
+        var previousMaxScroll = Mathf.Max(0f, content.rect.height - viewport.rect.height);
         Dictionary<string, Vector2> previousPositions = null;
         var previousRows = new Dictionary<string, RectTransform>(StringComparer.Ordinal);
         var previousRowInfo = new Dictionary<string, DragRow>(StringComparer.Ordinal);
@@ -477,6 +489,7 @@ internal static class Menu
             for (var i = transition.childCount - 1; i >= 0; i--) UnityEngine.Object.Destroy(transition.GetChild(i).gameObject);
             transitionFadeUntil = 0f;
             if (transitionGroup != null) transitionGroup.alpha = 1f;
+            transition.anchoredPosition = new Vector2(0f, previousScroll);
         }
         if (animateNextRefresh)
         {
@@ -495,7 +508,7 @@ internal static class Menu
         }
         else
         {
-            rowAnimations.Clear(); arrowAnimations.Clear();
+            rowAnimations.Clear(); arrowAnimations.Clear(); scrollAnimationUntil = 0f;
         }
         for (int i = content.childCount - 1; i >= 0; i--) UnityEngine.Object.DestroyImmediate(content.GetChild(i).gameObject);
         dragRows.Clear(); ClearDragState();
@@ -682,19 +695,27 @@ internal static class Menu
         RenderSpecial("Not Grouped", "(" + ungrouped.Count + " channels with adapters outside folders)", ungroupedExpanded, () => { var wasOpen = ungroupedExpanded; ungroupedExpanded = !ungroupedExpanded; QueueArrowAnimation("s:ungrouped", wasOpen); Refresh(); }, ungrouped);
 
         foreach (var gid in QuantumNetwork.ChildGroups(string.Empty)) RenderGroup(gid, 0);
-        var maxScroll = Mathf.Max(0f, row * rowH - 300f);
-        scroll = Mathf.Clamp(scroll, 0f, maxScroll);
+        var maxScroll = Mathf.Max(0f, row * rowH - viewport.rect.height);
+        var targetScroll = Mathf.Clamp(scroll, 0f, maxScroll);
+        if (animateNextRefresh && maxScroll > previousMaxScroll && previousScroll >= previousMaxScroll - 1f) targetScroll = maxScroll;
         content.sizeDelta = new Vector2(600, Math.Max(44f, row * rowH));
         if (revealRow != null)
         {
             var itemTop = -revealRow.anchoredPosition.y;
             var itemBottom = itemTop + rowH;
-            if (itemTop < scroll) scroll = itemTop;
-            else if (itemBottom > scroll + viewport.rect.height) scroll = itemBottom - viewport.rect.height;
-            scroll = Mathf.Clamp(scroll, 0f, maxScroll);
+            if (itemTop < targetScroll) targetScroll = itemTop;
+            else if (itemBottom > targetScroll + viewport.rect.height) targetScroll = itemBottom - viewport.rect.height;
+            targetScroll = Mathf.Clamp(targetScroll, 0f, maxScroll);
             revealRow = null; revealChannelId = revealGroupId = null;
         }
+        if (animateNextRefresh && Mathf.Abs(previousScroll - targetScroll) > 0.01f)
+        {
+            scrollAnimationFrom = previousScroll; scrollAnimationTo = targetScroll; scrollAnimationMax = maxScroll;
+            scrollAnimationUntil = Time.unscaledTime + 0.22f; scroll = previousScroll;
+        }
+        else scroll = targetScroll;
         content.anchoredPosition = new Vector2(0f, scroll);
+        if (transition != null) transition.anchoredPosition = new Vector2(0f, scroll);
         UpdateFadeVisibility(maxScroll);
 
         if (animateNextRefresh)
@@ -956,7 +977,7 @@ internal static class Menu
         canvas = null; raycaster = null; content = null; editing = string.Empty; moving = movingGroup = null;
         pendingNewChannel = pendingNewGroup = null; pendingNewChannelWasUnassignedExpanded = false; focusEditingChannel = string.Empty; pendingFocusField = null; autoGroupButton = null;
         viewport = null; transition = null; transitionGroup = null; topFadeImage = bottomFadeImage = null;
-        rowAnimations.Clear(); arrowAnimations.Clear(); animatedArrows.Clear(); transitionFadeUntil = 0f; animateNextRefresh = false;
+        rowAnimations.Clear(); arrowAnimations.Clear(); animatedArrows.Clear(); transitionFadeUntil = 0f; scrollAnimationUntil = 0f; animateNextRefresh = false;
         revealChannelId = revealGroupId = null; revealRow = null;
         ClearDragState(); dragRows.Clear();
         if (prevModule != null) prevModule.enabled = prevModuleOn; prevModule = null;
@@ -1130,7 +1151,7 @@ internal static class Menu
     {
         if (content == null || Mouse.current == null) return;
         float y = Mouse.current.scroll.ReadValue().y; if (Math.Abs(y) < 0.01f) return;
-        float max = Mathf.Max(0f, content.rect.height - 300f); if (max <= 0f) return;
+        float max = Mathf.Max(0f, content.rect.height - viewport.rect.height); if (max <= 0f) return;
         scroll = Mathf.Clamp(scroll - (Math.Abs(y) > 10f ? y / 6f : y * 30f), 0f, max);
         content.anchoredPosition = new Vector2(0, scroll);
         UpdateFadeVisibility(max);

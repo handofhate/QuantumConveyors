@@ -158,7 +158,7 @@ public static partial class QuantumNetwork
     {
         channelId = string.Empty;
         if (!Moon.IsAuthority) return false;
-        channelId = CreateChannelId(); return true;
+        channelId = CreateChannelId(); QuantumNetwork.MarkAutoGroupCandidate(channelId); return true;
     }
 
     public static bool CreateAndAssign(int endpointId, out string channelId) { channelId = CreateChannelId(); return AssignEndpoint(endpointId, channelId); }
@@ -211,6 +211,7 @@ public static partial class QuantumNetwork
         channels.Remove(channelId);
         Moon.WorldData(WorldKey)?.Remove("name." + channelId);
         var gd = GroupData(); if (gd != null) { gd.Remove("in." + channelId); gd.Remove("short." + channelId); }
+        QuantumNetwork.ClearAutoGroupCandidate(channelId);
         if (Crew.InCrew) Crew.Send(DeleteMsg, Encoding.UTF8.GetBytes(channelId));
         if (c.Group != null) SendGroups();
         return true;
