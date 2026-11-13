@@ -305,6 +305,19 @@ public static partial class QuantumNetwork
         return at;
     }
 
+    static string FindPath(IList<string> path)
+    {
+        string at = string.Empty;
+        foreach (var part in path)
+        {
+            string found = null;
+            foreach (var g in groups.Values) if (g.Parent == at && string.Equals(g.Name, part, StringComparison.OrdinalIgnoreCase)) { found = g.Id; break; }
+            if (found == null) return null;
+            at = found;
+        }
+        return at;
+    }
+
     // public, for other mods: name a channel with a build name, filed into its groups when the name is known
     public static bool FileByCode(string channelId, string name)
     {
@@ -347,8 +360,16 @@ public static partial class QuantumNetwork
         var plan = NameSplit.Plan(names); int n = 0;
         for (int i = 0; i < loose.Count; i++)
         {
-            var (path, s) = plan[i]; if (path == null) continue;
-            string gid = EnsurePath(path.ToArray());
+            var (path, s) = plan[i];
+            string gid;
+            if (path == null)
+            {
+                if (!NameSplit.Split(loose[i].Name, out var existingPath, out var existingShort)) continue;
+                gid = FindPath(existingPath);
+                if (string.IsNullOrEmpty(gid)) continue;
+                s = existingShort;
+            }
+            else gid = EnsurePath(path.ToArray());
             foreach (var o in channels.Values) if (o != loose[i] && o.Group == gid && string.Equals(o.Short, s, StringComparison.OrdinalIgnoreCase)) { s = loose[i].Name; break; }
             Place(loose[i], gid, s); n++;
             ClearAutoGroupCandidate(loose[i].Id);
