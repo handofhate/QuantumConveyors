@@ -12,7 +12,7 @@ using UnityEngine.UI;
 
 namespace QuantumConveyors;
 
-// The channel menu (E on an adapter): groups (New Group; Open, Rename, Move, Delete), New Channel; per channel Move,
+// The channel menu (E on an adapter): groups (New Group; Open, Rename, Delete), New Channel; per channel
 // Assign/Unassign, Rename (its short name), Delete; E, Esc or right-click
 // closes it. 1.x searched every adapter (and the scene for robots) every frame; this looks only when E is pressed, and
 // only at adapters within 6 m of the camera that nothing stands in front of.
@@ -23,22 +23,21 @@ internal static class Menu
         ChannelText = new(0.949f, 0.929f, 0.894f, 1f), AccentText = new(0.110f, 0.133f, 0.196f, 1f);
     static GameObject canvas; static GraphicRaycaster raycaster; static RectTransform content;
     static int endpointId; static string editing = string.Empty; static float scroll;
-    static string atGroup = string.Empty; static bool unassignedView, ungroupedView; static UnityEngine.UI.Text title;   // the group shown
-    static string moving, movingGroup;   // a channel or group being moved: browse to a group and press "Move here"
+    static UnityEngine.UI.Text title;
     static readonly HashSet<string> expandedGroups = new(StringComparer.Ordinal);
     static bool unassignedExpanded, ungroupedExpanded;
     static string focusEditingChannel = string.Empty;
     static string pendingNewChannel, pendingNewGroup;
     static bool pendingNewChannelWasUnassignedExpanded;
     static InputField pendingFocusField;
-    static Sprite channelGradient, folderGradient, folderIcon, topFade, bottomFade;
+    static Sprite roundedSprite, circleSprite, channelGradient, folderGradient, folderIcon, topFade, bottomFade;
     static Image topFadeImage, bottomFadeImage;
     static RectTransform viewport, transition, dragGhost;
     static CanvasGroup transitionGroup;
     static Text dragGhostLabel;
     static UnityEngine.UI.Button autoGroupButton;
-    static RectTransform autoHelp, autoTooltip;
-    static CanvasGroup autoTooltipGroup;
+    static RectTransform autoHelp, autoTooltip, headerHelp, headerTooltip;
+    static CanvasGroup autoTooltipGroup, headerTooltipGroup;
     sealed class DragRow
     {
         internal RectTransform Row; internal string ChannelId; internal string GroupId; internal bool RootDrop; internal string Section; internal string AnimationKey; internal string ParentKey; internal Image Background; internal Image DropHighlight;
@@ -79,7 +78,7 @@ internal static class Menu
         if (canvas != null)
         {
             Cursor.lockState = CursorLockMode.None; Cursor.visible = true;
-            UpdateAutoGroupTooltip(mouse);
+            UpdateTooltips(mouse);
             if (mouse != null && mouse.rightButton.wasPressedThisFrame) { Close(); return; }
             if (kb != null && kb.escapeKey.wasPressedThisFrame) { Close(); return; }
             if (kb != null && kb.eKey.wasPressedThisFrame && !RenameFocused()) { Close(); return; }
@@ -134,11 +133,18 @@ internal static class Menu
 
     static float Smooth(float t) => t * t * (3f - 2f * t);
 
-    static void UpdateAutoGroupTooltip(Mouse mouse)
+    static string CountPhrase(int count, string singular) => count + " " + (count == 1 ? singular : singular + "s");
+
+    static void UpdateTooltips(Mouse mouse)
     {
-        if (autoHelp == null || autoTooltipGroup == null) return;
-        var show = mouse != null && RectTransformUtility.RectangleContainsScreenPoint(autoHelp, mouse.position.ReadValue(), null);
-        if (autoTooltipGroup.gameObject.activeSelf != show) autoTooltipGroup.gameObject.SetActive(show);
+        if (mouse == null) return;
+        var position = mouse.position.ReadValue();
+        var showAuto = autoHelp != null && RectTransformUtility.RectangleContainsScreenPoint(autoHelp, position, null);
+        var showHeader = headerHelp != null && RectTransformUtility.RectangleContainsScreenPoint(headerHelp, position, null);
+        if (autoTooltipGroup != null && autoTooltipGroup.gameObject.activeSelf != showAuto) autoTooltipGroup.gameObject.SetActive(showAuto);
+        if (headerTooltipGroup != null && headerTooltipGroup.gameObject.activeSelf != showHeader) headerTooltipGroup.gameObject.SetActive(showHeader);
+        if (showAuto) autoTooltip?.SetAsLastSibling();
+        if (showHeader) headerTooltip?.SetAsLastSibling();
     }
 
     static void QueueArrowAnimation(string key, bool wasOpen)
@@ -198,8 +204,7 @@ internal static class Menu
 
     static void OpenFor(int id)
     {
-        endpointId = id; editing = string.Empty; moving = movingGroup = null; unassignedView = ungroupedView = false;
-        atGroup = string.Empty;
+        endpointId = id; editing = string.Empty;
         var ownGroup = QuantumNetwork.GroupOf(QuantumNetwork.ChannelFor(id));
         for (var group = ownGroup; !string.IsNullOrEmpty(group); group = QuantumNetwork.GroupParent(group)) expandedGroups.Add(group);
         EnsureVisualAssets();
@@ -213,7 +218,18 @@ internal static class Menu
         Button(win, "New Channel", new Vector2(-88, 168), new Vector2(160, 40), NewChannel, true);
         Button(win, "New Group", new Vector2(88, 168), new Vector2(160, 40), NewGroup);
         Button(win, "×", new Vector2(287, 264), new Vector2(42, 42), Close);
-        viewport = Rect("ChannelViewport", win, new Vector2(620, 280), new Vector2(0, -15.5f), PanelColor);
+        headerHelp = Rect("HeaderHelp", win, new Vector2(28, 28), new Vector2(180, 250), ButtonColor);
+        headerHelp.GetComponent<Image>().sprite = circleSprite; headerHelp.GetComponent<Image>().type = Image.Type.Sliced;
+        var headerHelpText = Label(headerHelp, "?", Vector2.zero, new Vector2(24, 24), 16, ChannelText, TextAnchor.MiddleCenter); headerHelpText.fontStyle = FontStyle.Bold;
+        headerTooltip = Rect("HeaderTooltip", win, new Vector2(540, 132), new Vector2(0, 82), RowColor);
+        var headerTooltipImage = headerTooltip.GetComponent<Image>(); if (headerTooltipImage != null) headerTooltipImage.raycastTarget = false;
+        headerTooltipGroup = headerTooltip.gameObject.AddComponent<CanvasGroup>(); headerTooltipGroup.blocksRaycasts = false; headerTooltipGroup.interactable = false;
+        var headerTooltipText = Label(headerTooltip,
+            "Quantum Conveyors sends capsules wirelessly between matching channels. Build a Quantum Input where capsules leave a belt and a Quantum Output where they should reappear. Press E on an adapter, create or choose a channel, then Assign it. Any number of inputs and outputs can share a channel. Drag channels and folders to organize them. In multiplayer, the host controls channel changes and transfers.",
+            Vector2.zero, new Vector2(514, 116), 13, ChannelText, TextAnchor.UpperLeft);
+        headerTooltipText.horizontalOverflow = HorizontalWrapMode.Wrap; headerTooltipText.verticalOverflow = VerticalWrapMode.Overflow;
+        headerTooltip.SetAsLastSibling(); headerTooltipGroup.gameObject.SetActive(false);
+        viewport = Rect("ChannelViewport", win, new Vector2(620, 320), new Vector2(0, -15.5f), PanelColor);
         var view = viewport;
         view.gameObject.AddComponent<Mask>().showMaskGraphic = true;
         content = Rect("ChannelContent", view, new Vector2(600, 44), Vector2.zero, null);
@@ -222,11 +238,12 @@ internal static class Menu
         transition.anchorMin = transition.anchorMax = transition.pivot = new Vector2(0.5f, 1f); transition.anchoredPosition = Vector2.zero;
         transition.SetSiblingIndex(content.GetSiblingIndex());
         transitionGroup = transition.gameObject.AddComponent<CanvasGroup>(); transitionGroup.blocksRaycasts = false; transitionGroup.interactable = false;
-        topFadeImage = AddFade(view, "TopFade", topFade, new Vector2(0, 134));
-        bottomFadeImage = AddFade(view, "BottomFade", bottomFade, new Vector2(0, -134));
-        var autoPanel = Rect("AutoGroupPanel", win, new Vector2(580, 60), new Vector2(0, -215), PanelColor);
+        topFadeImage = AddFade(view, "TopFade", topFade, new Vector2(0, 154));
+        bottomFadeImage = AddFade(view, "BottomFade", bottomFade, new Vector2(0, -154));
+        var autoPanel = Rect("AutoGroupPanel", win, new Vector2(580, 60), new Vector2(0, -250), PanelColor);
         Label(autoPanel, "Auto Group", new Vector2(-88, 10), new Vector2(160, 30), 18, NameText, TextAnchor.MiddleCenter);
-        autoHelp = Rect("AutoGroupHelp", autoPanel, new Vector2(28, 28), new Vector2(12, 10), ButtonColor);
+        autoHelp = Rect("AutoGroupHelp", autoPanel, new Vector2(28, 28), new Vector2(155, 10), ButtonColor);
+        autoHelp.GetComponent<Image>().sprite = circleSprite; autoHelp.GetComponent<Image>().type = Image.Type.Sliced;
         var helpText = Label(autoHelp, "?", Vector2.zero, new Vector2(24, 24), 16, ChannelText, TextAnchor.MiddleCenter);
         helpText.fontStyle = FontStyle.Bold;
         autoGroupButton = Button(autoPanel, QuantumNetwork.AutoGroupOn ? "On" : "Off", new Vector2(88, 10), new Vector2(84, 34), ToggleAutoGroup, QuantumNetwork.AutoGroupOn);
@@ -252,19 +269,12 @@ internal static class Menu
     static readonly UnityEngine.Color NameText = new(0.110f, 0.133f, 0.196f, 1f);
     const string DimTag = "<size=13><color=#77736E>";
 
-    static void Back()
-    {
-        if (unassignedView || ungroupedView) unassignedView = ungroupedView = false;
-        else if (!string.IsNullOrEmpty(atGroup)) atGroup = QuantumNetwork.GroupParent(atGroup);
-        editing = string.Empty; Refresh();
-    }
-
     static void RegisterDragRow(RectTransform row, string channelId, string groupId, bool rootDrop, string section = null, string animationKey = null, string parentKey = null)
     {
         var highlightRoot = new GameObject("Drop Highlight");
         var highlightRect = highlightRoot.AddComponent<RectTransform>(); highlightRect.SetParent(row, false);
         highlightRect.anchorMin = Vector2.zero; highlightRect.anchorMax = Vector2.one; highlightRect.offsetMin = Vector2.zero; highlightRect.offsetMax = Vector2.zero;
-        var highlight = highlightRoot.AddComponent<Image>(); highlight.color = new Color(1f, 0.478f, 0.180f, 0.28f); highlight.raycastTarget = false; highlightRoot.SetActive(false);
+        var highlight = highlightRoot.AddComponent<Image>(); highlight.sprite = roundedSprite; highlight.type = Image.Type.Sliced; highlight.color = new Color(1f, 0.478f, 0.180f, 0.28f); highlight.raycastTarget = false; highlightRoot.SetActive(false);
         var item = new DragRow
         {
             Row = row,
@@ -470,7 +480,7 @@ internal static class Menu
         }
         var counts = QuantumNetwork.GroupCounts();
         counts.TryGetValue(dragCandidate.GroupId, out var count);
-        return QuantumNetwork.GroupName(dragCandidate.GroupId) + "  " + DimTag + "(" + count.channels + " ch, " + count.adapters + " adapters)</color></size>";
+        return QuantumNetwork.GroupName(dragCandidate.GroupId) + "  " + DimTag + "(" + CountPhrase(count.channels, "channel") + ", " + CountPhrase(count.adapters, "adapter") + ")</color></size>";
     }
 
     static void UpdateDragGhost(Vector2 position)
@@ -535,8 +545,7 @@ internal static class Menu
         revealRow = null;
         pendingFocusField = null;
         const float rowH = 52f;
-        string what = moving != null ? "Move channel " + QuantumNetwork.ShortName(moving) : movingGroup != null ? "Move group " + QuantumNetwork.GroupName(movingGroup) : null;
-        if (title != null) title.text = what != null ? what + " - pick a group" : "Quantum Conveyors";
+        if (title != null) title.text = "Quantum Conveyors";
         var counts = QuantumNetwork.GroupCounts();
         string chMine = QuantumNetwork.ChannelFor(endpointId);
         var mineGroups = new HashSet<string>();
@@ -547,10 +556,10 @@ internal static class Menu
         RectTransform Row(int depth, bool folder)
         {
             var r = Rect("Row", content, new Vector2(600, 46), new Vector2(0, -row * rowH), null);
-            var image = r.gameObject.AddComponent<Image>(); image.color = PanelColor;
+            var image = r.gameObject.AddComponent<Image>(); image.sprite = roundedSprite; image.type = Image.Type.Sliced; image.color = PanelColor;
             var gradient = Rect("Row Gradient", r, Vector2.zero, Vector2.zero, null);
             gradient.anchorMin = Vector2.zero; gradient.anchorMax = Vector2.one; gradient.offsetMin = Vector2.zero; gradient.offsetMax = Vector2.zero;
-            var gradientImage = gradient.gameObject.AddComponent<Image>(); gradientImage.sprite = folder ? folderGradient : channelGradient; gradientImage.color = Color.white; gradientImage.raycastTarget = false;
+            var gradientImage = gradient.gameObject.AddComponent<Image>(); gradientImage.sprite = folder ? folderGradient : channelGradient; gradientImage.type = Image.Type.Sliced; gradientImage.color = Color.white; gradientImage.raycastTarget = false;
             gradient.SetAsFirstSibling();
             r.anchorMin = r.anchorMax = r.pivot = new Vector2(0.5f, 1f); r.anchoredPosition = new Vector2(0, -row * rowH); row++;
             return r;
@@ -605,13 +614,9 @@ internal static class Menu
             var t = Label(r, label + (chMine == s.Id ? "  <color=#FF7A2E>(this adapter)</color>" : "") + "  " + DimTag + "(" + Plugin.DisplayCounts(s.Outputs, s.Inputs) + ")</color></size>", new Vector2(-165 + indent, 0), new Vector2(185 - indent, 40), 15, NameText, TextAnchor.MiddleLeft);
             t.supportRichText = true;
             string cid = s.Id;
-            if (what == null) Button(r, "Move", new Vector2(-40, 0), new Vector2(80, 34), () => { moving = cid; movingGroup = null; unassignedView = ungroupedView = false; Refresh(); });
             Button(r, chMine == s.Id ? "Unassign" : "Assign", new Vector2(48, 0), new Vector2(86, 34), () => Toggle(cid));
-            if (what == null)
-            {
-                Button(r, "Rename", new Vector2(140, 0), new Vector2(88, 34), () => { editing = "c:" + cid; Refresh(); });
-                Button(r, "Delete", new Vector2(258, 0), new Vector2(84, 34), () => { if (QuantumNetwork.DeleteChannel(cid)) { if (editing == "c:" + cid) editing = string.Empty; if (pendingNewChannel == cid) pendingNewChannel = null; Refresh(); } }, true);
-            }
+            Button(r, "Rename", new Vector2(140, 0), new Vector2(88, 34), () => { editing = "c:" + cid; Refresh(); });
+            Button(r, "Delete", new Vector2(258, 0), new Vector2(84, 34), () => { if (QuantumNetwork.DeleteChannel(cid)) { if (editing == "c:" + cid) editing = string.Empty; if (pendingNewChannel == cid) pendingNewChannel = null; Refresh(); } }, true);
         }
 
         void RenderGroup(string gid, int depth)
@@ -629,44 +634,20 @@ internal static class Menu
                 return;
             }
             counts.TryGetValue(gid, out var n);
-            var t = Label(r, QuantumNetwork.GroupName(gid) + (mineGroups.Contains(gid) ? "  <color=#FF7A2E>(this adapter)</color>" : "") + "  " + DimTag + "(" + n.channels + " ch, " + n.adapters + " adapters)</color></size>", new Vector2(-165 + indent, 0), new Vector2(185 - indent, 40), 15, NameText, TextAnchor.MiddleLeft);
+            var t = Label(r, QuantumNetwork.GroupName(gid) + (mineGroups.Contains(gid) ? "  <color=#FF7A2E>(this adapter)</color>" : "") + "  " + DimTag + "(" + CountPhrase(n.channels, "channel") + ", " + CountPhrase(n.adapters, "adapter") + ")</color></size>", new Vector2(-165 + indent, 0), new Vector2(185 - indent, 40), 15, NameText, TextAnchor.MiddleLeft);
             t.supportRichText = true;
-            if (what == null)
+            Button(r, "Rename", new Vector2(140, 0), new Vector2(86, 34), () => { editing = "g:" + gid; Refresh(); });
+            Button(r, "Delete", new Vector2(230, 0), new Vector2(84, 34), () => { if (QuantumNetwork.DeleteGroup(gid)) { expandedGroups.Remove(gid); Refresh(); } });
+            var open = expandedGroups.Contains(gid);
+            AddArrow(r, "g:" + gid, open, () => { var wasOpen = expandedGroups.Contains(gid); if (wasOpen) expandedGroups.Remove(gid); else { expandedGroups.Add(gid); scrollAnchorKey = "g:" + gid; } QueueArrowAnimation("g:" + gid, wasOpen); Refresh(); });
+            if (open)
             {
-                Button(r, "Move", new Vector2(-40, 0), new Vector2(80, 34), () => { movingGroup = gid; moving = null; Refresh(); });
-                Button(r, "Rename", new Vector2(48, 0), new Vector2(86, 34), () => { editing = "g:" + gid; Refresh(); });
-                Button(r, "Delete", new Vector2(140, 0), new Vector2(88, 34), () => { if (QuantumNetwork.DeleteGroup(gid)) { expandedGroups.Remove(gid); Refresh(); } });
-            }
-            if (what != null)
-            {
-                var can = movingGroup == null || CanHold(gid, movingGroup);
-                if (can && (moving != null || movingGroup != gid)) Button(r, "Move here", new Vector2(180, 0), new Vector2(90, 34), () => MoveToGroup(gid), true);
-                var open = expandedGroups.Contains(gid);
-                AddArrow(r, "g:" + gid, open, () => { var wasOpen = expandedGroups.Contains(gid); if (wasOpen) expandedGroups.Remove(gid); else { expandedGroups.Add(gid); scrollAnchorKey = "g:" + gid; } QueueArrowAnimation("g:" + gid, wasOpen); Refresh(); });
-                if (open)
+                var childGroups = QuantumNetwork.ChildGroups(gid); var childChannels = QuantumNetwork.ChannelsIn(gid);
+                if (childGroups.Count == 0 && childChannels.Count == 0) Empty("This folder is empty.", depth + 1);
+                else
                 {
-                    var childGroups = QuantumNetwork.ChildGroups(gid); var childChannels = QuantumNetwork.ChannelsIn(gid);
-                    if (childGroups.Count == 0 && childChannels.Count == 0) Empty("This folder is empty.", depth + 1);
-                    else
-                    {
-                        foreach (var child in childGroups) RenderGroup(child, depth + 1);
-                        foreach (var channel in childChannels) RenderChannel(channel, depth + 1, false);
-                    }
-                }
-            }
-            else
-            {
-                var open = expandedGroups.Contains(gid);
-                AddArrow(r, "g:" + gid, open, () => { var wasOpen = expandedGroups.Contains(gid); if (wasOpen) expandedGroups.Remove(gid); else { expandedGroups.Add(gid); scrollAnchorKey = "g:" + gid; } QueueArrowAnimation("g:" + gid, wasOpen); Refresh(); });
-                if (open)
-                {
-                    var childGroups = QuantumNetwork.ChildGroups(gid); var childChannels = QuantumNetwork.ChannelsIn(gid);
-                    if (childGroups.Count == 0 && childChannels.Count == 0) Empty("This folder is empty.", depth + 1);
-                    else
-                    {
-                        foreach (var child in childGroups) RenderGroup(child, depth + 1);
-                        foreach (var channel in childChannels) RenderChannel(channel, depth + 1, false);
-                    }
+                    foreach (var child in childGroups) RenderGroup(child, depth + 1);
+                    foreach (var channel in childChannels) RenderChannel(channel, depth + 1, false);
                 }
             }
         }
@@ -686,14 +667,6 @@ internal static class Menu
             }
         }
 
-        if (what != null)
-        {
-            var mr = Row(0, false);
-            Label(mr, "Into: top level (not grouped)", new Vector2(-150, 0), new Vector2(250, 40), 16, NameText, TextAnchor.MiddleLeft);
-            Button(mr, "Move here", new Vector2(80, 0), new Vector2(130, 34), () => MoveToGroup(string.Empty), true);
-            Button(mr, "Cancel", new Vector2(224, 0), new Vector2(110, 34), () => { moving = movingGroup = null; Refresh(); });
-        }
-
         var autoGroup = QuantumNetwork.AutoGroupOn;
         if (autoGroupButton != null)
         {
@@ -706,13 +679,13 @@ internal static class Menu
         var unassigned = new List<ChannelSummary>();
         foreach (var c in QuantumNetwork.Summaries()) if (c.Outputs + c.Inputs == 0) unassigned.Add(c);
         unassigned.Sort((a, b) => QuantumNetwork.Natural(a.Name, b.Name));
-        RenderSpecial("Unassigned", "(" + unassigned.Count + " channels with no adapters)", unassignedExpanded, () => { var wasOpen = unassignedExpanded; unassignedExpanded = !unassignedExpanded; if (!wasOpen) scrollAnchorKey = "s:unassigned"; QueueArrowAnimation("s:unassigned", wasOpen); Refresh(); }, unassigned);
+        RenderSpecial("Unassigned", "(" + CountPhrase(unassigned.Count, "channel") + " with no adapters)", unassignedExpanded, () => { var wasOpen = unassignedExpanded; unassignedExpanded = !unassignedExpanded; if (!wasOpen) scrollAnchorKey = "s:unassigned"; QueueArrowAnimation("s:unassigned", wasOpen); Refresh(); }, unassigned);
 
         var ungrouped = new List<ChannelSummary>();
         foreach (var c in QuantumNetwork.Summaries())
             if (string.IsNullOrEmpty(QuantumNetwork.GroupOf(c.Id)) && c.Outputs + c.Inputs > 0) ungrouped.Add(c);
         ungrouped.Sort((a, b) => QuantumNetwork.Natural(a.Name, b.Name));
-        RenderSpecial("Not Grouped", "(" + ungrouped.Count + " channels with adapters outside folders)", ungroupedExpanded, () => { var wasOpen = ungroupedExpanded; ungroupedExpanded = !ungroupedExpanded; if (!wasOpen) scrollAnchorKey = "s:ungrouped"; QueueArrowAnimation("s:ungrouped", wasOpen); Refresh(); }, ungrouped);
+        RenderSpecial("Not Grouped", "(" + CountPhrase(ungrouped.Count, "channel") + " with adapters outside folders)", ungroupedExpanded, () => { var wasOpen = ungroupedExpanded; ungroupedExpanded = !ungroupedExpanded; if (!wasOpen) scrollAnchorKey = "s:ungrouped"; QueueArrowAnimation("s:ungrouped", wasOpen); Refresh(); }, ungrouped);
 
         foreach (var gid in QuantumNetwork.ChildGroups(string.Empty)) RenderGroup(gid, 0);
         var maxScroll = Mathf.Max(0f, row * rowH - viewport.rect.height);
@@ -834,19 +807,6 @@ internal static class Menu
         return false;
     }
 
-    static void MoveToGroup(string gid)
-    {
-        if (moving != null) QuantumNetwork.MoveChannel(moving, gid);
-        else if (movingGroup != null) QuantumNetwork.MoveGroup(movingGroup, gid);
-        moving = movingGroup = null; Refresh();
-    }
-    static void MoveHere()
-    {
-        if (moving != null) QuantumNetwork.MoveChannel(moving, atGroup);
-        else if (movingGroup != null) QuantumNetwork.MoveGroup(movingGroup, atGroup);
-        moving = movingGroup = null; Refresh();
-    }
-
     static void CancelChannelEdit(string id)
     {
         if (pendingNewChannel == id)
@@ -916,6 +876,8 @@ internal static class Menu
     static void EnsureVisualAssets()
     {
         if (channelGradient != null) return;
+        roundedSprite = MakeRoundedSprite(32, 32, 6, "Quantum Rounded Surface");
+        circleSprite = MakeRoundedSprite(32, 32, 16, "Quantum Circle Surface");
         channelGradient = MakeGradient(new Color(1f, 0.478f, 0.180f, 0.22f), new Color(1f, 0.478f, 0.180f, 0f), "Quantum Channel Gradient");
         folderGradient = MakeGradient(new Color(0.110f, 0.133f, 0.196f, 0.24f), new Color(0.110f, 0.133f, 0.196f, 0f), "Quantum Folder Gradient");
         folderIcon = MakeIcon(true, new Color(0.110f, 0.133f, 0.196f, 1f), "Quantum Folder Icon");
@@ -925,12 +887,30 @@ internal static class Menu
 
     static Sprite MakeGradient(Color left, Color right, string name)
     {
-        const int width = 64;
-        var texture = new Texture2D(width, 1, TextureFormat.RGBA32, false) { name = name, filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp };
-        var pixels = new Color[width];
-        for (var x = 0; x < width; x++) pixels[x] = Color.Lerp(left, right, x / (float)(width - 1));
+        const int width = 64, height = 32, radius = 6;
+        var texture = new Texture2D(width, height, TextureFormat.RGBA32, false) { name = name, filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp };
+        var pixels = new Color[width * height];
+        for (var y = 0; y < height; y++) for (var x = 0; x < width; x++)
+            pixels[y * width + x] = InsideRoundedRect(x, y, width, height, radius) ? Color.Lerp(left, right, x / (float)(width - 1)) : Color.clear;
         texture.SetPixels(pixels); texture.Apply(false, true);
-        return Sprite.Create(texture, new Rect(0, 0, width, 1), new Vector2(0.5f, 0.5f), 100f);
+        return Sprite.Create(texture, new Rect(0, 0, width, height), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect, new Vector4(radius, radius, radius, radius));
+    }
+
+    static Sprite MakeRoundedSprite(int width, int height, int radius, string name)
+    {
+        var texture = new Texture2D(width, height, TextureFormat.RGBA32, false) { name = name, filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp };
+        var pixels = new Color[width * height];
+        for (var y = 0; y < height; y++) for (var x = 0; x < width; x++) pixels[y * width + x] = InsideRoundedRect(x, y, width, height, radius) ? Color.white : Color.clear;
+        texture.SetPixels(pixels); texture.Apply(false, true);
+        return Sprite.Create(texture, new Rect(0, 0, width, height), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect, new Vector4(radius, radius, radius, radius));
+    }
+
+    static bool InsideRoundedRect(int x, int y, int width, int height, int radius)
+    {
+        var cx = Mathf.Clamp(x, radius, width - radius - 1);
+        var cy = Mathf.Clamp(y, radius, height - radius - 1);
+        var dx = x - cx; var dy = y - cy;
+        return dx * dx + dy * dy <= radius * radius;
     }
 
     static Sprite MakeVerticalFade(bool top, string name)
@@ -951,7 +931,7 @@ internal static class Menu
     static Image AddFade(Transform parent, string name, Sprite sprite, Vector2 position)
     {
         var r = Rect(name, parent, new Vector2(620, 32), position, null);
-        var image = r.gameObject.AddComponent<Image>(); image.sprite = sprite; image.color = PanelColor; image.raycastTarget = false;
+        var image = r.gameObject.AddComponent<Image>(); image.sprite = sprite; image.type = Image.Type.Sliced; image.color = PanelColor; image.raycastTarget = false;
         image.transform.SetAsLastSibling(); image.gameObject.SetActive(false);
         return image;
     }
@@ -998,9 +978,9 @@ internal static class Menu
     static void Close()
     {
         if (canvas != null) UnityEngine.Object.Destroy(canvas);
-        canvas = null; raycaster = null; content = null; editing = string.Empty; moving = movingGroup = null;
+        canvas = null; raycaster = null; content = null; editing = string.Empty;
         pendingNewChannel = pendingNewGroup = null; pendingNewChannelWasUnassignedExpanded = false; focusEditingChannel = string.Empty; pendingFocusField = null; autoGroupButton = null;
-        viewport = null; transition = null; transitionGroup = null; autoHelp = autoTooltip = null; autoTooltipGroup = null; topFadeImage = bottomFadeImage = null;
+        viewport = null; transition = null; transitionGroup = null; autoHelp = autoTooltip = headerHelp = headerTooltip = null; autoTooltipGroup = headerTooltipGroup = null; topFadeImage = bottomFadeImage = null;
         rowAnimations.Clear(); arrowAnimations.Clear(); animatedArrows.Clear(); transitionFadeUntil = 0f; scrollAnimationUntil = 0f; scrollAnchorKey = null; animateNextRefresh = false;
         revealChannelId = revealGroupId = null; revealRow = null;
         ClearDragState(); dragRows.Clear();
@@ -1186,7 +1166,10 @@ internal static class Menu
     {
         var go = new GameObject(name); var r = go.AddComponent<RectTransform>(); r.SetParent(parent, false);
         r.anchorMin = r.anchorMax = r.pivot = new Vector2(0.5f, 0.5f); r.sizeDelta = size; r.anchoredPosition = pos;
-        if (bg.HasValue) go.AddComponent<Image>().color = bg.Value;
+        if (bg.HasValue)
+        {
+            var image = go.AddComponent<Image>(); image.sprite = roundedSprite; image.type = Image.Type.Sliced; image.color = bg.Value;
+        }
         return r;
     }
     static Text Label(Transform parent, string text, Vector2 pos, Vector2 size, int fontSize, Color color, TextAnchor align)
