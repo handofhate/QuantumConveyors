@@ -36,7 +36,7 @@ internal static class Menu
     static UnityEngine.UI.Button autoGroupButton;
     sealed class DragRow
     {
-        internal RectTransform Row; internal string ChannelId; internal string GroupId; internal bool RootDrop; internal Image Background;
+        internal RectTransform Row; internal string ChannelId; internal string GroupId; internal bool RootDrop; internal string Section; internal Image Background;
     }
     static readonly List<DragRow> dragRows = new();
     static DragRow dragCandidate, hoveredDrop;
@@ -171,7 +171,7 @@ internal static class Menu
         editing = string.Empty; Refresh();
     }
 
-    static void RegisterDragRow(RectTransform row, string channelId, string groupId, bool rootDrop)
+    static void RegisterDragRow(RectTransform row, string channelId, string groupId, bool rootDrop, string section = null)
     {
         dragRows.Add(new DragRow
         {
@@ -179,6 +179,7 @@ internal static class Menu
             ChannelId = channelId,
             GroupId = groupId,
             RootDrop = rootDrop,
+            Section = section,
             Background = row.GetComponent<Image>()
         });
     }
@@ -209,7 +210,7 @@ internal static class Menu
     static void BeginDragCandidate(Vector2 position)
     {
         var row = RowAt(position, false, out var overInteractive);
-        if (overInteractive || row == null || (row.ChannelId == null && row.GroupId == null)) return;
+        if (overInteractive || row == null || (row.ChannelId == null && row.GroupId == null && row.Section == null)) return;
         dragCandidate = row; dragStart = position; dragging = false;
     }
 
@@ -246,7 +247,16 @@ internal static class Menu
             var targetGroup = hoveredDrop.RootDrop ? string.Empty : hoveredDrop.GroupId;
             if (!string.IsNullOrEmpty(dragCandidate.ChannelId)) QuantumNetwork.MoveChannel(dragCandidate.ChannelId, targetGroup);
             else if (!string.IsNullOrEmpty(dragCandidate.GroupId)) QuantumNetwork.MoveGroup(dragCandidate.GroupId, targetGroup);
+            ClearDragState(); Refresh();
+            return;
         }
+        if (!dragging && dragCandidate.GroupId != null)
+        {
+            if (expandedGroups.Contains(dragCandidate.GroupId)) expandedGroups.Remove(dragCandidate.GroupId);
+            else expandedGroups.Add(dragCandidate.GroupId);
+        }
+        else if (!dragging && dragCandidate.Section == "unassigned") unassignedExpanded = !unassignedExpanded;
+        else if (!dragging && dragCandidate.Section == "ungrouped") ungroupedExpanded = !ungroupedExpanded;
         ClearDragState(); Refresh();
     }
 
@@ -376,7 +386,7 @@ internal static class Menu
         void RenderSpecial(string label, string count, bool expanded, Action toggle, List<ChannelSummary> channels)
         {
             var r = Row(0, true); Icon(r, 0);
-            RegisterDragRow(r, null, null, label == "Not Grouped");
+            RegisterDragRow(r, null, null, label == "Not Grouped", label == "Not Grouped" ? "ungrouped" : "unassigned");
             var t = Label(r, label + "  " + DimTag + count + "</color></size>", new Vector2(-23.5f, 0), new Vector2(467, 40), 15, NameText, TextAnchor.MiddleLeft); t.supportRichText = true;
             t.horizontalOverflow = HorizontalWrapMode.Overflow; t.verticalOverflow = VerticalWrapMode.Truncate;
             Button(r, expanded ? "▾" : "▸", new Vector2(276, 0), new Vector2(48, 34), toggle, true);
