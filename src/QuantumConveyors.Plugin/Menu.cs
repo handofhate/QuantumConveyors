@@ -140,12 +140,6 @@ internal static class Menu
             new Vector2(6, -22), new Vector2(467, 52), 12, NameText, TextAnchor.UpperLeft);
         explanation.horizontalOverflow = HorizontalWrapMode.Wrap; explanation.verticalOverflow = VerticalWrapMode.Overflow;
         autoGroupButton = Button(autoPanel, QuantumNetwork.AutoGroupOn ? "On" : "Off", new Vector2(88, 28), new Vector2(84, 34), ToggleAutoGroup, QuantumNetwork.AutoGroupOn);
-        AddDebugFrame(win, "A Card", new Vector2(640, 600), Vector2.zero, new Color(1f, 0.15f, 0.75f, 0.9f));
-        AddDebugFrame(win, "B Header", new Vector2(620, 42), new Vector2(0, 250), new Color(0.95f, 0.25f, 0.25f, 0.9f));
-        AddDebugFrame(win, "C Controls", new Vector2(336, 40), new Vector2(0, 168), new Color(1f, 0.65f, 0.1f, 0.9f));
-        AddDebugFrame(win, "D Viewport", new Vector2(620, 300), new Vector2(0, -15.5f), new Color(0.1f, 0.85f, 1f, 0.9f));
-        AddDebugFrame(win, "E Rows", new Vector2(600, 300), new Vector2(0, -15.5f), new Color(0.25f, 0.4f, 1f, 0.9f));
-        AddDebugFrame(win, "F Auto Group", new Vector2(580, 100), new Vector2(0, -232), new Color(0.2f, 0.85f, 0.35f, 0.9f));
         Refresh();
         var es = EventSystem.current;
         if (es == null) { var go = new GameObject("Quantum Conveyors EventSystem"); es = go.AddComponent<EventSystem>(); UnityEngine.Object.DontDestroyOnLoad(go); }
@@ -222,7 +216,7 @@ internal static class Menu
             if (what == null)
             {
                 Button(r, "Rename", new Vector2(140, 0), new Vector2(88, 34), () => { editing = "c:" + cid; Refresh(); });
-                Button(r, "Delete", new Vector2(234, 0), new Vector2(84, 34), () => { if (QuantumNetwork.DeleteChannel(cid)) { if (editing == "c:" + cid) editing = string.Empty; if (pendingNewChannel == cid) pendingNewChannel = null; Refresh(); } }, true);
+                Button(r, "Delete", new Vector2(258, 0), new Vector2(84, 34), () => { if (QuantumNetwork.DeleteChannel(cid)) { if (editing == "c:" + cid) editing = string.Empty; if (pendingNewChannel == cid) pendingNewChannel = null; Refresh(); } }, true);
             }
         }
 
@@ -252,7 +246,7 @@ internal static class Menu
                 var can = movingGroup == null || CanHold(gid, movingGroup);
                 if (can && (moving != null || movingGroup != gid)) Button(r, "Move here", new Vector2(180, 0), new Vector2(90, 34), () => MoveToGroup(gid), true);
                 var open = expandedGroups.Contains(gid);
-                Button(r, open ? "▾" : "▸", new Vector2(252, 0), new Vector2(48, 34), () => { if (open) expandedGroups.Remove(gid); else expandedGroups.Add(gid); Refresh(); }, true);
+                Button(r, open ? "▾" : "▸", new Vector2(276, 0), new Vector2(48, 34), () => { if (open) expandedGroups.Remove(gid); else expandedGroups.Add(gid); Refresh(); }, true);
                 if (open)
                 {
                     var childGroups = QuantumNetwork.ChildGroups(gid); var childChannels = QuantumNetwork.ChannelsIn(gid);
@@ -267,7 +261,7 @@ internal static class Menu
             else
             {
                 var open = expandedGroups.Contains(gid);
-                Button(r, open ? "▾" : "▸", new Vector2(252, 0), new Vector2(48, 34), () => { if (open) expandedGroups.Remove(gid); else expandedGroups.Add(gid); Refresh(); }, true);
+                Button(r, open ? "▾" : "▸", new Vector2(276, 0), new Vector2(48, 34), () => { if (open) expandedGroups.Remove(gid); else expandedGroups.Add(gid); Refresh(); }, true);
                 if (open)
                 {
                     var childGroups = QuantumNetwork.ChildGroups(gid); var childChannels = QuantumNetwork.ChannelsIn(gid);
@@ -286,7 +280,7 @@ internal static class Menu
             var r = Row(0, true); Icon(r, 0);
             var t = Label(r, label + "  " + DimTag + count + "</color></size>", new Vector2(-23.5f, 0), new Vector2(467, 40), 15, NameText, TextAnchor.MiddleLeft); t.supportRichText = true;
             t.horizontalOverflow = HorizontalWrapMode.Overflow; t.verticalOverflow = VerticalWrapMode.Truncate;
-            Button(r, expanded ? "▾" : "▸", new Vector2(252, 0), new Vector2(48, 34), toggle, true);
+            Button(r, expanded ? "▾" : "▸", new Vector2(276, 0), new Vector2(48, 34), toggle, true);
             if (expanded)
             {
                 if (channels.Count == 0) Empty(label == "Unassigned" ? "No channels are currently unassigned." : "Every channel is inside a folder.", 1);
@@ -459,24 +453,6 @@ internal static class Menu
         var canScroll = maxScroll > 0.01f;
         if (topFadeImage != null) topFadeImage.gameObject.SetActive(canScroll && scroll > 0.5f);
         if (bottomFadeImage != null) bottomFadeImage.gameObject.SetActive(canScroll && scroll < maxScroll - 0.5f);
-    }
-
-    static void AddDebugFrame(Transform parent, string label, Vector2 size, Vector2 position, Color color)
-    {
-        var frame = Rect("Layout Debug " + label, parent, size, position, null);
-        frame.SetAsLastSibling();
-        const float thickness = 2f;
-        void Edge(string name, Vector2 edgeSize, Vector2 edgePosition)
-        {
-            var edge = Rect(name, frame, edgeSize, edgePosition, color);
-            var image = edge.GetComponent<Image>(); if (image != null) image.raycastTarget = false;
-        }
-        Edge(label + " Top", new Vector2(size.x, thickness), new Vector2(0, size.y * 0.5f - thickness * 0.5f));
-        Edge(label + " Bottom", new Vector2(size.x, thickness), new Vector2(0, -size.y * 0.5f + thickness * 0.5f));
-        Edge(label + " Left", new Vector2(thickness, size.y), new Vector2(-size.x * 0.5f + thickness * 0.5f, 0));
-        Edge(label + " Right", new Vector2(thickness, size.y), new Vector2(size.x * 0.5f - thickness * 0.5f, 0));
-        var text = Label(frame, label, new Vector2(-size.x * 0.5f + 34, size.y * 0.5f - 10), new Vector2(68, 18), 11, color, TextAnchor.MiddleLeft);
-        text.raycastTarget = false;
     }
 
     static Sprite MakeIcon(bool folder, Color color, string name)
