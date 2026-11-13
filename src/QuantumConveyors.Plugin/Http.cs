@@ -21,6 +21,17 @@ namespace QuantumConveyors;
 //   GET  /quantum/flow[?minutes=5]        per channel: capsules moved in the last minutes, and receivers that placed none
 internal static class Http
 {
+    // one line per request, for a host's help list ("METHOD /path?params | what it does")
+    internal static readonly string[] Help =
+    {
+        "GET /quantum/channels | Every channel (id, name, group, outputs, inputs), every adapter (id, kind, role, pos, channel, attached), the status line",
+        "POST /quantum/channels/create?name= | A new channel; a build name like Iron-Line-2 is filed into its group (host only)",
+        "POST /quantum/channels/modify | adapter=&channel= puts an adapter on a channel; adapter= alone takes it off; channel=&name= renames (host only)",
+        "POST /quantum/channels/remove?channel= | Delete a channel (host only)",
+        "POST /quantum/convert | File every ungrouped build-named channel into groups (host only)",
+        "GET /quantum/flow?minutes=5 | Per channel: capsules moved in the last minutes (up to 10), and the receivers that placed none",
+    };
+
     internal static string Handle(string method, string path, NameValueCollection q)
     {
         if (path != "/quantum" && !path.StartsWith("/quantum/", StringComparison.Ordinal)) return null;

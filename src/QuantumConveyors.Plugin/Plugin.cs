@@ -65,6 +65,7 @@ public sealed class Plugin : BasePlugin
     // HTTP requests a mod that serves HTTP passes on to plugins (Http.cs): /quantum/... answered, anything else isn't
     // ours (null). Without such a mod nothing calls this.
     public string HandleHttp(string method, string path, System.Collections.Specialized.NameValueCollection query, string body) => Http.Handle(method, path, query);
+    public string[] HttpHelp() => Http.Help;
 
     // The ids are 1.x's, so saved adapters load as these. A sender has an input port, a receiver an output port, both on
     // top of the body where a belt end meets them.
