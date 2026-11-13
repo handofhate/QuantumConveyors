@@ -47,8 +47,6 @@ internal static class Menu
     static bool dragging;
     static string revealChannelId, revealGroupId;
     static RectTransform revealRow;
-    static Image selectedHighlight;
-    static float selectedHighlightUntil;
     static BaseInputModule prevModule; static bool prevModuleOn;
     static MoonWalker walker; static bool prevBlocked; static bool prevWalkerEnabled;
     static InputActionAsset playerInput; static bool prevInputOn;
@@ -80,11 +78,6 @@ internal static class Menu
     internal static void LateUpdate()
     {
         if (canvas != null) { Cursor.lockState = CursorLockMode.None; Cursor.visible = true; }
-        if (selectedHighlight != null && Time.unscaledTime >= selectedHighlightUntil)
-        {
-            selectedHighlight.gameObject.SetActive(false);
-            selectedHighlight = null;
-        }
     }
 
     // the adapter under the crosshair: within 4.5 m, its screen ellipse containing the screen centre, nearest wins
@@ -325,6 +318,7 @@ internal static class Menu
     {
         if (canvas == null || dragCandidate == null) return;
         dragGhost = Rect("Quantum Drag Preview", canvas.transform, new Vector2(600, 46), Vector2.zero, null);
+        dragGhost.localScale = new Vector3(0.54f, 0.54f, 1f);
         var image = dragGhost.gameObject.AddComponent<Image>();
         image.sprite = !string.IsNullOrEmpty(dragCandidate.ChannelId) ? channelGradient : folderGradient;
         image.color = Color.white; image.raycastTarget = false;
@@ -382,7 +376,7 @@ internal static class Menu
         if (content == null) return;
         for (int i = content.childCount - 1; i >= 0; i--) UnityEngine.Object.DestroyImmediate(content.GetChild(i).gameObject);
         dragRows.Clear(); ClearDragState();
-        revealRow = null; selectedHighlight = null;
+        revealRow = null;
         pendingFocusField = null;
         const float rowH = 52f;
         string what = moving != null ? "Move channel " + QuantumNetwork.ShortName(moving) : movingGroup != null ? "Move group " + QuantumNetwork.GroupName(movingGroup) : null;
@@ -545,13 +539,6 @@ internal static class Menu
             if (itemTop < scroll) scroll = itemTop;
             else if (itemBottom > scroll + viewport.rect.height) scroll = itemBottom - viewport.rect.height;
             scroll = Mathf.Clamp(scroll, 0f, maxScroll);
-            foreach (var item in dragRows)
-                if (item.Row == revealRow) { selectedHighlight = item.DropHighlight; break; }
-            if (selectedHighlight != null)
-            {
-                selectedHighlight.gameObject.SetActive(true);
-                selectedHighlightUntil = Time.unscaledTime + 1.25f;
-            }
             revealRow = null; revealChannelId = revealGroupId = null;
         }
         content.anchoredPosition = new Vector2(0f, scroll);
@@ -730,7 +717,7 @@ internal static class Menu
         canvas = null; raycaster = null; content = null; editing = string.Empty; moving = movingGroup = null;
         pendingNewChannel = pendingNewGroup = null; pendingNewChannelWasUnassignedExpanded = false; focusEditingChannel = string.Empty; pendingFocusField = null; autoGroupButton = null;
         viewport = null; topFadeImage = bottomFadeImage = null;
-        revealChannelId = revealGroupId = null; revealRow = null; selectedHighlight = null;
+        revealChannelId = revealGroupId = null; revealRow = null;
         ClearDragState(); dragRows.Clear();
         if (prevModule != null) prevModule.enabled = prevModuleOn; prevModule = null;
         Unfreeze();
