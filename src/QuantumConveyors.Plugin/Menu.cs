@@ -31,7 +31,8 @@ internal static class Menu
     static string pendingNewChannel, pendingNewGroup;
     static bool pendingNewChannelWasUnassignedExpanded;
     static InputField pendingFocusField;
-    static Sprite channelGradient, folderGradient, folderIcon;
+    static Sprite channelGradient, folderGradient, folderIcon, topFade, bottomFade;
+    static Image topFadeImage, bottomFadeImage;
     static UnityEngine.UI.Button autoGroupButton;
     static BaseInputModule prevModule; static bool prevModuleOn;
     static MoonWalker walker; static bool prevBlocked; static bool prevWalkerEnabled;
@@ -130,6 +131,8 @@ internal static class Menu
         view.gameObject.AddComponent<Mask>().showMaskGraphic = true;
         content = Rect("ChannelContent", view, new Vector2(600, 44), Vector2.zero, null);
         content.anchorMin = content.anchorMax = content.pivot = new Vector2(0.5f, 1f); content.anchoredPosition = Vector2.zero;
+        topFadeImage = AddFade(view, "TopFade", topFade, new Vector2(0, 134));
+        bottomFadeImage = AddFade(view, "BottomFade", bottomFade, new Vector2(0, -134));
         var autoPanel = Rect("AutoGroupPanel", win, new Vector2(580, 100), new Vector2(0, -232), PanelColor);
         Label(autoPanel, "Auto Group", new Vector2(-88, 28), new Vector2(160, 30), 18, NameText, TextAnchor.MiddleCenter);
         var explanation = Label(autoPanel,
@@ -316,6 +319,7 @@ internal static class Menu
         scroll = Mathf.Clamp(scroll, 0f, maxScroll);
         content.sizeDelta = new Vector2(600, Math.Max(44f, row * rowH));
         content.anchoredPosition = new Vector2(0f, scroll);
+        UpdateFadeVisibility(maxScroll);
 
         if (!string.IsNullOrEmpty(focusEditingChannel))
         {
@@ -408,6 +412,8 @@ internal static class Menu
         channelGradient = MakeGradient(new Color(1f, 0.478f, 0.180f, 0.22f), new Color(1f, 0.478f, 0.180f, 0f), "Quantum Channel Gradient");
         folderGradient = MakeGradient(new Color(0.110f, 0.133f, 0.196f, 0.24f), new Color(0.110f, 0.133f, 0.196f, 0f), "Quantum Folder Gradient");
         folderIcon = MakeIcon(true, new Color(0.110f, 0.133f, 0.196f, 1f), "Quantum Folder Icon");
+        topFade = MakeVerticalFade(true, "Quantum Top Fade");
+        bottomFade = MakeVerticalFade(false, "Quantum Bottom Fade");
     }
 
     static Sprite MakeGradient(Color left, Color right, string name)
@@ -418,6 +424,35 @@ internal static class Menu
         for (var x = 0; x < width; x++) pixels[x] = Color.Lerp(left, right, x / (float)(width - 1));
         texture.SetPixels(pixels); texture.Apply(false, true);
         return Sprite.Create(texture, new Rect(0, 0, width, 1), new Vector2(0.5f, 0.5f), 100f);
+    }
+
+    static Sprite MakeVerticalFade(bool top, string name)
+    {
+        const int height = 32;
+        var texture = new Texture2D(1, height, TextureFormat.RGBA32, false) { name = name, filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp };
+        var pixels = new Color[height];
+        for (var y = 0; y < height; y++)
+        {
+            var t = y / (float)(height - 1);
+            pixels[y] = top ? Color.Lerp(Color.clear, PanelColor, t) : Color.Lerp(PanelColor, Color.clear, t);
+        }
+        texture.SetPixels(pixels); texture.Apply(false, true);
+        return Sprite.Create(texture, new Rect(0, 0, 1, height), new Vector2(0.5f, 0.5f), 100f);
+    }
+
+    static Image AddFade(Transform parent, string name, Sprite sprite, Vector2 position)
+    {
+        var r = Rect(name, parent, new Vector2(620, 32), position, null);
+        var image = r.gameObject.AddComponent<Image>(); image.sprite = sprite; image.raycastTarget = false;
+        image.transform.SetAsLastSibling(); image.gameObject.SetActive(false);
+        return image;
+    }
+
+    static void UpdateFadeVisibility(float maxScroll)
+    {
+        var canScroll = maxScroll > 0.01f;
+        if (topFadeImage != null) topFadeImage.gameObject.SetActive(canScroll && scroll > 0.5f);
+        if (bottomFadeImage != null) bottomFadeImage.gameObject.SetActive(canScroll && scroll < maxScroll - 0.5f);
     }
 
     static Sprite MakeIcon(bool folder, Color color, string name)
@@ -457,6 +492,7 @@ internal static class Menu
         if (canvas != null) UnityEngine.Object.Destroy(canvas);
         canvas = null; raycaster = null; content = null; editing = string.Empty; moving = movingGroup = null;
         pendingNewChannel = pendingNewGroup = null; pendingNewChannelWasUnassignedExpanded = false; focusEditingChannel = string.Empty; pendingFocusField = null; autoGroupButton = null;
+        topFadeImage = bottomFadeImage = null;
         if (prevModule != null) prevModule.enabled = prevModuleOn; prevModule = null;
         Unfreeze();
     }
@@ -631,6 +667,7 @@ internal static class Menu
         float max = Mathf.Max(0f, content.rect.height - 300f); if (max <= 0f) return;
         scroll = Mathf.Clamp(scroll - (Math.Abs(y) > 10f ? y / 6f : y * 30f), 0f, max);
         content.anchoredPosition = new Vector2(0, scroll);
+        UpdateFadeVisibility(max);
     }
 
     // ---------------------------------------------------------------- UI pieces
