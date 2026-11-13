@@ -28,6 +28,7 @@ internal static class Menu
     static readonly HashSet<string> expandedGroups = new(StringComparer.Ordinal);
     static bool unassignedExpanded, ungroupedExpanded;
     static string focusEditingChannel = string.Empty;
+    static string pendingNewChannel, pendingNewGroup;
     static InputField pendingFocusField;
     static Sprite channelGradient, folderGradient, folderIcon;
     static UnityEngine.UI.Button autoGroupButton;
@@ -120,19 +121,19 @@ internal static class Menu
         raycaster = canvas.AddComponent<GraphicRaycaster>();
         var win = Rect("Window", canvas.transform, new Vector2(640, 600), Vector2.zero, PanelColor); win.localScale = new Vector3(0.54f, 0.54f, 1f);
         win.gameObject.AddComponent<CanvasGroup>().blocksRaycasts = true;
-        title = Label(win, "Quantum", new Vector2(0, 220), new Vector2(560, 42), 26, HeaderText, TextAnchor.MiddleCenter);
+        title = Label(win, "Quantum", new Vector2(0, 250), new Vector2(560, 42), 26, HeaderText, TextAnchor.MiddleCenter);
         Button(win, "New Channel", new Vector2(-88, 152), new Vector2(160, 40), NewChannel, true);
         Button(win, "New Group", new Vector2(88, 152), new Vector2(160, 40), NewGroup);
-        Button(win, "×", new Vector2(287, 231), new Vector2(42, 42), Close);
+        Button(win, "×", new Vector2(287, 264), new Vector2(42, 42), Close);
         var view = Rect("ChannelViewport", win, new Vector2(600, 330), new Vector2(0, -45.5f), PanelColor);
         view.gameObject.AddComponent<Mask>().showMaskGraphic = true;
         content = Rect("ChannelContent", view, new Vector2(580, 44), Vector2.zero, null);
         content.anchorMin = content.anchorMax = content.pivot = new Vector2(0.5f, 1f); content.anchoredPosition = Vector2.zero;
         var autoPanel = Rect("AutoGroupPanel", win, new Vector2(580, 100), new Vector2(0, -245), PanelColor);
-        Label(autoPanel, "Auto Group", new Vector2(-205, 28), new Vector2(250, 30), 18, NameText, TextAnchor.MiddleLeft);
+        Label(autoPanel, "Auto Group", new Vector2(-165, 28), new Vector2(185, 30), 18, NameText, TextAnchor.MiddleLeft);
         var explanation = Label(autoPanel,
-            "Turn this on to automatically nest new channels inside matching groups. For example, dust-left and dust-right become channels inside a dust group, named left and right. dust 1 and dust 2 are recognized the same way.",
-            new Vector2(-5, -22), new Vector2(515, 52), 12, NameText, TextAnchor.UpperLeft);
+            "Turn this on to automatically nest new channels inside matching groups. For example, 'dust-left' and 'dust-right' become channels inside a 'dust' group, named 'left' and 'right'. 'dust 1' and 'dust 2' are recognized the same way.",
+            new Vector2(6, -22), new Vector2(467, 52), 12, NameText, TextAnchor.UpperLeft);
         explanation.horizontalOverflow = HorizontalWrapMode.Wrap; explanation.verticalOverflow = VerticalWrapMode.Overflow;
         autoGroupButton = Button(autoPanel, QuantumNetwork.AutoGroupOn ? "On" : "Off", new Vector2(230, 28), new Vector2(84, 34), ToggleAutoGroup, QuantumNetwork.AutoGroupOn);
         Refresh();
@@ -176,28 +177,34 @@ internal static class Menu
             r.anchorMin = r.anchorMax = r.pivot = new Vector2(0.5f, 1f); r.anchoredPosition = new Vector2(0, -row * rowH); row++;
             return r;
         }
-        void Empty(string text) => Label(content, text, new Vector2(0, -28 - row * rowH), new Vector2(560, 40), 18, HeaderText, TextAnchor.MiddleCenter);
+        void Empty(string text, int depth)
+        {
+            var r = Rect("Empty", content, new Vector2(580, 46), new Vector2(0, -row * rowH), null);
+            r.anchorMin = r.anchorMax = r.pivot = new Vector2(0.5f, 1f); r.anchoredPosition = new Vector2(0, -row * rowH); row++;
+            var t = Label(r, text, new Vector2(-165 + depth * 14, 0), new Vector2(185 - depth * 14, 40), 13, Dim, TextAnchor.MiddleLeft);
+            t.horizontalOverflow = HorizontalWrapMode.Wrap; t.verticalOverflow = VerticalWrapMode.Overflow;
+        }
         void Icon(Transform parent, int depth)
         {
-            var r = Rect("Icon", parent, new Vector2(22, 22), new Vector2(-270 + depth * 18, 0), null);
+            var r = Rect("Icon", parent, new Vector2(22, 22), new Vector2(-270 + depth * 14, 0), null);
             var image = r.gameObject.AddComponent<Image>(); image.sprite = folderIcon; image.preserveAspect = true;
         }
 
         void RenderChannel(ChannelSummary s, int depth, bool fullName)
         {
             var r = Row(depth, false);
-            var indent = depth * 18;
+            var indent = depth * 14;
             string label = fullName || depth == 0 ? s.Name : QuantumNetwork.ShortName(s.Id);
             if (editing == "c:" + s.Id)
             {
                 var field = Field(r, new Vector2(-145 + indent, 0), new Vector2(260, 34)); field.text = QuantumNetwork.ShortName(s.Id);
                 string id = s.Id;
                 if (focusEditingChannel == id) pendingFocusField = field;
-                Button(r, "Save", new Vector2(34, 0), new Vector2(76, 34), () => { if (QuantumNetwork.RenameChannel(id, field.text)) { editing = string.Empty; Refresh(); } }, true);
-                Button(r, "Cancel", new Vector2(130, 0), new Vector2(88, 34), () => { editing = string.Empty; Refresh(); });
+                Button(r, "Save", new Vector2(34, 0), new Vector2(76, 34), () => { if (QuantumNetwork.RenameChannel(id, field.text)) { if (pendingNewChannel == id) pendingNewChannel = null; editing = string.Empty; Refresh(); } }, true);
+                Button(r, "Cancel", new Vector2(130, 0), new Vector2(88, 34), () => CancelChannelEdit(id));
                 return;
             }
-            var t = Label(r, label + (chMine == s.Id ? "  <color=#FF7A2E>(this adapter)</color>" : "") + "  " + DimTag + "(" + Plugin.DisplayCounts(s.Outputs, s.Inputs) + ")</color></size>", new Vector2(-180 + indent, 0), new Vector2(190 - indent, 40), 15, NameText, TextAnchor.MiddleLeft);
+            var t = Label(r, label + (chMine == s.Id ? "  <color=#FF7A2E>(this adapter)</color>" : "") + "  " + DimTag + "(" + Plugin.DisplayCounts(s.Outputs, s.Inputs) + ")</color></size>", new Vector2(-165 + indent, 0), new Vector2(185 - indent, 40), 15, NameText, TextAnchor.MiddleLeft);
             t.supportRichText = true;
             string cid = s.Id;
             if (what == null) Button(r, "Move", new Vector2(-40, 0), new Vector2(80, 34), () => { moving = cid; movingGroup = null; unassignedView = ungroupedView = false; Refresh(); });
@@ -205,24 +212,24 @@ internal static class Menu
             if (what == null)
             {
                 Button(r, "Rename", new Vector2(140, 0), new Vector2(88, 34), () => { editing = "c:" + cid; Refresh(); });
-                Button(r, "Delete", new Vector2(234, 0), new Vector2(84, 34), () => { if (QuantumNetwork.DeleteChannel(cid)) { if (editing == "c:" + cid) editing = string.Empty; Refresh(); } }, true);
+                Button(r, "Delete", new Vector2(234, 0), new Vector2(84, 34), () => { if (QuantumNetwork.DeleteChannel(cid)) { if (editing == "c:" + cid) editing = string.Empty; if (pendingNewChannel == cid) pendingNewChannel = null; Refresh(); } }, true);
             }
         }
 
         void RenderGroup(string gid, int depth)
         {
             var r = Row(depth, true); Icon(r, depth);
-            var indent = depth * 18;
+            var indent = depth * 14;
             if (editing == "g:" + gid)
             {
                 var field = Field(r, new Vector2(-120 + indent, 0), new Vector2(235, 34)); field.text = QuantumNetwork.GroupName(gid);
                 string id = gid;
-                Button(r, "Save", new Vector2(34, 0), new Vector2(76, 34), () => { if (QuantumNetwork.RenameGroup(id, field.text)) { editing = string.Empty; Refresh(); } }, true);
-                Button(r, "Cancel", new Vector2(130, 0), new Vector2(88, 34), () => { editing = string.Empty; Refresh(); });
+                Button(r, "Save", new Vector2(34, 0), new Vector2(76, 34), () => { if (QuantumNetwork.RenameGroup(id, field.text)) { if (pendingNewGroup == id) pendingNewGroup = null; editing = string.Empty; Refresh(); } }, true);
+                Button(r, "Cancel", new Vector2(130, 0), new Vector2(88, 34), () => CancelGroupEdit(id));
                 return;
             }
             counts.TryGetValue(gid, out var n);
-            var t = Label(r, QuantumNetwork.GroupName(gid) + (mineGroups.Contains(gid) ? "  <color=#FF7A2E>(this adapter)</color>" : "") + "  " + DimTag + "(" + n.channels + " ch, " + n.adapters + " adapters)</color></size>", new Vector2(-145 + indent, 0), new Vector2(165 - indent, 40), 15, NameText, TextAnchor.MiddleLeft);
+            var t = Label(r, QuantumNetwork.GroupName(gid) + (mineGroups.Contains(gid) ? "  <color=#FF7A2E>(this adapter)</color>" : "") + "  " + DimTag + "(" + n.channels + " ch, " + n.adapters + " adapters)</color></size>", new Vector2(-165 + indent, 0), new Vector2(185 - indent, 40), 15, NameText, TextAnchor.MiddleLeft);
             t.supportRichText = true;
             if (what == null)
             {
@@ -235,21 +242,31 @@ internal static class Menu
                 var can = movingGroup == null || CanHold(gid, movingGroup);
                 if (can && (moving != null || movingGroup != gid)) Button(r, "Move here", new Vector2(180, 0), new Vector2(90, 34), () => MoveToGroup(gid), true);
                 var open = expandedGroups.Contains(gid);
-                Button(r, open ? "▾" : "▸", new Vector2(270, 0), new Vector2(40, 34), () => { if (open) expandedGroups.Remove(gid); else expandedGroups.Add(gid); Refresh(); }, true);
+                Button(r, open ? "▾" : "▸", new Vector2(252, 0), new Vector2(48, 34), () => { if (open) expandedGroups.Remove(gid); else expandedGroups.Add(gid); Refresh(); }, true);
                 if (open)
                 {
-                    foreach (var child in QuantumNetwork.ChildGroups(gid)) RenderGroup(child, depth + 1);
-                    foreach (var channel in QuantumNetwork.ChannelsIn(gid)) RenderChannel(channel, depth + 1, false);
+                    var childGroups = QuantumNetwork.ChildGroups(gid); var childChannels = QuantumNetwork.ChannelsIn(gid);
+                    if (childGroups.Count == 0 && childChannels.Count == 0) Empty("This folder is empty.", depth + 1);
+                    else
+                    {
+                        foreach (var child in childGroups) RenderGroup(child, depth + 1);
+                        foreach (var channel in childChannels) RenderChannel(channel, depth + 1, false);
+                    }
                 }
             }
             else
             {
                 var open = expandedGroups.Contains(gid);
-                Button(r, open ? "▾" : "▸", new Vector2(234, 0), new Vector2(48, 34), () => { if (open) expandedGroups.Remove(gid); else expandedGroups.Add(gid); Refresh(); }, true);
+                Button(r, open ? "▾" : "▸", new Vector2(252, 0), new Vector2(48, 34), () => { if (open) expandedGroups.Remove(gid); else expandedGroups.Add(gid); Refresh(); }, true);
                 if (open)
                 {
-                    foreach (var child in QuantumNetwork.ChildGroups(gid)) RenderGroup(child, depth + 1);
-                    foreach (var channel in QuantumNetwork.ChannelsIn(gid)) RenderChannel(channel, depth + 1, false);
+                    var childGroups = QuantumNetwork.ChildGroups(gid); var childChannels = QuantumNetwork.ChannelsIn(gid);
+                    if (childGroups.Count == 0 && childChannels.Count == 0) Empty("This folder is empty.", depth + 1);
+                    else
+                    {
+                        foreach (var child in childGroups) RenderGroup(child, depth + 1);
+                        foreach (var channel in childChannels) RenderChannel(channel, depth + 1, false);
+                    }
                 }
             }
         }
@@ -257,11 +274,11 @@ internal static class Menu
         void RenderSpecial(string label, string count, bool expanded, Action toggle, List<ChannelSummary> channels)
         {
             var r = Row(0, true); Icon(r, 0);
-            var t = Label(r, label + "  " + DimTag + count + "</color></size>", new Vector2(-145, 0), new Vector2(165, 40), 15, NameText, TextAnchor.MiddleLeft); t.supportRichText = true;
-            Button(r, expanded ? "▾" : "▸", new Vector2(234, 0), new Vector2(48, 34), toggle, true);
+            var t = Label(r, label + "  " + DimTag + count + "</color></size>", new Vector2(-165, 0), new Vector2(185, 40), 15, NameText, TextAnchor.MiddleLeft); t.supportRichText = true;
+            Button(r, expanded ? "▾" : "▸", new Vector2(252, 0), new Vector2(48, 34), toggle, true);
             if (expanded)
             {
-                if (channels.Count == 0) Empty(label == "Unassigned" ? "No channels are currently unassigned." : "Every channel is inside a folder.");
+                if (channels.Count == 0) Empty(label == "Unassigned" ? "No channels are currently unassigned." : "Every channel is inside a folder.", 1);
                 foreach (var channel in channels) RenderChannel(channel, 1, true);
             }
         }
@@ -329,6 +346,26 @@ internal static class Menu
         moving = movingGroup = null; Refresh();
     }
 
+    static void CancelChannelEdit(string id)
+    {
+        if (pendingNewChannel == id)
+        {
+            QuantumNetwork.DeleteChannel(id);
+            pendingNewChannel = null;
+        }
+        editing = string.Empty; Refresh();
+    }
+
+    static void CancelGroupEdit(string id)
+    {
+        if (pendingNewGroup == id)
+        {
+            QuantumNetwork.DeleteGroup(id);
+            pendingNewGroup = null;
+        }
+        editing = string.Empty; Refresh();
+    }
+
     static void Toggle(string channelId)
     {
         if (!Moon.IsAuthority) return;
@@ -340,6 +377,7 @@ internal static class Menu
     {
         if (!Moon.IsAuthority || !QuantumNetwork.CreateChannelIn(string.Empty, out var channelId)) return;
         unassignedExpanded = true;
+        pendingNewChannel = channelId;
         editing = "c:" + channelId;
         focusEditingChannel = channelId;
         Refresh();
@@ -350,7 +388,7 @@ internal static class Menu
         string parent = string.Empty;
         var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase); foreach (var g in QuantumNetwork.ChildGroups(parent)) names.Add(QuantumNetwork.GroupName(g));
         string name = "New Group"; int n = 2; while (names.Contains(name)) name = "New Group " + n++;
-        if (QuantumNetwork.CreateGroup(parent, name, out var gid)) { editing = "g:" + gid; Refresh(); }
+        if (QuantumNetwork.CreateGroup(parent, name, out var gid)) { pendingNewGroup = gid; editing = "g:" + gid; Refresh(); }
     }
     static void ToggleAutoGroup()
     {
@@ -413,6 +451,7 @@ internal static class Menu
     {
         if (canvas != null) UnityEngine.Object.Destroy(canvas);
         canvas = null; raycaster = null; content = null; editing = string.Empty; moving = movingGroup = null;
+        pendingNewChannel = pendingNewGroup = null; focusEditingChannel = string.Empty; pendingFocusField = null; autoGroupButton = null;
         if (prevModule != null) prevModule.enabled = prevModuleOn; prevModule = null;
         Unfreeze();
     }
