@@ -85,6 +85,14 @@ Source: `src/QuantumConveyors.Plugin/`
 | `Menu.cs` | the E menu |
 | `FrameworkPatches.cs` | MoonFramework patches |
 
+## Reloading in place
+
+A mod loader that reloads plugins while the game runs can load Quantum Conveyors itself: `Conveyors.Boot()` once at game
+start (it registers the two adapters, which MoonFramework only accepts then), then `Start(state)`, `Update()`,
+`LateUpdate()` and, before a copy is dropped, `Stop()`. A reload swaps every adapter's machine for the new copy's, from the
+same saved data. Changing the adapters themselves (model, ports, price, names) still needs a game restart. Installed the
+normal way, as a BepInEx plugin, it works as before.
+
 ## For tools: HTTP requests
 
 Quantum Conveyors has a public `HandleHttp(method, path, query, body)` on its plugin class, for mods that serve HTTP and

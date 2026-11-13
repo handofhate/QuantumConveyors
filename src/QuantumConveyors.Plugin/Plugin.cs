@@ -17,7 +17,8 @@ namespace QuantumConveyors;
 //    asked again in the same hand-off pass;
 //  - indicators share a handful of materials and change only when an adapter's state changes (Indicators.cs);
 //  - the E menu looks for an adapter only when E is pressed (Menu.cs), and has channel groups (Groups.cs);
-//  - one file: the model, textures and pictures are inside the DLL (Assets.cs).
+//  - one file: the model, textures and pictures are inside the DLL (Assets.cs);
+//  - it can be reloaded in place while the game runs (Conveyors, below), and still ships as a normal BepInEx plugin.
 [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
 [BepInDependency(FrameworkPlugin.Guid, BepInDependency.DependencyFlags.HardDependency)]
 public sealed class Plugin : BasePlugin
@@ -26,8 +27,8 @@ public sealed class Plugin : BasePlugin
     public const string PluginName = "Quantum Conveyors";
     public const string PluginVersion = "2.1.0";
 
-    static ConfigEntry<int> adapterPrice;
-    static ConfigEntry<bool> diagnostics, brainFart;
+    internal static ConfigEntry<int> adapterPrice;
+    internal static ConfigEntry<bool> diagnostics, brainFart;
 
     internal static int AdapterPrice => Math.Max(1, adapterPrice?.Value ?? 5);
     internal static bool DiagnosticsEnabled => diagnostics?.Value ?? false;
@@ -39,31 +40,101 @@ public sealed class Plugin : BasePlugin
     internal static string DisplayCounts(int senders, int receivers) =>
         BrainFartNaming ? $"{senders} out / {receivers} in" : $"{senders} in / {receivers} out";
 
+    internal static Conveyors Running;
+
+    // The normal BepInEx way in: Conveyors runs from here, driven every frame by a Driver of our own.
     public override void Load()
     {
-        adapterPrice = Config.Bind("Quantum Conveyors", "Adapter Price", 5,
-            new ConfigDescription("Build price for each Quantum adapter in dollars.", new AcceptableValueRange<int>(1, 1000)));
-        var legacy = Config.Bind("Quantum Conveyors", "Enable Diagnostics", false, "Renamed to Diagnostics.");   // 1.1.0's name
-        Config.Remove(legacy.Definition);
-        diagnostics = Config.Bind("Quantum Conveyors", "Diagnostics", legacy.Value, "Enable verbose troubleshooting logs.");
-        brainFart = Config.Bind("Quantum Conveyors", "Brain Fart Naming", false,
-            "This swaps the names of the adapters. Proper semantics is now optional.");
-
-        Assets.Unpack();
-        QuantumNetwork.Initialize(Log);
+        Conveyors.Config = Config; Conveyors.Log = Log;
+        Conveyors.Boot();
+        Running = new Conveyors(); Running.Start(null);
         ClassInjector.RegisterTypeInIl2Cpp<Driver>();
         var host = new GameObject("Quantum Conveyors"); UnityEngine.Object.DontDestroyOnLoad(host); host.AddComponent<Driver>();
-
-        Register(true, "quantumconveyors.output",
-            "Takes resources from the attached conveyor and sends them through the shared wireless Quantum Conveyors network.");
-        Register(false, "quantumconveyors.input",
-            "Receives resources from the shared wireless Quantum Conveyors network and places them on the attached conveyor.");
-        FrameworkPatches.Install(new Harmony(PluginGuid), Log);
-        Log.LogInfo($"{PluginName} {PluginVersion} loaded: {DisplayNameFor(true)} and {DisplayNameFor(false)} registered.");
     }
 
     // HTTP requests a mod that serves HTTP passes on to plugins (Http.cs): /quantum/... answered, anything else isn't
     // ours (null). Without such a mod nothing calls this.
+    public string HandleHttp(string method, string path, System.Collections.Specialized.NameValueCollection query, string body) => Http.Handle(method, path, query);
+    public string[] HttpHelp() => Http.Help;
+}
+
+// Everything Quantum Conveyors does, started and stopped as a whole. BepInEx starts it through Plugin. A loader that
+// reloads plugins in place while the game runs can use it directly: Boot() once at game start (it registers the two
+// adapter buildings, which MoonFramework only accepts then), Start(state) after loading, Update() and LateUpdate() every
+// frame, and Stop() before dropping a copy. On a reload the adapters' machines are swapped: Stop() saves each live
+// adapter machine (OnSave), stops it and gives its saved data back to MoonFramework; the new copy's Start() puts its own
+// machine factory on the two buildings and has MoonFramework create the new machines at once from that data. Channels and
+// groups live in the world's saved data and are read again; the flow counters start again.
+public sealed class Conveyors
+{
+    internal static ConfigFile Config;                                    // set by Plugin; otherwise opened here
+    internal static BepInEx.Logging.ManualLogSource Log;
+    const string SenderId = "quantumconveyors.output", ReceiverId = "quantumconveyors.input";
+    BepInEx.Logging.ManualLogSource ownLog;
+    Harmony harmony;
+
+    static void Settings()
+    {
+        var cfg = Config ?? new ConfigFile(System.IO.Path.Combine(Paths.ConfigPath, Plugin.PluginGuid + ".cfg"), true);
+        Plugin.adapterPrice = cfg.Bind("Quantum Conveyors", "Adapter Price", 5,
+            new ConfigDescription("Build price for each Quantum adapter in dollars.", new AcceptableValueRange<int>(1, 1000)));
+        var legacy = cfg.Bind("Quantum Conveyors", "Enable Diagnostics", false, "Renamed to Diagnostics.");   // 1.1.0's name
+        cfg.Remove(legacy.Definition);
+        Plugin.diagnostics = cfg.Bind("Quantum Conveyors", "Diagnostics", legacy.Value, "Enable verbose troubleshooting logs.");
+        Plugin.brainFart = cfg.Bind("Quantum Conveyors", "Brain Fart Naming", false,
+            "This swaps the names of the adapters. Proper semantics is now optional.");
+    }
+
+    // once, at game start: the two adapter buildings (their machines come from whichever copy is running, see Start)
+    public static void Boot()
+    {
+        Settings();
+        Assets.Unpack();
+        Register(true, SenderId,
+            "Takes resources from the attached conveyor and sends them through the shared wireless Quantum Conveyors network.");
+        Register(false, ReceiverId,
+            "Receives resources from the shared wireless Quantum Conveyors network and places them on the attached conveyor.");
+    }
+
+    public void Start(string state)
+    {
+        if (Log == null) { ownLog = BepInEx.Logging.Logger.CreateLogSource(Plugin.PluginName); Log = ownLog; }
+        Settings();
+        Assets.Unpack();
+        QuantumNetwork.Initialize(Log);
+        // this copy's machines from now on
+        foreach (var (id, sender) in new[] { (SenderId, true), (ReceiverId, false) })
+        {
+            var b = Moon.BuildingOf(id);
+            if (b != null) b.Spec.Machine = sender ? () => new QuantumOutputMachine() : () => new QuantumInputMachine();
+        }
+        harmony = new Harmony(Plugin.PluginGuid);
+        FrameworkPatches.Install(harmony, Log);
+        if (state != null) Framework.SyncNow();          // a reload: the new machines now, not at MoonFramework's next scan
+        Log.LogInfo($"{Plugin.PluginName} {Plugin.PluginVersion} {(state == null ? "loaded" : "reloaded")}: {Plugin.DisplayNameFor(true)} and {Plugin.DisplayNameFor(false)}.");
+    }
+
+    public string Stop()
+    {
+        harmony?.UnpatchSelf(); harmony = null;
+        int n = Framework.HandOver(SenderId, ReceiverId);
+        Framework.RemoveCrewHandlers(typeof(Conveyors).Assembly);
+        Menu.Stop();
+        Log?.LogInfo($"{Plugin.PluginName} stopped: {n} adapters handed over");
+        if (ownLog != null) { BepInEx.Logging.Logger.Sources.Remove(ownLog); ownLog = null; Log = null; }
+        return "reload";
+    }
+
+    // indicators (only what changed, timed states and belt changes), saved pending capsules, and the channel menu
+    bool failed;
+    public void Update()
+    {
+        if (failed) return;
+        try { Indicators.Frame(); QuantumNetwork.DeliverPending(); Menu.Update(); }
+        catch (Exception e) { QuantumNetwork.Log?.LogError("Quantum Conveyors update: " + e); failed = true; }
+    }
+    public void LateUpdate() { try { Menu.LateUpdate(); } catch { } }
+
     public string HandleHttp(string method, string path, System.Collections.Specialized.NameValueCollection query, string body) => Http.Handle(method, path, query);
     public string[] HttpHelp() => Http.Help;
 
@@ -71,7 +142,7 @@ public sealed class Plugin : BasePlugin
     // top of the body where a belt end meets them.
     static void Register(bool sender, string id, string description) => Moon.RegisterBuilding(new BuildingSpec
     {
-        Id = id, Name = DisplayNameFor(sender), Description = description, Category = "Logistics", Price = AdapterPrice,
+        Id = id, Name = Plugin.DisplayNameFor(sender), Description = description, Category = "Logistics", Price = Plugin.AdapterPrice,
         Body = VanillaKinds.Splitter, SaveAs = VanillaKinds.Splitter, ListAfter = VanillaKinds.Splitter,
         Picture = Assets.Picture(sender), Tint = Color.white,                   // white: no framework tint on the picture
         Footprint = new Vector2(0.32f, 0.32f), Height = 1.05f,
@@ -82,17 +153,10 @@ public sealed class Plugin : BasePlugin
     });
 }
 
-// one updater for everything per-frame: indicators (only what changed, timed states and belt changes), saved pending capsules,
-// and the channel menu
+// The BepInEx build's frame driver: calls Conveyors every frame. (A loader that drives Conveyors itself doesn't use it.)
 public sealed class Driver : MonoBehaviour
 {
     public Driver(IntPtr ptr) : base(ptr) { }
-    bool failed;
-    void Update()
-    {
-        if (failed) return;
-        try { Indicators.Frame(); QuantumNetwork.DeliverPending(); Menu.Update(); }
-        catch (Exception e) { QuantumNetwork.Log?.LogError("Quantum Conveyors update: " + e); failed = true; }
-    }
-    void LateUpdate() { try { Menu.LateUpdate(); } catch { } }
+    void Update() => Plugin.Running?.Update();
+    void LateUpdate() => Plugin.Running?.LateUpdate();
 }
