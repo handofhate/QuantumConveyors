@@ -37,6 +37,8 @@ internal static class Menu
     static CanvasGroup transitionGroup;
     static Text dragGhostLabel;
     static UnityEngine.UI.Button autoGroupButton;
+    static RectTransform autoHelp, autoTooltip;
+    static CanvasGroup autoTooltipGroup;
     sealed class DragRow
     {
         internal RectTransform Row; internal string ChannelId; internal string GroupId; internal bool RootDrop; internal string Section; internal string AnimationKey; internal string ParentKey; internal Image Background; internal Image DropHighlight;
@@ -60,6 +62,7 @@ internal static class Menu
     static readonly List<ArrowAnimation> arrowAnimations = new();
     static float transitionFadeUntil;
     static float scrollAnimationFrom, scrollAnimationTo, scrollAnimationUntil, scrollAnimationMax;
+    static string scrollAnchorKey;
     static string revealChannelId, revealGroupId;
     static RectTransform revealRow;
     static BaseInputModule prevModule; static bool prevModuleOn;
@@ -76,6 +79,7 @@ internal static class Menu
         if (canvas != null)
         {
             Cursor.lockState = CursorLockMode.None; Cursor.visible = true;
+            UpdateAutoGroupTooltip(mouse);
             if (mouse != null && mouse.rightButton.wasPressedThisFrame) { Close(); return; }
             if (kb != null && kb.escapeKey.wasPressedThisFrame) { Close(); return; }
             if (kb != null && kb.eKey.wasPressedThisFrame && !RenameFocused()) { Close(); return; }
@@ -129,6 +133,13 @@ internal static class Menu
     }
 
     static float Smooth(float t) => t * t * (3f - 2f * t);
+
+    static void UpdateAutoGroupTooltip(Mouse mouse)
+    {
+        if (autoHelp == null || autoTooltipGroup == null) return;
+        var show = mouse != null && RectTransformUtility.RectangleContainsScreenPoint(autoHelp, mouse.position.ReadValue(), null);
+        if (autoTooltipGroup.gameObject.activeSelf != show) autoTooltipGroup.gameObject.SetActive(show);
+    }
 
     static void QueueArrowAnimation(string key, bool wasOpen)
     {
@@ -213,13 +224,20 @@ internal static class Menu
         transitionGroup = transition.gameObject.AddComponent<CanvasGroup>(); transitionGroup.blocksRaycasts = false; transitionGroup.interactable = false;
         topFadeImage = AddFade(view, "TopFade", topFade, new Vector2(0, 134));
         bottomFadeImage = AddFade(view, "BottomFade", bottomFade, new Vector2(0, -134));
-        var autoPanel = Rect("AutoGroupPanel", win, new Vector2(580, 134), new Vector2(0, -215), PanelColor);
-        Label(autoPanel, "Auto Group", new Vector2(-88, 28), new Vector2(160, 30), 18, NameText, TextAnchor.MiddleCenter);
-        var explanation = Label(autoPanel,
+        var autoPanel = Rect("AutoGroupPanel", win, new Vector2(580, 60), new Vector2(0, -215), PanelColor);
+        Label(autoPanel, "Auto Group", new Vector2(-88, 10), new Vector2(160, 30), 18, NameText, TextAnchor.MiddleCenter);
+        autoHelp = Rect("AutoGroupHelp", autoPanel, new Vector2(28, 28), new Vector2(12, 10), ButtonColor);
+        var helpText = Label(autoHelp, "?", Vector2.zero, new Vector2(24, 24), 16, ChannelText, TextAnchor.MiddleCenter);
+        helpText.fontStyle = FontStyle.Bold;
+        autoGroupButton = Button(autoPanel, QuantumNetwork.AutoGroupOn ? "On" : "Off", new Vector2(88, 10), new Vector2(84, 34), ToggleAutoGroup, QuantumNetwork.AutoGroupOn);
+        autoTooltip = Rect("AutoGroupTooltip", win, new Vector2(540, 112), new Vector2(0, -145), RowColor);
+        var tooltipImage = autoTooltip.GetComponent<Image>(); if (tooltipImage != null) tooltipImage.raycastTarget = false;
+        autoTooltipGroup = autoTooltip.gameObject.AddComponent<CanvasGroup>(); autoTooltipGroup.blocksRaycasts = false; autoTooltipGroup.interactable = false;
+        var tooltipText = Label(autoTooltip,
             "While this is enabled, new channels will be nested inside matching groups if applicable. For example, channels 'Dust-Left' and 'Dust-Right' would become 'Left' and 'Right' inside a group called 'Dust'. 'Dust 1' and 'Dust 2' are recognized the same way, and would result in channels named '1' and '2' inside a 'Dust' group. This only applies to channels created while this setting is enabled and won't affect any channels created before turning on Auto Group or after turning it off.",
-            new Vector2(6, -27), new Vector2(467, 86), 12, Dim, TextAnchor.UpperLeft);
-        explanation.horizontalOverflow = HorizontalWrapMode.Wrap; explanation.verticalOverflow = VerticalWrapMode.Overflow;
-        autoGroupButton = Button(autoPanel, QuantumNetwork.AutoGroupOn ? "On" : "Off", new Vector2(88, 28), new Vector2(84, 34), ToggleAutoGroup, QuantumNetwork.AutoGroupOn);
+            Vector2.zero, new Vector2(514, 96), 13, ChannelText, TextAnchor.UpperLeft);
+        tooltipText.horizontalOverflow = HorizontalWrapMode.Wrap; tooltipText.verticalOverflow = VerticalWrapMode.Overflow;
+        autoTooltip.SetAsLastSibling(); autoTooltipGroup.gameObject.SetActive(false);
         Refresh();
         var es = EventSystem.current;
         if (es == null) { var go = new GameObject("Quantum Conveyors EventSystem"); es = go.AddComponent<EventSystem>(); UnityEngine.Object.DontDestroyOnLoad(go); }
@@ -374,17 +392,19 @@ internal static class Menu
         {
             var wasOpen = expandedGroups.Contains(dragCandidate.GroupId);
             if (wasOpen) expandedGroups.Remove(dragCandidate.GroupId);
-            else expandedGroups.Add(dragCandidate.GroupId);
+            else { expandedGroups.Add(dragCandidate.GroupId); scrollAnchorKey = "g:" + dragCandidate.GroupId; }
             QueueArrowAnimation("g:" + dragCandidate.GroupId, wasOpen);
         }
         else if (!dragging && dragCandidate.Section == "unassigned")
         {
             var wasOpen = unassignedExpanded; unassignedExpanded = !unassignedExpanded;
+            if (!wasOpen) scrollAnchorKey = "s:unassigned";
             QueueArrowAnimation("s:unassigned", wasOpen);
         }
         else if (!dragging && dragCandidate.Section == "ungrouped")
         {
             var wasOpen = ungroupedExpanded; ungroupedExpanded = !ungroupedExpanded;
+            if (!wasOpen) scrollAnchorKey = "s:ungrouped";
             QueueArrowAnimation("s:ungrouped", wasOpen);
         }
         ClearDragState(); Refresh();
@@ -622,7 +642,7 @@ internal static class Menu
                 var can = movingGroup == null || CanHold(gid, movingGroup);
                 if (can && (moving != null || movingGroup != gid)) Button(r, "Move here", new Vector2(180, 0), new Vector2(90, 34), () => MoveToGroup(gid), true);
                 var open = expandedGroups.Contains(gid);
-                AddArrow(r, "g:" + gid, open, () => { var wasOpen = expandedGroups.Contains(gid); if (wasOpen) expandedGroups.Remove(gid); else expandedGroups.Add(gid); QueueArrowAnimation("g:" + gid, wasOpen); Refresh(); });
+                AddArrow(r, "g:" + gid, open, () => { var wasOpen = expandedGroups.Contains(gid); if (wasOpen) expandedGroups.Remove(gid); else { expandedGroups.Add(gid); scrollAnchorKey = "g:" + gid; } QueueArrowAnimation("g:" + gid, wasOpen); Refresh(); });
                 if (open)
                 {
                     var childGroups = QuantumNetwork.ChildGroups(gid); var childChannels = QuantumNetwork.ChannelsIn(gid);
@@ -637,7 +657,7 @@ internal static class Menu
             else
             {
                 var open = expandedGroups.Contains(gid);
-                AddArrow(r, "g:" + gid, open, () => { var wasOpen = expandedGroups.Contains(gid); if (wasOpen) expandedGroups.Remove(gid); else expandedGroups.Add(gid); QueueArrowAnimation("g:" + gid, wasOpen); Refresh(); });
+                AddArrow(r, "g:" + gid, open, () => { var wasOpen = expandedGroups.Contains(gid); if (wasOpen) expandedGroups.Remove(gid); else { expandedGroups.Add(gid); scrollAnchorKey = "g:" + gid; } QueueArrowAnimation("g:" + gid, wasOpen); Refresh(); });
                 if (open)
                 {
                     var childGroups = QuantumNetwork.ChildGroups(gid); var childChannels = QuantumNetwork.ChannelsIn(gid);
@@ -686,13 +706,13 @@ internal static class Menu
         var unassigned = new List<ChannelSummary>();
         foreach (var c in QuantumNetwork.Summaries()) if (c.Outputs + c.Inputs == 0) unassigned.Add(c);
         unassigned.Sort((a, b) => QuantumNetwork.Natural(a.Name, b.Name));
-        RenderSpecial("Unassigned", "(" + unassigned.Count + " channels with no adapters)", unassignedExpanded, () => { var wasOpen = unassignedExpanded; unassignedExpanded = !unassignedExpanded; QueueArrowAnimation("s:unassigned", wasOpen); Refresh(); }, unassigned);
+        RenderSpecial("Unassigned", "(" + unassigned.Count + " channels with no adapters)", unassignedExpanded, () => { var wasOpen = unassignedExpanded; unassignedExpanded = !unassignedExpanded; if (!wasOpen) scrollAnchorKey = "s:unassigned"; QueueArrowAnimation("s:unassigned", wasOpen); Refresh(); }, unassigned);
 
         var ungrouped = new List<ChannelSummary>();
         foreach (var c in QuantumNetwork.Summaries())
             if (string.IsNullOrEmpty(QuantumNetwork.GroupOf(c.Id)) && c.Outputs + c.Inputs > 0) ungrouped.Add(c);
         ungrouped.Sort((a, b) => QuantumNetwork.Natural(a.Name, b.Name));
-        RenderSpecial("Not Grouped", "(" + ungrouped.Count + " channels with adapters outside folders)", ungroupedExpanded, () => { var wasOpen = ungroupedExpanded; ungroupedExpanded = !ungroupedExpanded; QueueArrowAnimation("s:ungrouped", wasOpen); Refresh(); }, ungrouped);
+        RenderSpecial("Not Grouped", "(" + ungrouped.Count + " channels with adapters outside folders)", ungroupedExpanded, () => { var wasOpen = ungroupedExpanded; ungroupedExpanded = !ungroupedExpanded; if (!wasOpen) scrollAnchorKey = "s:ungrouped"; QueueArrowAnimation("s:ungrouped", wasOpen); Refresh(); }, ungrouped);
 
         foreach (var gid in QuantumNetwork.ChildGroups(string.Empty)) RenderGroup(gid, 0);
         var maxScroll = Mathf.Max(0f, row * rowH - viewport.rect.height);
@@ -708,6 +728,9 @@ internal static class Menu
             targetScroll = Mathf.Clamp(targetScroll, 0f, maxScroll);
             revealRow = null; revealChannelId = revealGroupId = null;
         }
+        if (!string.IsNullOrEmpty(scrollAnchorKey) && newRows.TryGetValue(scrollAnchorKey, out var anchorRow) && maxScroll > previousMaxScroll && previousScroll >= previousMaxScroll - 1f)
+            targetScroll = Mathf.Clamp(-anchorRow.anchoredPosition.y, 0f, maxScroll);
+        scrollAnchorKey = null;
         if (animateNextRefresh && Mathf.Abs(previousScroll - targetScroll) > 0.01f)
         {
             scrollAnimationFrom = previousScroll; scrollAnimationTo = targetScroll; scrollAnimationMax = maxScroll;
@@ -866,6 +889,7 @@ internal static class Menu
         animateNextRefresh = true;
         if (!unassignedExpanded)
         {
+            scrollAnchorKey = "s:unassigned";
             QueueArrowAnimation("s:unassigned", false);
         }
         unassignedExpanded = true;
@@ -976,8 +1000,8 @@ internal static class Menu
         if (canvas != null) UnityEngine.Object.Destroy(canvas);
         canvas = null; raycaster = null; content = null; editing = string.Empty; moving = movingGroup = null;
         pendingNewChannel = pendingNewGroup = null; pendingNewChannelWasUnassignedExpanded = false; focusEditingChannel = string.Empty; pendingFocusField = null; autoGroupButton = null;
-        viewport = null; transition = null; transitionGroup = null; topFadeImage = bottomFadeImage = null;
-        rowAnimations.Clear(); arrowAnimations.Clear(); animatedArrows.Clear(); transitionFadeUntil = 0f; scrollAnimationUntil = 0f; animateNextRefresh = false;
+        viewport = null; transition = null; transitionGroup = null; autoHelp = autoTooltip = null; autoTooltipGroup = null; topFadeImage = bottomFadeImage = null;
+        rowAnimations.Clear(); arrowAnimations.Clear(); animatedArrows.Clear(); transitionFadeUntil = 0f; scrollAnimationUntil = 0f; scrollAnchorKey = null; animateNextRefresh = false;
         revealChannelId = revealGroupId = null; revealRow = null;
         ClearDragState(); dragRows.Clear();
         if (prevModule != null) prevModule.enabled = prevModuleOn; prevModule = null;
