@@ -311,7 +311,7 @@ internal static class Menu
         RenderSpecial("Unassigned", "(" + unassigned.Count + " channels with no adapters)", unassignedExpanded, () => { unassignedExpanded = !unassignedExpanded; Refresh(); }, unassigned);
 
         var ungrouped = QuantumNetwork.ChannelsIn(string.Empty);
-        RenderSpecial("Not grouped", "(" + ungrouped.Count + " channels outside folders)", ungroupedExpanded, () => { ungroupedExpanded = !ungroupedExpanded; Refresh(); }, ungrouped);
+        RenderSpecial("Not Grouped", "(" + ungrouped.Count + " channels outside folders)", ungroupedExpanded, () => { ungroupedExpanded = !ungroupedExpanded; Refresh(); }, ungrouped);
 
         foreach (var gid in QuantumNetwork.ChildGroups(string.Empty)) RenderGroup(gid, 0);
         var maxScroll = Mathf.Max(0f, row * rowH - 300f);
