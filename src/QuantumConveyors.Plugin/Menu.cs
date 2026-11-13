@@ -607,17 +607,20 @@ internal static class Menu
                 var field = Field(r, new Vector2(-145 + indent, 0), new Vector2(260, 34)); field.text = QuantumNetwork.ShortName(s.Id);
                 string id = s.Id;
                 if (focusEditingChannel == id) pendingFocusField = field;
-                Button(r, "Save", new Vector2(34, 0), new Vector2(76, 34), () => { if (QuantumNetwork.RenameChannel(id, field.text)) { if (pendingNewChannel == id) pendingNewChannel = null; editing = string.Empty; Refresh(); } }, true);
-                Button(r, "Cancel", new Vector2(130, 0), new Vector2(88, 34), () => CancelChannelEdit(id));
+                Button(r, "Save", new Vector2(28, 0), new Vector2(76, 34), () => { if (QuantumNetwork.RenameChannel(id, field.text)) { if (pendingNewChannel == id) pendingNewChannel = null; editing = string.Empty; Refresh(); } }, true);
+                Button(r, "Cancel", new Vector2(115, 0), new Vector2(88, 34), () => CancelChannelEdit(id));
                 return;
             }
             var t = Label(r, label + (chMine == s.Id ? "  <color=#FF7A2E>(this adapter)</color>" : "") + "  " + DimTag + "(" + Plugin.DisplayCounts(s.Outputs, s.Inputs) + ")</color></size>", new Vector2(-125 + indent, 0), new Vector2(260 - indent, 40), 15, NameText, TextAnchor.MiddleLeft);
             t.supportRichText = true;
             t.horizontalOverflow = HorizontalWrapMode.Overflow;
             string cid = s.Id;
-            Button(r, chMine == s.Id ? "Unassign" : "Assign", new Vector2(48, 0), new Vector2(86, 34), () => Toggle(cid));
-            Button(r, "Rename", new Vector2(140, 0), new Vector2(88, 34), () => { editing = "c:" + cid; Refresh(); });
-            Button(r, "Delete", new Vector2(231, 0), new Vector2(84, 34), () => { if (QuantumNetwork.DeleteChannel(cid)) { if (editing == "c:" + cid) editing = string.Empty; if (pendingNewChannel == cid) pendingNewChannel = null; Refresh(); } });
+            // Keep the channel controls on the same column as folder Delete. This
+            // leaves intentional breathing room on the right and makes every
+            // row's action columns line up.
+            Button(r, chMine == s.Id ? "Unassign" : "Assign", new Vector2(22, 0), new Vector2(86, 34), () => Toggle(cid));
+            Button(r, "Rename", new Vector2(114, 0), new Vector2(88, 34), () => { editing = "c:" + cid; Refresh(); });
+            Button(r, "Delete", new Vector2(205, 0), new Vector2(84, 34), () => { if (QuantumNetwork.DeleteChannel(cid)) { if (editing == "c:" + cid) editing = string.Empty; if (pendingNewChannel == cid) pendingNewChannel = null; Refresh(); } });
         }
 
         void RenderGroup(string gid, int depth)
@@ -628,10 +631,10 @@ internal static class Menu
             var indent = depth * 14;
             if (editing == "g:" + gid)
             {
-                var field = Field(r, new Vector2(-120 + indent, 0), new Vector2(235, 34)); field.text = QuantumNetwork.GroupName(gid);
+                var field = Field(r, new Vector2(-145 + indent, 0), new Vector2(260, 34)); field.text = QuantumNetwork.GroupName(gid);
                 string id = gid;
-                Button(r, "Save", new Vector2(34, 0), new Vector2(76, 34), () => { if (QuantumNetwork.RenameGroup(id, field.text)) { if (pendingNewGroup == id) pendingNewGroup = null; editing = string.Empty; Refresh(); } }, true);
-                Button(r, "Cancel", new Vector2(130, 0), new Vector2(88, 34), () => CancelGroupEdit(id));
+                Button(r, "Save", new Vector2(28, 0), new Vector2(76, 34), () => { if (QuantumNetwork.RenameGroup(id, field.text)) { if (pendingNewGroup == id) pendingNewGroup = null; editing = string.Empty; Refresh(); } }, true);
+                Button(r, "Cancel", new Vector2(115, 0), new Vector2(88, 34), () => CancelGroupEdit(id));
                 return;
             }
             counts.TryGetValue(gid, out var n);
@@ -878,9 +881,12 @@ internal static class Menu
     static void EnsureVisualAssets()
     {
         if (channelGradient != null) return;
-        roundedSprite = MakeRoundedSprite(128, 128, 12, "Quantum Rounded Surface");
-        buttonSprite = MakeRoundedSprite(128, 128, 6, "Quantum Button Surface");
-        circleSprite = MakeRoundedSprite(128, 128, 64, "Quantum Circle Surface");
+        // Generate these at 2x resolution. The menu is rendered at a reduced
+        // scale, so the extra source pixels make the anti-aliased corners and
+        // circular help buttons noticeably smoother.
+        roundedSprite = MakeRoundedSprite(256, 256, 24, "Quantum Rounded Surface");
+        buttonSprite = MakeRoundedSprite(256, 256, 12, "Quantum Button Surface");
+        circleSprite = MakeRoundedSprite(256, 256, 128, "Quantum Circle Surface");
         channelGradient = MakeGradient(new Color(1f, 0.478f, 0.180f, 0.22f), new Color(1f, 0.478f, 0.180f, 0f), "Quantum Channel Gradient");
         folderGradient = MakeGradient(new Color(0.110f, 0.133f, 0.196f, 0.24f), new Color(0.110f, 0.133f, 0.196f, 0f), "Quantum Folder Gradient");
         folderIcon = MakeIcon(true, new Color(0.110f, 0.133f, 0.196f, 1f), "Quantum Folder Icon");
@@ -890,7 +896,7 @@ internal static class Menu
 
     static Sprite MakeGradient(Color left, Color right, string name)
     {
-        const int width = 128, height = 64, radius = 12;
+        const int width = 256, height = 128, radius = 24;
         var texture = new Texture2D(width, height, TextureFormat.RGBA32, false) { name = name, filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp };
         var pixels = new Color[width * height];
         for (var y = 0; y < height; y++) for (var x = 0; x < width; x++)
@@ -922,7 +928,7 @@ internal static class Menu
 
     static Sprite MakeVerticalFade(bool top, string name)
     {
-        const int height = 32;
+        const int height = 64;
         var texture = new Texture2D(1, height, TextureFormat.RGBA32, false) { name = name, filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp };
         var pixels = new Color[height];
         for (var y = 0; y < height; y++)
@@ -952,30 +958,30 @@ internal static class Menu
 
     static Sprite MakeIcon(bool folder, Color color, string name)
     {
-        const int size = 24;
-        var texture = new Texture2D(size, size, TextureFormat.RGBA32, false) { name = name, filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp };
+        const int size = 48;
+        var texture = new Texture2D(size, size, TextureFormat.RGBA32, false) { name = name, filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp };
         var pixels = new Color[size * size];
         for (var i = 0; i < pixels.Length; i++) pixels[i] = Color.clear;
         void Put(int x, int y, Color value) { if (x >= 0 && x < size && y >= 0 && y < size) pixels[y * size + x] = value; }
         if (folder)
         {
-            for (var y = 6; y <= 18; y++) for (var x = 3; x <= 20; x++) Put(x, y, color);
-            for (var y = 18; y <= 20; y++) for (var x = 5; x <= 11; x++) Put(x, y, color);
-            for (var x = 4; x <= 10; x++) Put(x, 19, color);
+            for (var y = 12; y <= 36; y++) for (var x = 6; x <= 40; x++) Put(x, y, color);
+            for (var y = 36; y <= 40; y++) for (var x = 10; x <= 22; x++) Put(x, y, color);
+            for (var x = 8; x <= 20; x++) Put(x, 38, color);
         }
         else
         {
             // A compact radio/wireless symbol: a center point with two upward arcs.
-            for (var y = 17; y <= 20; y++) for (var x = 10; x <= 13; x++) Put(x, y, color);
-            for (var y = 12; y <= 18; y++) for (var x = 5; x <= 18; x++)
+            for (var y = 34; y <= 40; y++) for (var x = 20; x <= 26; x++) Put(x, y, color);
+            for (var y = 24; y <= 36; y++) for (var x = 10; x <= 36; x++)
             {
-                var dx = x - 11.5f; var dy = y - 18f; var distance = dx * dx + dy * dy;
-                if (distance >= 25f && distance <= 36f) Put(x, y, color);
+                var dx = x - 23.5f; var dy = y - 36f; var distance = dx * dx + dy * dy;
+                if (distance >= 100f && distance <= 144f) Put(x, y, color);
             }
-            for (var y = 8; y <= 17; y++) for (var x = 2; x <= 21; x++)
+            for (var y = 16; y <= 34; y++) for (var x = 4; x <= 44; x++)
             {
-                var dx = x - 11.5f; var dy = y - 18f; var distance = dx * dx + dy * dy;
-                if (distance >= 81f && distance <= 100f) Put(x, y, color);
+                var dx = x - 23.5f; var dy = y - 36f; var distance = dx * dx + dy * dy;
+                if (distance >= 324f && distance <= 400f) Put(x, y, color);
             }
         }
         texture.SetPixels(pixels); texture.Apply(false, true);
