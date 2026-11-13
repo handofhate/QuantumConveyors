@@ -283,22 +283,40 @@ internal static class Menu
     static void CreateDragGhost()
     {
         if (canvas == null || dragCandidate == null) return;
-        var text = !string.IsNullOrEmpty(dragCandidate.ChannelId)
-            ? QuantumNetwork.ShortName(dragCandidate.ChannelId)
-            : QuantumNetwork.GroupName(dragCandidate.GroupId);
-        dragGhost = Rect("Quantum Drag Preview", canvas.transform, new Vector2(230, 36), Vector2.zero, ButtonColor);
-        var image = dragGhost.GetComponent<Image>(); if (image != null) image.raycastTarget = false;
+        dragGhost = Rect("Quantum Drag Preview", canvas.transform, new Vector2(600, 46), Vector2.zero, null);
+        var image = dragGhost.gameObject.AddComponent<Image>();
+        image.sprite = !string.IsNullOrEmpty(dragCandidate.ChannelId) ? channelGradient : folderGradient;
+        image.color = Color.white; image.raycastTarget = false;
         var group = dragGhost.gameObject.AddComponent<CanvasGroup>(); group.alpha = 0.92f; group.blocksRaycasts = false;
-        dragGhostLabel = Label(dragGhost, (!string.IsNullOrEmpty(dragCandidate.ChannelId) ? "Channel: " : "Folder: ") + text,
-            Vector2.zero, new Vector2(214, 30), 15, ChannelText, TextAnchor.MiddleCenter);
+        if (!string.IsNullOrEmpty(dragCandidate.GroupId))
+        {
+            var iconRoot = Rect("Drag Folder Icon", dragGhost, new Vector2(22, 22), new Vector2(-270, 0), null);
+            var icon = iconRoot.gameObject.AddComponent<Image>(); icon.sprite = folderIcon; icon.preserveAspect = true; icon.raycastTarget = false;
+        }
+        dragGhostLabel = Label(dragGhost, DragGhostText(), new Vector2(-165, 0), new Vector2(185, 40), 15, NameText, TextAnchor.MiddleLeft);
+        dragGhostLabel.supportRichText = true;
         dragGhostLabel.raycastTarget = false;
         dragGhost.SetAsLastSibling();
+    }
+
+    static string DragGhostText()
+    {
+        if (!string.IsNullOrEmpty(dragCandidate.ChannelId))
+        {
+            foreach (var summary in QuantumNetwork.Summaries())
+                if (summary.Id == dragCandidate.ChannelId)
+                    return summary.Name + "  " + DimTag + "(" + Plugin.DisplayCounts(summary.Outputs, summary.Inputs) + ")</color></size>";
+            return QuantumNetwork.ShortName(dragCandidate.ChannelId);
+        }
+        var counts = QuantumNetwork.GroupCounts();
+        counts.TryGetValue(dragCandidate.GroupId, out var count);
+        return QuantumNetwork.GroupName(dragCandidate.GroupId) + "  " + DimTag + "(" + count.channels + " ch, " + count.adapters + " adapters)</color></size>";
     }
 
     static void UpdateDragGhost(Vector2 position)
     {
         if (dragGhost == null) return;
-        dragGhost.position = new Vector3(position.x + 18f, position.y - 18f, 0f);
+        dragGhost.position = new Vector3(position.x, position.y, 0f);
     }
 
     static void AutoScrollDuringDrag(Vector2 position)
