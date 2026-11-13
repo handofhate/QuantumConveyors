@@ -221,15 +221,15 @@ internal static class Menu
         headerHelp = Rect("HeaderHelp", win, new Vector2(28, 28), new Vector2(180, 250), ButtonColor);
         headerHelp.GetComponent<Image>().sprite = circleSprite; headerHelp.GetComponent<Image>().type = Image.Type.Sliced;
         var headerHelpText = Label(headerHelp, "?", Vector2.zero, new Vector2(24, 24), 16, ChannelText, TextAnchor.MiddleCenter); headerHelpText.fontStyle = FontStyle.Bold;
-        headerTooltip = Rect("HeaderTooltip", win, new Vector2(540, 132), new Vector2(0, 82), RowColor);
+        headerTooltip = Rect("HeaderTooltip", win, new Vector2(560, 248), new Vector2(0, 40), RowColor);
         var headerTooltipImage = headerTooltip.GetComponent<Image>(); if (headerTooltipImage != null) headerTooltipImage.raycastTarget = false;
         headerTooltipGroup = headerTooltip.gameObject.AddComponent<CanvasGroup>(); headerTooltipGroup.blocksRaycasts = false; headerTooltipGroup.interactable = false;
         var headerTooltipText = Label(headerTooltip,
-            "Quantum Conveyors sends capsules wirelessly between matching channels. Build a Quantum Input where capsules leave a belt and a Quantum Output where they should reappear. Press E on an adapter, create or choose a channel, then Assign it. Any number of inputs and outputs can share a channel. Drag channels and folders to organize them. In multiplayer, the host controls channel changes and transfers.",
-            Vector2.zero, new Vector2(514, 116), 13, ChannelText, TextAnchor.UpperLeft);
+            "Quantum Conveyors sends capsules wirelessly between matching quantum input and output adapters.\n\n1. Build a Quantum Input where capsules leave a belt and a Quantum Output where they should reappear.\n2. Press 'E' on an adapter, create a new channel or choose an existing one, and assign the adapter to that channel. Assign input and output adapters to the same channel to connect them together. Any number of inputs and outputs can share a channel.\n\nChannels and Groups below can be dragged and dropped to organize them as needed. Keep in mind that the list below is not a list of individual adapters, but rather a list of the associated channels that multiple adapters may be assigned to. In multiplayer, only the host can control channels and transfers.",
+            Vector2.zero, new Vector2(534, 226), 13, ChannelText, TextAnchor.UpperLeft);
         headerTooltipText.horizontalOverflow = HorizontalWrapMode.Wrap; headerTooltipText.verticalOverflow = VerticalWrapMode.Overflow;
         headerTooltip.SetAsLastSibling(); headerTooltipGroup.gameObject.SetActive(false);
-        viewport = Rect("ChannelViewport", win, new Vector2(620, 320), new Vector2(0, -15.5f), PanelColor);
+        viewport = Rect("ChannelViewport", win, new Vector2(620, 320), new Vector2(0, -23.5f), PanelColor);
         var view = viewport;
         view.gameObject.AddComponent<Mask>().showMaskGraphic = true;
         content = Rect("ChannelContent", view, new Vector2(600, 44), Vector2.zero, null);
@@ -611,8 +611,9 @@ internal static class Menu
                 Button(r, "Cancel", new Vector2(130, 0), new Vector2(88, 34), () => CancelChannelEdit(id));
                 return;
             }
-            var t = Label(r, label + (chMine == s.Id ? "  <color=#FF7A2E>(this adapter)</color>" : "") + "  " + DimTag + "(" + Plugin.DisplayCounts(s.Outputs, s.Inputs) + ")</color></size>", new Vector2(-165 + indent, 0), new Vector2(185 - indent, 40), 15, NameText, TextAnchor.MiddleLeft);
+            var t = Label(r, label + (chMine == s.Id ? "  <color=#FF7A2E>(this adapter)</color>" : "") + "  " + DimTag + "(" + Plugin.DisplayCounts(s.Outputs, s.Inputs) + ")</color></size>", new Vector2(-125 + indent, 0), new Vector2(260 - indent, 40), 15, NameText, TextAnchor.MiddleLeft);
             t.supportRichText = true;
+            t.horizontalOverflow = HorizontalWrapMode.Overflow;
             string cid = s.Id;
             Button(r, chMine == s.Id ? "Unassign" : "Assign", new Vector2(48, 0), new Vector2(86, 34), () => Toggle(cid));
             Button(r, "Rename", new Vector2(140, 0), new Vector2(88, 34), () => { editing = "c:" + cid; Refresh(); });
@@ -634,8 +635,9 @@ internal static class Menu
                 return;
             }
             counts.TryGetValue(gid, out var n);
-            var t = Label(r, QuantumNetwork.GroupName(gid) + (mineGroups.Contains(gid) ? "  <color=#FF7A2E>(this adapter)</color>" : "") + "  " + DimTag + "(" + CountPhrase(n.channels, "channel") + ", " + CountPhrase(n.adapters, "adapter") + ")</color></size>", new Vector2(-165 + indent, 0), new Vector2(185 - indent, 40), 15, NameText, TextAnchor.MiddleLeft);
+            var t = Label(r, QuantumNetwork.GroupName(gid) + (mineGroups.Contains(gid) ? "  <color=#FF7A2E>(this adapter)</color>" : "") + "  " + DimTag + "(" + CountPhrase(n.channels, "channel") + ", " + CountPhrase(n.adapters, "adapter") + ")</color></size>", new Vector2(-95 + indent, 0), new Vector2(320 - indent, 40), 15, NameText, TextAnchor.MiddleLeft);
             t.supportRichText = true;
+            t.horizontalOverflow = HorizontalWrapMode.Overflow;
             Button(r, "Rename", new Vector2(140, 0), new Vector2(86, 34), () => { editing = "g:" + gid; Refresh(); });
             Button(r, "Delete", new Vector2(230, 0), new Vector2(84, 34), () => { if (QuantumNetwork.DeleteGroup(gid)) { expandedGroups.Remove(gid); Refresh(); } });
             var open = expandedGroups.Contains(gid);
@@ -876,8 +878,8 @@ internal static class Menu
     static void EnsureVisualAssets()
     {
         if (channelGradient != null) return;
-        roundedSprite = MakeRoundedSprite(32, 32, 6, "Quantum Rounded Surface");
-        circleSprite = MakeRoundedSprite(32, 32, 16, "Quantum Circle Surface");
+        roundedSprite = MakeRoundedSprite(128, 128, 24, "Quantum Rounded Surface");
+        circleSprite = MakeRoundedSprite(128, 128, 64, "Quantum Circle Surface");
         channelGradient = MakeGradient(new Color(1f, 0.478f, 0.180f, 0.22f), new Color(1f, 0.478f, 0.180f, 0f), "Quantum Channel Gradient");
         folderGradient = MakeGradient(new Color(0.110f, 0.133f, 0.196f, 0.24f), new Color(0.110f, 0.133f, 0.196f, 0f), "Quantum Folder Gradient");
         folderIcon = MakeIcon(true, new Color(0.110f, 0.133f, 0.196f, 1f), "Quantum Folder Icon");
@@ -887,11 +889,15 @@ internal static class Menu
 
     static Sprite MakeGradient(Color left, Color right, string name)
     {
-        const int width = 64, height = 32, radius = 6;
+        const int width = 128, height = 64, radius = 12;
         var texture = new Texture2D(width, height, TextureFormat.RGBA32, false) { name = name, filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp };
         var pixels = new Color[width * height];
         for (var y = 0; y < height; y++) for (var x = 0; x < width; x++)
-            pixels[y * width + x] = InsideRoundedRect(x, y, width, height, radius) ? Color.Lerp(left, right, x / (float)(width - 1)) : Color.clear;
+        {
+            var alpha = RoundedAlpha(x + 0.5f, y + 0.5f, width, height, radius);
+            var colour = Color.Lerp(left, right, x / (float)(width - 1)); colour.a *= alpha;
+            pixels[y * width + x] = colour;
+        }
         texture.SetPixels(pixels); texture.Apply(false, true);
         return Sprite.Create(texture, new Rect(0, 0, width, height), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect, new Vector4(radius, radius, radius, radius));
     }
@@ -900,17 +906,17 @@ internal static class Menu
     {
         var texture = new Texture2D(width, height, TextureFormat.RGBA32, false) { name = name, filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp };
         var pixels = new Color[width * height];
-        for (var y = 0; y < height; y++) for (var x = 0; x < width; x++) pixels[y * width + x] = InsideRoundedRect(x, y, width, height, radius) ? Color.white : Color.clear;
+        for (var y = 0; y < height; y++) for (var x = 0; x < width; x++) pixels[y * width + x] = new Color(1f, 1f, 1f, RoundedAlpha(x + 0.5f, y + 0.5f, width, height, radius));
         texture.SetPixels(pixels); texture.Apply(false, true);
         return Sprite.Create(texture, new Rect(0, 0, width, height), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect, new Vector4(radius, radius, radius, radius));
     }
 
-    static bool InsideRoundedRect(int x, int y, int width, int height, int radius)
+    static float RoundedAlpha(float x, float y, float width, float height, float radius)
     {
-        var cx = Mathf.Clamp(x, radius, width - radius - 1);
-        var cy = Mathf.Clamp(y, radius, height - radius - 1);
-        var dx = x - cx; var dy = y - cy;
-        return dx * dx + dy * dy <= radius * radius;
+        var cx = Mathf.Clamp(x, radius, width - radius);
+        var cy = Mathf.Clamp(y, radius, height - radius);
+        var distance = Vector2.Distance(new Vector2(x, y), new Vector2(cx, cy));
+        return Mathf.Clamp01(radius + 0.75f - distance);
     }
 
     static Sprite MakeVerticalFade(bool top, string name)
