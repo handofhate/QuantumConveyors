@@ -9,6 +9,7 @@ Version 2.0.0
 - Added Auto Group by name. It is case-insensitive, only affects channels created while enabled, leaves older channels alone, and reuses matching groups when possible.
 - Reworked the configuration menu: full-row expansion, focused rename fields, correct creation cancellation, keyboard/input focus protection, E/Escape/right-click closing, help tooltips, improved status text, and a visual refresh matching the in-game Mod Manager.
 - Removed the old Move buttons; channels and folders are organized by dragging their rows.
+- Treated Unassigned and Not Grouped as non-movable virtual sections so dragging them cannot enter the folder drag-preview path or lock the game.
 - Refined E targeting so the adapter gateway is selectable without accidentally opening through nearby machines or objects.
 - Added native move-tool support so moved adapters can reconnect and resume their saved channel assignment.
 - Added proper build-menu preview images and embedded the model, textures, and previews in the single QuantumConveyors.dll file.

@@ -30,7 +30,7 @@ internal static class Menu
     static string pendingNewChannel, pendingNewGroup;
     static bool pendingNewChannelWasUnassignedExpanded;
     static InputField pendingFocusField;
-    static Sprite roundedSprite, buttonSprite, circleSprite, channelGradient, folderGradient, folderIcon, topFade, bottomFade;
+    static Sprite roundedSprite, buttonSprite, fieldSprite, circleSprite, channelGradient, folderGradient, folderIcon, topFade, bottomFade;
     static Image topFadeImage, bottomFadeImage;
     static RectTransform viewport, transition, dragGhost;
     static CanvasGroup transitionGroup;
@@ -355,7 +355,11 @@ internal static class Menu
         var position = mouse.position.ReadValue();
         if (mouse.leftButton.isPressed)
         {
-            if (!dragging && (position - dragStart).sqrMagnitude >= 64f)
+            // Unassigned and Not Grouped are virtual sections, not movable
+            // folders. They still need to receive a normal click so they can
+            // expand/collapse, but must never enter drag mode: they have no
+            // GroupId and would otherwise crash drag-preview text generation.
+            if (!dragging && dragCandidate.Section == null && (position - dragStart).sqrMagnitude >= 64f)
             {
                 dragging = true;
                 CreateDragGhost();
@@ -609,6 +613,7 @@ internal static class Menu
                 if (focusEditingChannel == id) pendingFocusField = field;
                 Button(r, "Save", new Vector2(28, 0), new Vector2(76, 34), () => { if (QuantumNetwork.RenameChannel(id, field.text)) { if (pendingNewChannel == id) pendingNewChannel = null; editing = string.Empty; Refresh(); } }, true);
                 Button(r, "Cancel", new Vector2(115, 0), new Vector2(88, 34), () => CancelChannelEdit(id));
+                AddEditingGapGuides(r, indent);
                 return;
             }
             var t = Label(r, label + (chMine == s.Id ? "  <color=#FF7A2E>(this adapter)</color>" : "") + "  " + DimTag + "(" + Plugin.DisplayCounts(s.Outputs, s.Inputs) + ")</color></size>", new Vector2(-125 + indent, 0), new Vector2(260 - indent, 40), 15, NameText, TextAnchor.MiddleLeft);
@@ -635,6 +640,7 @@ internal static class Menu
                 string id = gid;
                 Button(r, "Save", new Vector2(28, 0), new Vector2(76, 34), () => { if (QuantumNetwork.RenameGroup(id, field.text)) { if (pendingNewGroup == id) pendingNewGroup = null; editing = string.Empty; Refresh(); } }, true);
                 Button(r, "Cancel", new Vector2(115, 0), new Vector2(88, 34), () => CancelGroupEdit(id));
+                AddEditingGapGuides(r, indent);
                 return;
             }
             counts.TryGetValue(gid, out var n);
@@ -690,7 +696,7 @@ internal static class Menu
         foreach (var c in QuantumNetwork.Summaries())
             if (string.IsNullOrEmpty(QuantumNetwork.GroupOf(c.Id)) && c.Outputs + c.Inputs > 0) ungrouped.Add(c);
         ungrouped.Sort((a, b) => QuantumNetwork.Natural(a.Name, b.Name));
-        RenderSpecial("Not Grouped", "(" + CountPhrase(ungrouped.Count, "channel") + " with adapters outside folders)", ungroupedExpanded, () => { var wasOpen = ungroupedExpanded; ungroupedExpanded = !ungroupedExpanded; if (!wasOpen) scrollAnchorKey = "s:ungrouped"; QueueArrowAnimation("s:ungrouped", wasOpen); Refresh(); }, ungrouped);
+        RenderSpecial("Not Grouped", "(" + CountPhrase(ungrouped.Count, "channel") + " not assigned to a group)", ungroupedExpanded, () => { var wasOpen = ungroupedExpanded; ungroupedExpanded = !ungroupedExpanded; if (!wasOpen) scrollAnchorKey = "s:ungrouped"; QueueArrowAnimation("s:ungrouped", wasOpen); Refresh(); }, ungrouped);
 
         foreach (var gid in QuantumNetwork.ChildGroups(string.Empty)) RenderGroup(gid, 0);
         var maxScroll = Mathf.Max(0f, row * rowH - viewport.rect.height);
@@ -886,6 +892,7 @@ internal static class Menu
         // circular help buttons noticeably smoother.
         roundedSprite = MakeRoundedSprite(256, 256, 24, "Quantum Rounded Surface");
         buttonSprite = MakeRoundedSprite(256, 256, 12, "Quantum Button Surface");
+        fieldSprite = MakeRoundedSprite(256, 256, 6, "Quantum Field Surface");
         circleSprite = MakeRoundedSprite(256, 256, 128, "Quantum Circle Surface");
         channelGradient = MakeGradient(new Color(1f, 0.478f, 0.180f, 0.22f), new Color(1f, 0.478f, 0.180f, 0f), "Quantum Channel Gradient");
         folderGradient = MakeGradient(new Color(0.110f, 0.133f, 0.196f, 0.24f), new Color(0.110f, 0.133f, 0.196f, 0f), "Quantum Folder Gradient");
@@ -986,6 +993,17 @@ internal static class Menu
         }
         texture.SetPixels(pixels); texture.Apply(false, true);
         return Sprite.Create(texture, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 200f);
+    }
+
+    // Temporary visual guides for the rename-field/Save gap. The cyan and
+    // magenta bars mark the two actual RectTransform edges; the gap between
+    // them should match the other action-button gaps. Remove after visual QA.
+    static void AddEditingGapGuides(RectTransform row, int indent)
+    {
+        var fieldEdge = Rect("Guide Field Edge", row, new Vector2(2, 38), new Vector2(-15 + indent, 0), null);
+        var fieldImage = fieldEdge.gameObject.AddComponent<Image>(); fieldImage.color = new Color(0.05f, 0.85f, 1f, 0.85f); fieldImage.raycastTarget = false;
+        var saveEdge = Rect("Guide Save Edge", row, new Vector2(2, 38), new Vector2(-10 + indent, 0), null);
+        var saveImage = saveEdge.gameObject.AddComponent<Image>(); saveImage.color = new Color(1f, 0.12f, 0.75f, 0.85f); saveImage.raycastTarget = false;
     }
 
     static void Close()
@@ -1195,6 +1213,7 @@ internal static class Menu
     static InputField Field(Transform parent, Vector2 pos, Vector2 size)
     {
         var r = Rect("NameField", parent, size, pos, ButtonColor); var f = r.gameObject.AddComponent<InputField>();
+        var surface = r.GetComponent<Image>(); if (surface != null) { surface.sprite = fieldSprite; surface.type = Image.Type.Sliced; }
         f.targetGraphic = r.GetComponent<Image>();
         f.textComponent = Label(r, string.Empty, Vector2.zero, size - new Vector2(16, 4), 18, ChannelText, TextAnchor.MiddleLeft);
         f.textComponent.rectTransform.anchoredPosition = new Vector2(8, 0); f.characterLimit = 24;

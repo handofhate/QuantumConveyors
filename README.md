@@ -29,6 +29,7 @@ Walk up to an adapter and press **E**. The menu shows channel groups (folders) a
 - **Auto Group** files only channels created while it is enabled. Matching is case-insensitive: `Iron-Line-2` can become
   `Iron > Line` as `2`, and an existing matching folder is reused.
 - **Unassigned** lists channels with no adapters; **Not grouped** lists channels outside any group.
+- **Unassigned** and **Not grouped** are virtual sections for filtering, not movable folders.
 
 E, Escape, or right-click closes the menu. The adapter's light: green ready or working, yellow blinking when the channel has
 no adapter on the other side or the receiving belt is full, red when it's waiting for a channel or its belt is missing.

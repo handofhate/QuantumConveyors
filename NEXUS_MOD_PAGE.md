@@ -122,6 +122,7 @@ The menu shows channel groups (folders) and channels:
 - On a group: **Rename** and **Delete**. Deleting a group moves its contents up a level; no channel is deleted.
 - **Auto Group** files only channels created while enabled. Matching is case-insensitive, existing matching folders are reused, and older channels are not reorganized when the setting is enabled later.
 - **Unassigned** lists channels with no adapters; **Not grouped** lists channels outside any group.
+- **Unassigned** and **Not grouped** are virtual sections for filtering, not movable folders.
 - Drag channels and folders to organize them. **E**, **Escape**, or right-click closes the menu.
 
 Channel names are limited to 24 characters. Channel names are labels only; the actual channel identity is stored separately, so renaming a channel or moving it between groups does not break its connections.

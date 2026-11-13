@@ -158,6 +158,7 @@ The menu shows channel groups (folders) and channels:
 [*]On a group: [b]Rename[/b] and [b]Delete[/b]. Deleting a group moves its contents up a level; no channel is deleted.[/*]
 [*][b]Auto Group[/b] files only channels created while enabled. Matching is case-insensitive, existing matching folders are reused, and older channels are not reorganized when the setting is enabled later.[/*]
 [*][b]Unassigned[/b] lists channels with no adapters; [b]Not grouped[/b] lists channels outside any group.[/*]
+[*][b]Unassigned[/b] and [b]Not grouped[/b] are virtual sections for filtering, not movable folders.[/*]
 [*]Drag channels and folders to organize them. [b]E[/b], [b]Escape[/b], or right-click closes the menu.[/*]
 [/list]
 
