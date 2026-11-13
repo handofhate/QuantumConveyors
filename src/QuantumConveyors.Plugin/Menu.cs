@@ -28,6 +28,7 @@ internal static class Menu
     static readonly HashSet<string> expandedGroups = new(StringComparer.Ordinal);
     static bool unassignedExpanded, ungroupedExpanded;
     static string focusEditingChannel = string.Empty;
+    static InputField pendingFocusField;
     static Sprite channelGradient, folderGradient, folderIcon;
     static UnityEngine.UI.Button autoGroupButton;
     static BaseInputModule prevModule; static bool prevModuleOn;
@@ -159,6 +160,7 @@ internal static class Menu
     {
         if (content == null) return;
         for (int i = content.childCount - 1; i >= 0; i--) UnityEngine.Object.DestroyImmediate(content.GetChild(i).gameObject);
+        pendingFocusField = null;
         const float rowH = 52f;
         string what = moving != null ? "Move channel " + QuantumNetwork.ShortName(moving) : movingGroup != null ? "Move group " + QuantumNetwork.GroupName(movingGroup) : null;
         if (title != null) title.text = what != null ? what + " - pick a group" : "Quantum Conveyors";
@@ -190,6 +192,7 @@ internal static class Menu
             {
                 var field = Field(r, new Vector2(-145 + indent, 0), new Vector2(260, 34)); field.text = QuantumNetwork.ShortName(s.Id);
                 string id = s.Id;
+                if (focusEditingChannel == id) pendingFocusField = field;
                 Button(r, "Save", new Vector2(34, 0), new Vector2(76, 34), () => { if (QuantumNetwork.RenameChannel(id, field.text)) { editing = string.Empty; Refresh(); } }, true);
                 Button(r, "Cancel", new Vector2(130, 0), new Vector2(88, 34), () => { editing = string.Empty; Refresh(); });
                 return;
@@ -296,14 +299,13 @@ internal static class Menu
 
         if (!string.IsNullOrEmpty(focusEditingChannel))
         {
-            var field = content.GetComponentsInChildren<InputField>(true);
-            foreach (var candidate in field)
-                if (candidate.name == "NameField" && editing == "c:" + focusEditingChannel)
-                {
-                    var es = EventSystem.current;
-                    if (es != null) { es.SetSelectedGameObject(candidate.gameObject); candidate.ActivateInputField(); }
-                    break;
-                }
+            var es = EventSystem.current;
+            if (pendingFocusField != null && es != null)
+            {
+                es.SetSelectedGameObject(pendingFocusField.gameObject);
+                pendingFocusField.ActivateInputField();
+            }
+            pendingFocusField = null;
             focusEditingChannel = string.Empty;
         }
     }
