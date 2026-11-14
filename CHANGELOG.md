@@ -1,3 +1,7 @@
+Unreleased
+
+- Older versions' unpacked model files (BepInEx/cache/QuantumConveyors/<old version>/) are removed at start, so updates don't leave them behind.
+
 Version 2.1.2
 
 - Fixed hot disabling so adapter machines become inert instead of continuing wireless transfers after Quantum Conveyors is turned off.

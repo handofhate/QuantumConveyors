@@ -9,16 +9,18 @@ namespace QuantumConveyors;
 
 // The adapter's model, its textures and the build-menu pictures are carried inside QuantumConveyors.dll (Assets/ in the
 // source). MoonFramework reads them from files, so they are unpacked once per version into
-// BepInEx/cache/QuantumConveyors/<version>/ and handed to it by full path. Both adapters use the same gateway model,
-// turned to face their port.
+// BepInEx/cache/QuantumConveyors/<version>/ and handed to it by full path; older versions' folders are removed, so
+// updates don't leave them behind. Both adapters use the same gateway model, turned to face their port.
 internal static class Assets
 {
     internal static string Folder { get; private set; }
 
     internal static void Unpack()
     {
-        Folder = Path.Combine(Paths.CachePath, "QuantumConveyors", Plugin.PluginVersion);
+        var root = Path.Combine(Paths.CachePath, "QuantumConveyors");
+        Folder = Path.Combine(root, Plugin.PluginVersion);
         Directory.CreateDirectory(Folder);
+        RemoveOld(root);
         var asm = Assembly.GetExecutingAssembly();
         foreach (var name in asm.GetManifestResourceNames())
         {
@@ -30,6 +32,17 @@ internal static class Assets
             var tmp = path + ".tmp";
             using (var dst = File.Create(tmp)) src.CopyTo(dst);
             File.Move(tmp, path, true);
+        }
+    }
+
+    // every other version's folder under BepInEx/cache/QuantumConveyors/: nothing reads them once this version runs
+    static void RemoveOld(string root)
+    {
+        foreach (var dir in Directory.GetDirectories(root))
+        {
+            if (string.Equals(Path.GetFullPath(dir), Path.GetFullPath(Folder), StringComparison.OrdinalIgnoreCase)) continue;
+            try { Directory.Delete(dir, true); QuantumNetwork.Log?.LogInfo("removed the old unpacked files in " + Path.GetFileName(dir) + "/"); }
+            catch (Exception e) { QuantumNetwork.Log?.LogWarning("couldn't remove the old cache " + dir + ": " + e.Message); }
         }
     }
 
