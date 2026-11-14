@@ -58,6 +58,10 @@
   .lights span { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; vertical-align: -1px; }
   figure.shot { margin: 28px 0 0; }
   figure.shot img { display: block; width: 100%; height: auto; border-radius: 14px; border: 1px solid var(--line); }
+  .ll { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 14px; padding: 5px 12px 5px 8px; border-radius: 999px;
+        border: 1px solid #ff8a3d88; background: #ff8a3d1f; color: #ffc59c; font-size: 14px; font-weight: 600; text-decoration: none; }
+  .ll:hover { background: #ff8a3d33; }
+  .ll i { width: 9px; height: 9px; border-radius: 50%; background: #ff8a3d; box-shadow: 0 0 0 3px #ff8a3d40; }
   footer { margin-top: 56px; border-top: 1px solid var(--line); padding: 22px 0 40px; color: var(--dim); font-size: 14px; }
   footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 22px; }
   @media (max-width: 760px) { .hero svg.badge { width: 200px; height: 200px; right: -60px; top: -30px; opacity: .5; } }
@@ -74,6 +78,7 @@
     <path d="M78 112 Q100 92 122 112" fill="none" stroke="#ece9e2" stroke-width="4" stroke-linecap="round" opacity=".45"/>
   </svg>
   <div class="wrap">
+    <a class="ll" href="https://swheettaos.github.io/lunarlink/" title="Reload, turn off and update it in-game with LunarLink, no restart"><i></i>LunarLink compatible: hot reload and in-game updates</a>
     <h1>Quantum Conveyors</h1>
     <p class="lead">Wireless logistics for Moon Sweepers. Put two adapters on the same channel and capsules travel between them, with no belt in between. Built to stay fast with thousands of adapters.</p>
     <div class="btns">

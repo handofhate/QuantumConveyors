@@ -1,5 +1,7 @@
 # Quantum Conveyors
 
+> **LunarLink compatible.** Quantum Conveyors runs on its own, and with [LunarLink](https://swheettaos.github.io/lunarlink/) it runs hot: reload it, turn it off (unloaded from memory) and update it from the game's F9 window, with no restart. See [[With LunarLink]].
+
 **Wireless logistics for Moon Sweepers.** Two small adapters in the Building Tool's Logistics tab: a **Quantum Input**
 sits on the end of a belt and takes its capsules; a **Quantum Output** sits on the start of a belt and puts capsules on
 it. Put adapters on the same **channel** and capsules travel between them with no belt in between.
