@@ -15,11 +15,13 @@ Please back up your save before using any mods.
 ## What's new in 2.0
 
 - **Much faster on big bases:** +43% fps on a 1,480-adapter base (see Performance).
-- **Channel groups in the E menu:** put channels in folders, as deep as you like. New Group, and Open, Rename, Move and Delete on each group; channels can be moved between groups.
-- **Auto-group by name:** a switch in the menu that files channels by the names they already have (`Iron-Line-2` goes into `Iron > Line` as `2`).
+- **Channel groups in the E menu:** put channels in folders, as deep as you like. Folders expand inline, and channels or folders can be dragged between groups.
+- **Auto Group:** a switch that files only newly created channels by their names. Matching is case-insensitive; `Iron-Line-2` can become `Iron > Line` as `2`, and an existing matching folder is reused.
 - **Unassigned** lists channels with no adapters on them, and **Not grouped** lists channels outside any group.
-- **< Back** in the menu, and **Esc** closes it as well as E and right-click.
+- **A polished configuration menu:** scrolling, edge fades, drag auto-scroll, drop previews, animated expansion/collapse, focused rename fields, creation cancellation, help tooltips, and keyboard input protection.
+- **Drag organization:** the old Move buttons are gone; drag a channel or folder row to move it.
 - **E picks the adapter you're looking at:** within a few metres, with nothing in front of it, and not through a robot.
+- **Native move-tool support:** moved adapters can reconnect and resume their saved channel assignment.
 - **Simpler lights:** one steady or flashing light per adapter (see Status indicators). The halo and the spot light are gone; they cost a lot on big bases.
 - **One file:** the model, textures and preview images are inside QuantumConveyors.dll.
 - **No more dead inputs:** a Quantum Input whose conveyor ends a few millimetres from its port now takes capsules (in 1.x it could stay dead).
@@ -61,7 +63,7 @@ Measured with 1,480 adapters, 1.1.2 against 2.0:
 
 - **Adapter Price:** Build price for each adapter, from $1 to $1,000. Default: $5.
 - **Diagnostics:** Enables verbose troubleshooting logs. Disabled by default.
-- **Brain Fart Naming:** Swaps the adapter names to the historical Output/Input labels. Disabled by default.
+- **Brain Fart Naming:** This swaps the names of the adapters. Proper semantics is now optional. Disabled by default.
 
 ## Requirements
 
@@ -114,12 +116,14 @@ The output and input must be attached to conveyors. The wireless connection repl
 
 The menu shows channel groups (folders) and channels:
 
-- **New Channel** and **New Group** are made in the group you're looking at.
-- On a channel: **Assign** (or **Unassign**) this adapter, **Rename**, **Move** to another group, **Delete**.
-- On a group: **Open**, **Rename**, **Move**, **Delete** (what's inside moves up a level; no channel is deleted).
-- **Auto-group by name** files loose channels by the names they already have: `Iron-Line-2` goes into `Iron > Line` as `2`. A group is only made when at least two channels share it.
+- **New Channel** creates a channel and immediately opens its rename field. **New Group** creates a root-level folder.
+- Click anywhere on a folder row or its arrow to expand/collapse it. Folders can be nested to any depth.
+- On a channel: **Assign** (or **Unassign**) this adapter, **Rename**, and **Delete**.
+- On a group: **Rename** and **Delete**. Deleting a group moves its contents up a level; no channel is deleted.
+- **Auto Group** files only channels created while enabled. Matching is case-insensitive, existing matching folders are reused, and older channels are not reorganized when the setting is enabled later.
 - **Unassigned** lists channels with no adapters; **Not grouped** lists channels outside any group.
-- **< Back** goes up a level. **E**, **Esc** or right-click closes the menu.
+- **Unassigned** and **Not grouped** are virtual sections for filtering, not movable folders.
+- Drag channels and folders to organize them. **E**, **Escape**, or right-click closes the menu.
 
 Channel names are limited to 24 characters. Channel names are labels only; the actual channel identity is stored separately, so renaming a channel or moving it between groups does not break its connections.
 
@@ -140,7 +144,8 @@ Resource type compatibility is left to the receiving conveyor and game cargo rul
 | Solid red | Waiting for setup; the adapter has not been assigned to a channel |
 | Flashing red | Conveyor missing or unusable for the adapter's required connection |
 | Flashing yellow | No matching adapter is assigned to the same channel, or the destination/output belt is full |
-| Solid green | Ready, or sending/receiving |
+| Solid green | Ready to send or ready to receive |
+| Flashing green | Sending or receiving |
 
 The hover panel also shows the channel and a short operational status.
 
@@ -208,7 +213,6 @@ Yes. 2.0 uses the same building ids, saved data and channel names.
 
 ## Known issues and limitations
 
-- **Moving adapters:** The game's new move feature does not reliably resnap splitter/merger-style structures to a new conveyor location. If an adapter is moved away from its original conveyor, deleting and rebuilding it is currently the reliable workaround.
 - **Underlying splitter/merger clearance:** Although the visible Quantum adapter is an industrial gateway, the game evaluates its placement using the underlying splitter/merger footprint and overlap rules. An adapter may not fit directly against a merger, machine, or another structure if there is not enough clearance. A short conveyor segment or stub may be needed to give the adapter room to place. This can also occur when the conveyor segment being used at a machine is too short.
 - **Multiple inputs:** Multiple source belts can compete based on the game's update order. Fair round-robin source scheduling is planned.
 - **Game update compatibility:** Moon Sweepers updates can change internal APIs used by BepInEx, MoonFramework, conveyor handling, or save loading. A game update should be treated as untested until the mod is verified. 2.0's speed-ups are patches to MoonFramework; if MoonFramework changes, a patch that no longer fits is skipped (the log says so) and the adapters still work, more slowly.
@@ -262,7 +266,6 @@ Do not remove the mod from a save you care about without a backup. Without Quant
 ## Development roadmap
 
 - Fair round-robin scheduling across multiple source adapters
-- Adapter movement that resnaps to conveyor ports
 - Optional channel costs, power use, range, bandwidth, and limits
 - Optional priority routing
 - Broader multiplayer testing
