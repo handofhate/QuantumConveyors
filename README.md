@@ -17,6 +17,8 @@ Needs BepInEx 6 (IL2CPP) with the Moon Sweepers patcher, and MoonFramework.
 
 Saves from 1.x load unchanged: same building ids, saved data, channel names and crew messages.
 
+With Lunar Link installed, the mod can be hot-swapped without restarting the game and reports published GitHub releases in Lunar Link's Updates window. Place the DLL at `BepInEx/hot/QuantumConveyors.dll` for hot loading, and do not leave a second active copy in `BepInEx/plugins`.
+
 ## Use
 
 Walk up to an adapter and press **E**. The menu shows channel groups (folders) and channels:
