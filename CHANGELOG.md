@@ -1,3 +1,8 @@
+Version 2.1.0
+
+- Can be reloaded in place while the game runs, by a mod loader that reloads plugins: Conveyors starts and stops as a whole, the adapter buildings are registered once at game start (Boot), and on a reload each adapter's machine is saved, stopped and recreated by the new copy from the same saved data. Channels and groups carry over; nothing changes for players, and it still installs as a normal BepInEx plugin.
+- Answers HTTP requests for tools, through a public HandleHttp method (and lists them through HttpHelp), for mods that serve HTTP and pass requests on (nothing calls it otherwise): a summary (GET /quantum); channels, adapters and groups each with their own list and changes (create, rename, move, assign, delete); filing build-named channels into groups; and how much each channel moved lately, with the receivers that placed nothing (GET /quantum/flow). Changes work on the host only, as in the menu.
+
 Version 2.0.0
 
 - Rewritten the transport internals for large bases: capsules move when MoonFramework offers one, rather than every adapter doing work every frame. Quantum adapters are removed from MoonFramework's per-frame Tick, Animate, and power loops when the compatibility patches apply.

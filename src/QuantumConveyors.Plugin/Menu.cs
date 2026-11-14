@@ -257,7 +257,7 @@ internal static class Menu
         autoTooltip.SetAsLastSibling(); autoTooltipGroup.gameObject.SetActive(false);
         Refresh();
         var es = EventSystem.current;
-        if (es == null) { var go = new GameObject("Quantum Conveyors EventSystem"); es = go.AddComponent<EventSystem>(); UnityEngine.Object.DontDestroyOnLoad(go); }
+        if (es == null) { ownEventSystem = new GameObject("Quantum Conveyors EventSystem"); es = ownEventSystem.AddComponent<EventSystem>(); UnityEngine.Object.DontDestroyOnLoad(ownEventSystem); }
         prevModule = es.GetComponent<BaseInputModule>(); if (prevModule != null) { prevModuleOn = prevModule.enabled; prevModule.enabled = false; }
         Freeze();
     }
@@ -990,6 +990,15 @@ internal static class Menu
         }
         texture.SetPixels(pixels); texture.Apply(false, true);
         return Sprite.Create(texture, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 200f);
+    }
+
+    static GameObject ownEventSystem;
+
+    // Conveyors.Stop: the menu closes and the EventSystem it made goes
+    internal static void Stop()
+    {
+        if (canvas != null) Close();
+        if (ownEventSystem != null) { UnityEngine.Object.Destroy(ownEventSystem); ownEventSystem = null; }
     }
 
     static void Close()

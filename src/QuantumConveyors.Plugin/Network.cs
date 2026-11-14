@@ -261,6 +261,9 @@ public static partial class QuantumNetwork
         return list;
     }
 
+    internal static IEnumerable<QuantumOutputMachine> Senders => senders.Values;
+    internal static IEnumerable<QuantumInputMachine> Receivers => receivers.Values;
+
     // public, for other mods: every adapter's attached state by structure id
     public static Dictionary<long, bool> AttachedById()
     {

@@ -96,6 +96,7 @@ public static partial class QuantumNetwork
     }
 
     // ------------------------------------------------------------ paths and names
+    internal static IEnumerable<Group> AllGroups { get { EnsureLoaded(); return groups.Values; } }
     internal static string GroupName(string gid) => gid != null && groups.TryGetValue(gid, out var g) ? g.Name : null;
     internal static string GroupParent(string gid) => gid != null && groups.TryGetValue(gid, out var g) ? g.Parent : string.Empty;
     internal static string GroupPath(string gid)
