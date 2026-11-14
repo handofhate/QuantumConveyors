@@ -1,5 +1,7 @@
 # Quantum Conveyors
 
+[Website](https://handofhate.github.io/QuantumConveyors/) · [API](https://handofhate.github.io/QuantumConveyors/api.html) · [Wiki](https://github.com/handofhate/QuantumConveyors/wiki) · [Nexus Mods](https://www.nexusmods.com/moonsweepers/mods/68) · [Report a problem](https://github.com/handofhate/QuantumConveyors/issues/new/choose)
+
 Wireless logistics for Moon Sweepers.
 
 Quantum Conveyors adds two small adapters to the Building Tool's Logistics tab. A **Quantum Input** sits on the end of a

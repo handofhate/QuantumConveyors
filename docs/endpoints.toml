@@ -1,0 +1,146 @@
+# Details for every /quantum/ request: what it does, what it's for, its parameters, an example and an answer.
+# tools/api.py merges this with the requests in src/QuantumConveyors.Plugin/Http.cs (HttpHelp) and writes docs/api.html,
+# the searchable API page; tools/wiki.py writes the wiki's For Tools page from it. Example answers use made-up channels.
+#
+# group: Overview, Channels, Adapters or Groups. params: [name, type, default, meaning]. errors and notes: Markdown.
+
+["/quantum"]
+group = "Overview"
+about = "A summary of the whole Quantum network: how many channels, groups, outputs and inputs there are, how many capsules are waiting at Quantum Inputs, whether Auto Group is on, and the one-line status the log shows."
+use = "A quick health check from a script or dashboard: is the mod running, how big is the network, are capsules piling up (`pending`)."
+example = "GET /quantum"
+answer = '''
+{"ok": true, "channels": 12, "groups": 3, "outputs": 18, "inputs": 22, "pending": 4, "autoGroup": true,
+ "status": "Quantum networks: 12, 18 output(s), 22 input(s), 4 pending"}
+'''
+notes = ["`outputs` are the station-end adapters that put capsules on a belt; `inputs` take capsules off a belt's end.", "`pending` is capsules waiting at Quantum Inputs for a channel with room."]
+
+["/quantum/flow"]
+group = "Overview"
+about = "Per channel: how many capsules it moved in the last few minutes, its outputs and inputs, and the receiving adapters that placed nothing in that time (with \"(no belt)\" when one has no belt attached)."
+use = "Find a stalled line: a channel with `moved: 0`, or receivers in `idleReceivers`, usually means a full or missing belt at the far end, or nothing feeding it."
+params = [["minutes", "number", "5", "How far back to look, from 0.1 up to 10 minutes"]]
+example = "GET /quantum/flow?minutes=5"
+answer = '''
+{"ok": true, "minutes": 5, "channels": [
+  {"id": "channel-1", "name": "Iron > Line > 2", "moved": 340, "outputs": 1, "inputs": 2, "idleReceivers": []},
+  {"id": "channel-4", "name": "Copper", "moved": 0, "outputs": 1, "inputs": 1, "idleReceivers": ["45012 (no belt)"]}]}
+'''
+
+["/quantum/channels"]
+group = "Channels"
+about = "Every channel: its id, its full name (with its groups, \"Iron > Line > 2\"), its short name, the group it's in (id and path), and how many outputs and inputs are on it."
+use = "The list behind any tool that shows or changes channels, and the `channel` ids every channel and adapter change needs."
+example = "GET /quantum/channels"
+answer = '''
+{"ok": true, "channels": [
+  {"id": "channel-1", "name": "Iron > Line > 2", "short": "2", "group": "g3", "groupPath": "Iron > Line", "outputs": 1, "inputs": 2},
+  {"id": "channel-2", "name": "Spare", "short": "Spare", "group": null, "groupPath": "", "outputs": 0, "inputs": 0}]}
+'''
+
+["/quantum/channels/create"]
+group = "Channels"
+about = "A new channel. With `group=` it's made inside that group and named `name`. Without `group=`, a build-style name such as `Iron-Line-2` is filed into its groups (Iron > Line, as \"2\"), the same as Auto Group does; any other name is just the channel's name."
+use = "Setting up a base from a script: make a channel per production line, then put adapters on it with `/quantum/adapters/modify`."
+params = [["name", "text", "", "The channel's name, or a build name to file into groups"], ["group", "group id", "", "Make it inside this group (as `/quantum/groups` lists it)"]]
+example = "POST /quantum/channels/create?name=Iron-Line-2"
+answer = '''
+{"ok": true, "channel": "channel-7", "name": "Iron > Line > 2", "group": "g3"}
+'''
+errors = ["`only the host can create channels`, or `no group … , or not the host`: run it on the host's game."]
+
+["/quantum/channels/modify"]
+group = "Channels"
+about = "Rename a channel (`name=`), move it into a group (`group=`), or both. `group=` empty takes it out of every group."
+use = "Tidying a network from a script: rename channels after a rebuild, or file them into groups."
+params = [["channel", "channel id", "", "The channel (required)"], ["name", "text", "", "Its new name"], ["group", "group id", "", "Move it into this group; empty: out of every group"]]
+example = "POST /quantum/channels/modify?channel=channel-2&name=Spare%20iron&group=g1"
+answer = '''
+{"ok": true, "reason": null}
+'''
+errors = ["`channel= is required`", "`give name= to rename, or group= to move it`", "`ok: false` when the channel or group doesn't exist, or this isn't the host."]
+
+["/quantum/channels/remove"]
+group = "Channels"
+about = "Delete a channel. Its adapters are left without a channel."
+use = "Cleaning up channels nothing uses any more (`outputs` and `inputs` both 0 in `/quantum/channels`)."
+params = [["channel", "channel id", "", "The channel to delete"]]
+example = "POST /quantum/channels/remove?channel=channel-2"
+answer = '''
+{"ok": true, "reason": null}
+'''
+
+["/quantum/adapters"]
+group = "Adapters"
+about = "Every Quantum adapter: its structure id, building kind, role (an output at the station end, or an input at the machine end), position, its channel (id and name), and whether it's attached to a belt."
+use = "Finding adapters that aren't on a channel or aren't attached to a belt, or the `id` to put one on a channel."
+example = "GET /quantum/adapters"
+answer = '''
+{"ok": true, "adapters": [
+  {"id": 45010, "kind": 812, "role": "out (station end)", "pos": [12.4, 1992.1, -5.2], "channel": "channel-1", "channelName": "Iron > Line > 2", "attached": true},
+  {"id": 45012, "kind": 811, "role": "in (machine end)", "pos": [40.1, 1991.8, 3.7], "channel": null, "channelName": null, "attached": false}]}
+'''
+notes = ["`id` is the adapter's structure id, the same id other building tools use.", "`attached` is always true for outputs."]
+
+["/quantum/adapters/modify"]
+group = "Adapters"
+about = "Put an adapter on a channel, or take it off one with `channel=` empty: the same as Assign and Unassign in the adapter's menu."
+use = "Wiring a base from a script: after building the adapters, put each on its line's channel."
+params = [["id", "structure id", "", "The adapter (required)"], ["channel", "channel id", "", "The channel to put it on (required); empty takes it off"]]
+example = "POST /quantum/adapters/modify?id=45012&channel=channel-1"
+answer = '''
+{"ok": true, "reason": null, "channel": "channel-1"}
+'''
+errors = ["`id= is required (an adapter's structure id)`", "`channel= is required (empty takes the adapter off its channel)`"]
+
+["/quantum/groups"]
+group = "Groups"
+about = "Every group (folder): its id, name, parent, full path, and how many channels and adapters are inside it, counting its sub-groups."
+use = "Showing the menu's folder tree in a tool, or finding the `group` id for a channel or group change."
+example = "GET /quantum/groups"
+answer = '''
+{"ok": true, "groups": [
+  {"id": "g1", "name": "Iron", "parent": null, "path": "Iron", "channels": 3, "adapters": 7},
+  {"id": "g3", "name": "Line", "parent": "g1", "path": "Iron > Line", "channels": 2, "adapters": 4}]}
+'''
+
+["/quantum/groups/create"]
+group = "Groups"
+about = "A new group, at the top level or inside `parent`."
+use = "Building a folder layout from a script before filing channels into it."
+params = [["name", "text", "", "The group's name (required)"], ["parent", "group id", "", "Make it inside this group; empty or left out: top level"]]
+example = "POST /quantum/groups/create?name=Copper"
+answer = '''
+{"ok": true, "group": "g4", "path": "Copper"}
+'''
+errors = ["`name= is required`", "`couldn't create it (no such parent, or not the host)`"]
+
+["/quantum/groups/modify"]
+group = "Groups"
+about = "Rename a group (`name=`), move it under another group (`parent=`), or both. `parent=` empty moves it to the top level."
+use = "Reorganising the folder tree from a script."
+params = [["group", "group id", "", "The group (required)"], ["name", "text", "", "Its new name"], ["parent", "group id", "", "Move it inside this group; empty: top level"]]
+example = "POST /quantum/groups/modify?group=g3&parent="
+answer = '''
+{"ok": true, "reason": null}
+'''
+errors = ["`group= is required`", "`give name= to rename, or parent= to move it`"]
+
+["/quantum/groups/remove"]
+group = "Groups"
+about = "Delete a group. Its channels and sub-groups move up a level; no channel is deleted."
+use = "Flattening a folder you no longer need."
+params = [["group", "group id", "", "The group to delete"]]
+example = "POST /quantum/groups/remove?group=g3"
+answer = '''
+{"ok": true, "reason": null}
+'''
+
+["/quantum/groups/convert"]
+group = "Groups"
+about = "Files every channel that's outside a group and has a build-style name (such as `Iron-Line-2`) into its groups, as Auto Group would have if it had been on when they were made. Answers how many were filed."
+use = "A one-off tidy-up of an older base whose channels were made before Auto Group."
+example = "POST /quantum/groups/convert"
+answer = '''
+{"ok": true, "filed": 9}
+'''

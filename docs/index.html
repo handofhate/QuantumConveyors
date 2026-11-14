@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quantum Conveyors</title>
+<meta name="description" content="Wireless conveyor logistics for Moon Sweepers: capsules travel between adapters on the same channel, with no belt in between.">
+<meta property="og:title" content="Quantum Conveyors">
+<meta property="og:description" content="Wireless conveyor logistics for Moon Sweepers.">
+<meta property="og:image" content="https://handofhate.github.io/QuantumConveyors/nexus.jpg">
+<style>
+  :root { --bg: #f6f5f1; --panel: #ffffff; --ink: #1c2230; --dim: #6b6a66; --line: #e2e0da; --accent: #d9601a;
+          --accent-soft: #fbe7da; --code: #f0eee8; --hero1: #1c2230; --hero2: #2b3242; --get: #2f7d4a; --post: #b4531a; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #15171c; --panel: #1e2128; --ink: #ece9e2; --dim: #9a978f; --line: #2c3039; --accent: #ff8a3d;
+            --accent-soft: #3a2518; --code: #191b21; --hero1: #0f1115; --hero2: #1b1f27; --get: #6fcf8e; --post: #ffa25e; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  a { color: var(--accent); }
+  code { font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--code); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 16px; }
+  header.hero { background: linear-gradient(160deg, var(--hero1), var(--hero2)); color: #ece9e2; position: relative; overflow: hidden; }
+  .hero .wrap { padding-top: 56px; padding-bottom: 64px; position: relative; z-index: 1; }
+  .hero svg.badge { position: absolute; right: -30px; top: -10px; width: 340px; height: 340px; z-index: 0; }
+  .hero h1 { font-size: clamp(34px, 7vw, 54px); margin: 0 0 8px; letter-spacing: -0.02em; }
+  .hero p.lead { font-size: clamp(17px, 2.4vw, 21px); max-width: 640px; margin: 0 0 28px; color: #c9c5bc; }
+  .btns { display: flex; flex-wrap: wrap; gap: 10px; }
+  .btn { display: inline-block; padding: 10px 18px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px; border: 1px solid #ffffff33; color: #ece9e2; }
+  .btn.main { background: #ff8a3d; border-color: #ff8a3d; color: #1c2230; }
+  .btn:hover { filter: brightness(1.1); }
+  section { padding: 48px 0 8px; }
+  section.keys { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; padding-top: 28px; }
+  .key { border-left: 3px solid var(--accent); background: var(--panel); border-radius: 0 10px 10px 0; padding: 12px 14px; color: var(--dim); font-size: 15px; min-width: 0; }
+  .key b { display: block; color: var(--ink); font-size: 16px; margin-bottom: 4px; }
+  h2 { font-size: 26px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .sub { color: var(--dim); margin: 0 0 22px; max-width: 720px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
+  .cards > * { min-width: 0; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px 18px 16px; }
+  .card h3 { margin: 0 0 6px; font-size: 17px; }
+  .card p { margin: 0; color: var(--dim); font-size: 15px; }
+  .card .tag { display: inline-block; font: 600 11px ui-monospace, monospace; letter-spacing: .04em; text-transform: uppercase; color: var(--accent); background: var(--accent-soft); border-radius: 4px; padding: 2px 6px; margin-bottom: 10px; }
+  a.card { text-decoration: none; color: inherit; transition: border-color .15s; }
+  a.card:hover { border-color: var(--accent); }
+  .diagram { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px; overflow-x: auto; }
+  .diagram pre.mermaid { margin: 0; background: none; text-align: center; }
+  ol.steps { list-style: none; counter-reset: s; padding: 0; margin: 0; display: grid; gap: 12px; }
+  ol.steps li { min-width: 0; counter-increment: s; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px 14px 58px; position: relative; }
+  ol.steps li::before { content: counter(s); position: absolute; left: 16px; top: 13px; width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 700; display: grid; place-items: center; font-size: 14px; }
+  ol.steps b { display: block; margin-bottom: 2px; }
+  table { border-collapse: collapse; width: 100%; font-size: 15px; }
+  td, th { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--dim); font-weight: 600; font-size: 13px; }
+  .tablebox { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow-x: auto; }
+  .big { font-size: 15px; } .big td:last-child { font-weight: 700; white-space: nowrap; }
+  .m { font: 700 12px ui-monospace, monospace; } .m.get { color: var(--get); } .m.post { color: var(--post); }
+  .lights span { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; vertical-align: -1px; }
+  figure.shot { margin: 28px 0 0; }
+  figure.shot img { display: block; width: 100%; height: auto; border-radius: 14px; border: 1px solid var(--line); }
+  footer { margin-top: 56px; border-top: 1px solid var(--line); padding: 22px 0 40px; color: var(--dim); font-size: 14px; }
+  footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 22px; }
+  @media (max-width: 760px) { .hero svg.badge { width: 200px; height: 200px; right: -60px; top: -30px; opacity: .5; } }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <svg class="badge" viewBox="0 0 200 200" aria-hidden="true">
+    <circle cx="100" cy="100" r="70" fill="none" stroke="#ff8a3d" stroke-width="3" stroke-dasharray="6 8" opacity=".5"/>
+    <rect x="22" y="80" width="40" height="40" rx="8" fill="#ff8a3d" opacity=".85"/>
+    <rect x="138" y="80" width="40" height="40" rx="8" fill="#ff8a3d" opacity=".85"/>
+    <path d="M70 100 Q100 70 130 100" fill="none" stroke="#ece9e2" stroke-width="4" stroke-linecap="round" opacity=".7"/>
+    <path d="M78 112 Q100 92 122 112" fill="none" stroke="#ece9e2" stroke-width="4" stroke-linecap="round" opacity=".45"/>
+  </svg>
+  <div class="wrap">
+    <h1>Quantum Conveyors</h1>
+    <p class="lead">Wireless logistics for Moon Sweepers. Put two adapters on the same channel and capsules travel between them, with no belt in between. Built to stay fast with thousands of adapters.</p>
+    <div class="btns">
+      <a class="btn main" href="https://github.com/handofhate/QuantumConveyors/releases/latest">Download</a>
+      <a class="btn" href="https://www.nexusmods.com/moonsweepers/mods/68">Nexus Mods</a>
+      <a class="btn" href="https://github.com/handofhate/QuantumConveyors/wiki">Wiki</a>
+      <a class="btn" href="api.html">API</a>
+      <a class="btn" href="https://github.com/handofhate/QuantumConveyors">GitHub</a>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+<figure class="shot"><img src="nexus.jpg" alt="Quantum Conveyors, from its Nexus Mods page" loading="eager"></figure>
+
+<section class="keys">
+  <div class="key"><b>Two small adapters</b>A Quantum Input takes capsules off a belt's end; a Quantum Output puts them on a belt. Both in the Building Tool's Logistics tab.</div>
+  <div class="key"><b>One file</b>The whole mod is one DLL: model, textures and pictures are inside it.</div>
+  <div class="key"><b>Fast with big bases</b>No work per adapter per frame: +43% fps with 1,480 adapters compared to 1.1.2.</div>
+  <div class="key"><b>Hot with LunarLink</b>Optional: with LunarLink it reloads and updates in place, no restart, and answers HTTP requests.</div>
+</section>
+
+<section>
+  <h2>What it does</h2>
+  <div class="cards">
+    <div class="card"><span class="tag">Channels</span><h3>Any number of each</h3><p>A channel can have any number of inputs and outputs. The outputs take turns, and a full receiving belt is skipped.</p></div>
+    <div class="card"><span class="tag">The E menu</span><h3>Channels and folders</h3><p>Walk up to an adapter and press E: create, rename and assign channels, and organise them into nested groups with drag and drop.</p></div>
+    <div class="card"><span class="tag">Auto Group</span><h3>Names file themselves</h3><p>Name channels like <code>Iron-Line-2</code> and they're filed into Iron &gt; Line as "2", reusing folders that already exist.</p></div>
+    <div class="card"><span class="tag">Lights</span><h3>See it at a glance</h3><p class="lights"><span style="background:#4caf50"></span>ready or working<br><span style="background:#e3b23c"></span>blinking: nothing on the other side, or the belt is full<br><span style="background:#d9483b"></span>no channel, or no belt</p></div>
+    <div class="card"><span class="tag">Crew games</span><h3>The host moves capsules</h3><p>Channel changes made by the host reach everyone. Saves from 1.x load unchanged.</p></div>
+    <div class="card"><span class="tag">Updates</span><h3>In-game, with LunarLink</h3><p>It names its GitHub releases, so LunarLink's F9 UPDATES tab installs new versions in place.</p></div>
+  </div>
+</section>
+
+<section>
+  <h2>How capsules travel</h2>
+  <p class="sub">A belt runs into a Quantum Input; a Quantum Output starts a belt somewhere else. Same channel, and the capsules jump across.</p>
+  <div class="diagram"><pre class="mermaid">
+flowchart LR
+  subgraph here["Where the capsules are made"]
+    belt1["A belt"] --> qi["Quantum Input<br/>(takes capsules<br/>off the belt's end)"]
+  end
+  qi -- "channel Iron > Line > 2" --> ch(("Channel"))
+  subgraph there["Where they're needed"]
+    qo1["Quantum Output"] --> b2["A belt"]
+    qo2["Quantum Output"] --> b3["A belt"]
+  end
+  ch -- "outputs take turns" --> qo1
+  ch --> qo2
+</pre></div>
+</section>
+
+<section>
+  <h2>Built for big bases</h2>
+  <p class="sub">2.0 rewrote 1.x's internals so nothing runs per adapter per frame: capsules move when MoonFramework offers one, each channel keeps its own lists, and a full channel isn't asked again until the next pass. Measured with 1,480 adapters, against 1.1.2:</p>
+  <div class="tablebox"><table class="big">
+    <tr><th>Measure</th><th>Change</th></tr>
+    <tr><td>Frames per second</td><td>+43%</td></tr>
+    <tr><td>Whole frame</td><td>-30%</td></tr>
+    <tr><td>Game and mod scripts</td><td>-35%</td></tr>
+    <tr><td>MoonFramework driver (all framework machines)</td><td>-54%</td></tr>
+    <tr><td>Capsule hand-offs</td><td>-41%</td></tr>
+    <tr><td>Power step</td><td>-35%</td></tr>
+    <tr><td>Adapters' per-frame Tick</td><td>-100%</td></tr>
+  </table></div>
+  <p style="margin-top:14px">Each MoonFramework patch fails closed: if MoonFramework changes, that patch is skipped, the log says so, and the adapters still work the slow way. <a href="https://github.com/handofhate/QuantumConveyors/wiki/How-It-Works">How it works →</a></p>
+</section>
+
+<section>
+  <h2>Install</h2>
+  <ol class="steps">
+    <li><b>Install BepInEx 6, the Moon Sweepers patcher and MoonFramework</b><a href="https://builds.bepinex.dev/projects/bepinex_be">BepInEx 6.0.0-be.791</a> (Unity.IL2CPP, win-x64), the <a href="https://www.nexusmods.com/moonsweepers/mods/9">MoonSweepers BepInEx Patcher</a>, and MoonFramework; run the game once.</li>
+    <li><b>Download it</b>From <a href="https://www.nexusmods.com/moonsweepers/mods/68">Nexus Mods</a> or the <a href="https://github.com/handofhate/QuantumConveyors/releases/latest">latest GitHub release</a>.</li>
+    <li><b>Put the DLL in place, with the game closed</b><code>BepInEx/plugins/QuantumConveyors/QuantumConveyors.dll</code>. That one file is the whole mod. Updating from 1.x: delete the folder's other files (models, pictures).</li>
+    <li><b>Start the game</b>The adapters are in the Building Tool's Logistics tab.</li>
+  </ol>
+</section>
+
+<section>
+  <h2>On its own, or hot with LunarLink</h2>
+  <p class="sub"><b>Quantum Conveyors runs on its own</b>: a normal BepInEx plugin. <b>With <a href="https://swheettaos.github.io/lunarlink/">LunarLink</a></b>, a free plugin that loads plugins from <code>BepInEx/hot/</code>, it reloads and updates while the game runs, and tools can drive it over HTTP.</p>
+  <div class="tablebox"><table>
+    <tr><th></th><th>On its own</th><th>With LunarLink</th></tr>
+    <tr><td><b>Install it in</b></td><td><code>BepInEx/plugins/QuantumConveyors/</code></td><td><code>BepInEx/hot/QuantumConveyors.dll</code> (straight in, not in a subfolder)</td></tr>
+    <tr><td><b>Updating</b></td><td>Download, close the game, replace the DLL, start again</td><td>F9 → UPDATES → <b>Update</b>: installed in place, <b>no restart</b>. Every adapter's machine is swapped for the new copy's, from the same saved data</td></tr>
+    <tr><td><b>Turning it off</b></td><td>Remove the DLL, restart</td><td>F9 → HOT PLUGINS → <b>Disable</b>: transfers stop and it's unloaded from memory</td></tr>
+    <tr><td><b>Scripts and tools</b></td><td>-</td><td><a href="api.html">HTTP requests under <code>/quantum/</code></a>: channels, adapters, groups, and how much each channel moved</td></tr>
+  </table></div>
+  <p style="margin-top:14px">Not in both folders: a plugin in both would load twice, so LunarLink refuses the hot copy. Changing the adapters themselves (model, ports, price, names) still needs a game restart.</p>
+</section>
+
+<section>
+  <h2>For tools: HTTP requests</h2>
+  <p class="sub">With a mod that passes HTTP requests on to plugins, such as LunarLink (<code>127.0.0.1:8765</code>), Quantum Conveyors answers under <code>/quantum/</code>. Reads are GET; changes are POST and work on the host only.</p>
+  <div class="tablebox"><table>
+    <tr><td><span class="m get">GET</span> <code>/quantum</code></td><td>Summary: channels, groups, inputs, outputs, capsules pending</td></tr>
+    <tr><td><span class="m get">GET</span> <code>/quantum/flow</code></td><td>Per channel: capsules moved lately, and receivers that placed none</td></tr>
+    <tr><td><span class="m get">GET</span> <code>/quantum/channels</code> · <code>/adapters</code> · <code>/groups</code></td><td>Every channel, adapter and group</td></tr>
+    <tr><td><span class="m post">POST</span> <code>/quantum/channels/…</code> · <code>/adapters/modify</code> · <code>/groups/…</code></td><td>Create, rename, move, assign and delete, as the menu does</td></tr>
+  </table></div>
+  <p style="margin-top:14px"><a href="api.html">Every request, searchable, with examples →</a></p>
+</section>
+
+<section>
+  <h2>Read more</h2>
+  <div class="cards">
+    <a class="card" href="https://github.com/handofhate/QuantumConveyors/wiki"><h3>The wiki</h3><p>Installing, the menu, Auto Group, settings, crew games, troubleshooting.</p></a>
+    <a class="card" href="api.html"><h3>API</h3><p>The <code>/quantum/</code> requests: what each is for, parameters, example answers.</p></a>
+    <a class="card" href="https://github.com/handofhate/QuantumConveyors/blob/main/CHANGELOG.md"><h3>Changelog</h3><p>What changed in each version.</p></a>
+    <a class="card" href="https://www.nexusmods.com/moonsweepers/mods/68"><h3>Nexus Mods</h3><p>Downloads, posts and endorsements.</p></a>
+    <a class="card" href="https://swheettaos.github.io/lunarlink/"><h3>LunarLink</h3><p>Run it hot: reload and update in place, no restart.</p></a>
+    <a class="card" href="https://github.com/handofhate/QuantumConveyors/issues/new/choose"><h3>Report a problem</h3><p>Bug reports, feature requests and questions.</p></a>
+  </div>
+</section>
+
+</main>
+
+<footer><div class="wrap">
+  <span>Quantum Conveyors by Ty (hand-of-hate)</span>
+  <a href="https://github.com/handofhate/QuantumConveyors">Source</a>
+  <a href="https://www.nexusmods.com/moonsweepers/mods/68">Nexus Mods</a>
+</div></footer>
+
+<script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs";
+  const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+  mermaid.initialize({ startOnLoad: true, theme: dark ? "dark" : "neutral", fontFamily: "system-ui, sans-serif" });
+</script>
+</body>
+</html>
