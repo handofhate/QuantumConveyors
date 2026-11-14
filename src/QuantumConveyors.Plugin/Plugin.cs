@@ -25,7 +25,7 @@ public sealed class Plugin : BasePlugin
 {
     public const string PluginGuid = "tylerun.moonsweepers.quantumconveyors";
     public const string PluginName = "Quantum Conveyors";
-    public const string PluginVersion = "2.1.0";
+    public const string PluginVersion = "2.1.1";
 
     internal static ConfigEntry<int> adapterPrice;
     internal static ConfigEntry<bool> diagnostics, brainFart;
@@ -56,6 +56,7 @@ public sealed class Plugin : BasePlugin
     // ours (null). Without such a mod nothing calls this.
     public string HandleHttp(string method, string path, System.Collections.Specialized.NameValueCollection query, string body) => Http.Handle(method, path, query);
     public string[] HttpHelp() => Http.Help;
+    public string UpdateFeed() => "github:handofhate/QuantumConveyors";
 }
 
 // Everything Quantum Conveyors does, started and stopped as a whole. BepInEx starts it through Plugin. A loader that
@@ -124,6 +125,8 @@ public sealed class Conveyors
         if (ownLog != null) { BepInEx.Logging.Logger.Sources.Remove(ownLog); ownLog = null; Log = null; }
         return "reload";
     }
+
+    public string UpdateFeed() => "github:handofhate/QuantumConveyors";
 
     // indicators (only what changed, timed states and belt changes), saved pending capsules, and the channel menu
     bool failed;

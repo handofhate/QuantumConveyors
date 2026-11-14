@@ -1,3 +1,8 @@
+Version 2.1.1
+
+- Added Lunar Link's GitHub release update feed so the mod can report and install published updates in-game.
+- Added the Quantum Conveyors archive to GitHub Releases while keeping the existing Nexus upload workflow.
+
 Version 2.1.0
 
 - Can be reloaded in place while the game runs, by a mod loader that reloads plugins: Conveyors starts and stops as a whole, the adapter buildings are registered once at game start (Boot), and on a reload each adapter's machine is saved, stopped and recreated by the new copy from the same saved data. Channels and groups carry over; nothing changes for players, and it still installs as a normal BepInEx plugin.
