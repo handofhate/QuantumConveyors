@@ -25,7 +25,7 @@ public sealed class Plugin : BasePlugin
 {
     public const string PluginGuid = "tylerun.moonsweepers.quantumconveyors";
     public const string PluginName = "Quantum Conveyors";
-    public const string PluginVersion = "2.1.2";
+    public const string PluginVersion = "2.1.3";
 
     internal static ConfigEntry<int> adapterPrice;
     internal static ConfigEntry<bool> diagnostics, brainFart;

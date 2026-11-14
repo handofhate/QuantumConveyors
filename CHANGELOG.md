@@ -1,3 +1,7 @@
+Version 2.1.3
+
+- Removed unpacked model and preview files from older Quantum Conveyors cache folders when the mod starts.
+
 Version 2.1.2
 
 - Fixed hot disabling so adapter machines become inert instead of continuing wireless transfers after Quantum Conveyors is turned off.
