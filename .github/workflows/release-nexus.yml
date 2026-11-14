@@ -43,6 +43,16 @@ jobs:
           }
           "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
+      - name: Configure the local .NET SDK
+        shell: pwsh
+        run: |
+          $dotnet = 'C:\Users\Ty\.codex\dotnet-sdk'
+          if (-not (Test-Path (Join-Path $dotnet 'dotnet.exe'))) {
+            throw "The expected local .NET SDK was not found at $dotnet."
+          }
+          "DOTNET_ROOT=$dotnet" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          $dotnet | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+
       - name: Build the Nexus archive
         id: package
         shell: pwsh
