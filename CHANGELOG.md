@@ -1,3 +1,7 @@
+Version 2.1.2
+
+- Fixed hot disabling so adapter machines become inert instead of continuing wireless transfers after Quantum Conveyors is turned off.
+
 Version 2.1.1
 
 - Added Lunar Link's GitHub release update feed so the mod can report and install published updates in-game.

@@ -6,6 +6,17 @@ using UnityEngine;
 
 namespace QuantumConveyors;
 
+// Used only while the hot plugin is disabled. The building remains in the world and keeps its saved data, but it has
+// no network membership, input interception, output emission, indicator updates, or configuration menu.
+internal sealed class DisabledQuantumMachine : Machine
+{
+    public override void OnStart() { Status = "Quantum Conveyors disabled"; }
+    public override void OnStop() { }
+    public override void OnSave() { }
+    public override void OnView(GameObject view) { }
+    public override void Describe(MachinePanel panel) { panel.Line("Quantum Conveyors disabled"); }
+}
+
 // The sending adapter (kind "quantumconveyors.output", shown as Quantum Input): takes capsules off the belt ending at
 // it and passes them to a receiver on its channel. Nothing happens per frame: the work is done when MoonFramework
 // offers it a capsule.

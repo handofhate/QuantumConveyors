@@ -25,7 +25,7 @@ public sealed class Plugin : BasePlugin
 {
     public const string PluginGuid = "tylerun.moonsweepers.quantumconveyors";
     public const string PluginName = "Quantum Conveyors";
-    public const string PluginVersion = "2.1.1";
+    public const string PluginVersion = "2.1.2";
 
     internal static ConfigEntry<int> adapterPrice;
     internal static ConfigEntry<bool> diagnostics, brainFart;
@@ -103,6 +103,9 @@ public sealed class Conveyors
         Settings();
         Assets.Unpack();
         QuantumNetwork.Initialize(Log);
+        // Remove the inert handoff machines left by a previous disable before installing this copy's factories. This
+        // also makes Enable work after Disable, where Lunar Link starts us with a null state.
+        Framework.HandOver(SenderId, ReceiverId);
         // this copy's machines from now on
         foreach (var (id, sender) in new[] { (SenderId, true), (ReceiverId, false) })
         {
@@ -111,14 +114,18 @@ public sealed class Conveyors
         }
         harmony = new Harmony(Plugin.PluginGuid);
         FrameworkPatches.Install(harmony, Log);
-        if (state != null) Framework.SyncNow();          // a reload: the new machines now, not at MoonFramework's next scan
+        Framework.SyncNow();                             // reload, enable, or first hot load: rebuild machines now
         Log.LogInfo($"{Plugin.PluginName} {Plugin.PluginVersion} {(state == null ? "loaded" : "reloaded")}: {Plugin.DisplayNameFor(true)} and {Plugin.DisplayNameFor(false)}.");
     }
 
     public string Stop()
     {
         harmony?.UnpatchSelf(); harmony = null;
+        // HandOver alone restores the saved records. If this copy is being disabled rather than replaced, the next
+        // framework sync would otherwise reuse this copy's factory. Install an inert one and sync it immediately.
+        Framework.UseDisabledAdapterMachines();
         int n = Framework.HandOver(SenderId, ReceiverId);
+        Framework.SyncNow();
         Framework.RemoveCrewHandlers(typeof(Conveyors).Assembly);
         Menu.Stop();
         Log?.LogInfo($"{Plugin.PluginName} stopped: {n} adapters handed over");

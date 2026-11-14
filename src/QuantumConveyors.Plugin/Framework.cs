@@ -14,6 +14,17 @@ internal static class Framework
     const BindingFlags S = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
     static Type Internal(string name) => typeof(Machine).Assembly.GetType("MoonFramework.Internal." + name, true);
 
+    // A hot plugin can be disabled without a replacement copy being started. Keep the adapter records alive in
+    // MoonFramework, but give them a deliberately inert machine factory so the old copy cannot keep transferring.
+    internal static void UseDisabledAdapterMachines()
+    {
+        foreach (var id in new[] { "quantumconveyors.output", "quantumconveyors.input" })
+        {
+            var building = Moon.BuildingOf(id);
+            if (building != null) building.Spec.Machine = () => new DisabledQuantumMachine();
+        }
+    }
+
     // Every live machine of these buildings: saved (OnSave), stopped (OnStop) and taken off MoonFramework's live list,
     // its saved data given back (Machines.Restore) so the machine MoonFramework makes next for that adapter starts from
     // it. The input table is cleared so nothing offers a capsule to a stopped machine before the next one exists.
