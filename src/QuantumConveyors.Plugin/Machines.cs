@@ -143,6 +143,7 @@ internal sealed class QuantumOutputMachine : Machine
 internal sealed class QuantumInputMachine : Machine
 {
     internal float ActiveUntil, BeltFullSince = -1f;
+    internal float LastIn = -1f;                             // when it last put a capsule on its belt (Flow)
     internal int FullPass;                                   // refused in this hand-off pass (Network.TryTransmit)
     internal string ChannelId { get; private set; } = string.Empty;
     internal bool IsAttached { get; private set; }
@@ -211,6 +212,7 @@ internal sealed class QuantumInputMachine : Machine
         }
         bool wasActive = ActiveUntil > Time.unscaledTime;
         BeltFullSince = -1f; ActiveUntil = Time.unscaledTime + 3f; Status = "Receiving"; Tone = MachineTone.Working;
+        LastIn = Time.unscaledTime; Flow.Moved(ChannelId);
         if (!wasActive) { Indicators.Touch(this); Indicators.Due(this); }
         return true;
     }

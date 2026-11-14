@@ -85,6 +85,35 @@ Source: `src/QuantumConveyors.Plugin/`
 | `Menu.cs` | the E menu |
 | `FrameworkPatches.cs` | MoonFramework patches |
 
+## Reloading in place
+
+A mod loader that reloads plugins while the game runs can load Quantum Conveyors itself: `Conveyors.Boot()` once at game
+start (it registers the two adapters, which MoonFramework only accepts then), then `Start(state)`, `Update()`,
+`LateUpdate()` and, before a copy is dropped, `Stop()`. A reload swaps every adapter's machine for the new copy's, from the
+same saved data. Changing the adapters themselves (model, ports, price, names) still needs a game restart. Installed the
+normal way, as a BepInEx plugin, it works as before.
+
+## For tools: HTTP requests
+
+Quantum Conveyors has a public `HandleHttp(method, path, query, body)` on its plugin class, for mods that serve HTTP and
+pass requests on to plugins. Nothing calls it on its own. Reads are GET; changes are POST and work on the host only.
+
+| Request | What it does |
+|---|---|
+| `GET /quantum` | Summary: channels, groups, inputs, outputs, capsules pending, auto group, the status line |
+| `GET /quantum/channels` | Every channel: id, name, short name, group (id and path), outputs, inputs |
+| `POST /quantum/channels/create?name=&group=` | A new channel; without group= a build name like Iron-Line-2 is filed into its group (host only) |
+| `POST /quantum/channels/modify?channel=` | name= renames; group= moves it into a group (group= empty: out of every group) (host only) |
+| `POST /quantum/channels/remove?channel=` | Delete a channel (host only) |
+| `GET /quantum/adapters` | Every adapter: id, kind, role, position, channel (id and name), attached to a belt |
+| `POST /quantum/adapters/modify?id=&channel=` | Put an adapter on a channel; channel= empty takes it off (host only) |
+| `GET /quantum/groups` | Every group: id, name, parent, path, channels and adapters in it |
+| `POST /quantum/groups/create?name=&parent=` | A new group (parent= empty or left out: top level) (host only) |
+| `POST /quantum/groups/modify?group=` | name= renames; parent= moves it (empty: top level) (host only) |
+| `POST /quantum/groups/remove?group=` | Delete a group; its channels and groups move up a level (host only) |
+| `POST /quantum/groups/convert` | File every ungrouped build-named channel into groups (host only) |
+| `GET /quantum/flow?minutes=5` | Per channel: capsules moved in the last minutes (up to 10), and the receivers that placed none |
+
 ## Build
 
 Needs the .NET 6+ SDK and the game with BepInEx (run once, so `BepInEx/interop` exists) and MoonFramework installed;
