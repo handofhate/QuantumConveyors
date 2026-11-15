@@ -86,7 +86,11 @@ Source: `src/QuantumConveyors.Plugin/`
 | `Groups.cs`, `NameSplit.cs` | channel groups, and reading groups out of names |
 | `Machines.cs` | the two adapters |
 | `Indicators.cs` | indicator lights |
-| `Menu.cs` | the E menu |
+| `Menu.cs` | the E menu: opening it on the adapter you look at, closing, clicks and scrolling |
+| `Menu.List.cs` | the menu's channel list: sections, folders that open inline, channels, and how a rebuild slides |
+| `Menu.Drag.cs` | dragging channels and folders in the menu |
+| `Menu.Input.cs` | holding the player still while the menu is open |
+| `Menu.Parts.cs` | the menu's generated sprites and UI pieces |
 | `FrameworkPatches.cs` | MoonFramework patches |
 
 ## Reloading in place
