@@ -1,3 +1,8 @@
+Version 2.1.4
+
+- Fixed intermittent Quantum Conveyors menu interaction on Moon Sweepers 1.0.6 by using reliable IL2CPP casts for row dragging, player detection, and input freezing.
+- Split the menu implementation into focused files without changing its behavior.
+
 Version 2.1.3
 
 - Removed unpacked model and preview files from older Quantum Conveyors cache folders when the mod starts.
