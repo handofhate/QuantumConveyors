@@ -48,9 +48,10 @@ internal static partial class Menu
     static void Refresh()
     {
         if (content == null) return;
+        QuantumNetwork.SendStateToCrew();                                  // the host: crew-mates see what this menu changed
         var before = TakeOldRows();
         var b = NewBuild();
-        UpdateAutoGroupButton();
+        UpdateAutoGroupButton(); UpdateCrewControls();
         AddSections(b);
         PlaceScroll(before, b);
         if (animateNextRefresh) AnimateChanges(before, b);
@@ -99,10 +100,21 @@ internal static partial class Menu
         return b;
     }
 
+    // the crew line and the New buttons: a crew-mate without the host's leave has nothing to press
+    static void UpdateCrewControls()
+    {
+        if (newChannelButton != null) newChannelButton.gameObject.SetActive(MayChange);
+        if (newGroupButton != null) newGroupButton.gameObject.SetActive(MayChange);
+        if (crewButton == null) return;
+        var mode = QuantumNetwork.CrewChanges;
+        var text = crewButton.GetComponentInChildren<Text>(); if (text != null) text.text = mode;
+        var image = crewButton.GetComponent<Image>(); if (image != null) image.color = mode != "Off" ? Accent : ButtonColor;
+    }
+
     static void UpdateAutoGroupButton()
     {
         if (autoGroupButton == null) return;
-        var autoGroup = QuantumNetwork.AutoGroupOn;
+        var autoGroup = QuantumNetwork.AutoGroupShown;
         var buttonText = autoGroupButton.GetComponentInChildren<Text>();
         if (buttonText != null) buttonText.text = autoGroup ? "On" : "Off";
         var buttonImage = autoGroupButton.GetComponent<Image>();
@@ -112,6 +124,7 @@ internal static partial class Menu
     // Unassigned, Not Grouped, then the top-level folders
     static void AddSections(Build b)
     {
+        foreach (var r in new List<QuantumNetwork.Pending>(QuantumNetwork.PendingRequests)) AddRequest(b, r);
         var unassigned = new List<ChannelSummary>();
         foreach (var c in QuantumNetwork.Summaries()) if (c.Outputs + c.Inputs == 0) unassigned.Add(c);
         unassigned.Sort((x, y) => QuantumNetwork.Natural(x.Name, y.Name));
@@ -126,6 +139,15 @@ internal static partial class Menu
             () => ToggleSection(ref ungroupedExpanded, "s:ungrouped"), ungrouped);
 
         foreach (var gid in QuantumNetwork.ChildGroups(string.Empty)) AddGroup(b, gid, 0);
+    }
+
+    // a crew-mate's change waiting for the host (Crew Changes: Ask): who, what, Allow and Deny
+    static void AddRequest(Build b, QuantumNetwork.Pending req)
+    {
+        var r = AddRow(b, false);
+        AddName(r, req.Who + Counts("asks to " + req.What), new Vector2(-95, 0), 360);
+        Button(r, "Allow", new Vector2(160, 0), new Vector2(84, 34), () => { QuantumNetwork.Answer(req, true); Refresh(); }, true);
+        Button(r, "Deny", new Vector2(250, 0), new Vector2(84, 34), () => { QuantumNetwork.Answer(req, false); Refresh(); });
     }
 
     static void ToggleSection(ref bool expanded, string key)
@@ -219,6 +241,7 @@ internal static partial class Menu
             new Vector2(-125 + indent, 0), 260 - indent);
         // the channel controls sit on the same column as a folder's Delete: room on the right, and every row's action
         // columns line up
+        if (!MayChange) return;
         Button(r, b.Mine == id ? "Unassign" : "Assign", new Vector2(22, 0), new Vector2(86, 34), () => Toggle(id));
         Button(r, "Rename", new Vector2(114, 0), new Vector2(88, 34), () => { editing = "c:" + id; Refresh(); });
         Button(r, "Delete", new Vector2(205, 0), new Vector2(84, 34), () => DeleteChannel(id));
@@ -226,6 +249,7 @@ internal static partial class Menu
 
     static void SaveChannelName(string id, string name)
     {
+        if (Crewmate) { QuantumNetwork.Request("rename", id, name); editing = string.Empty; Refresh(); return; }
         if (!QuantumNetwork.RenameChannel(id, name)) return;
         if (pendingNewChannel == id) pendingNewChannel = null;
         editing = string.Empty; Refresh();
@@ -233,6 +257,7 @@ internal static partial class Menu
 
     static void DeleteChannel(string id)
     {
+        if (Crewmate) { QuantumNetwork.Request("delete", id); return; }
         if (!QuantumNetwork.DeleteChannel(id)) return;
         if (editing == "c:" + id) editing = string.Empty;
         if (pendingNewChannel == id) pendingNewChannel = null;
@@ -258,8 +283,11 @@ internal static partial class Menu
         AddName(r, QuantumNetwork.GroupName(gid) + (b.MineGroups.Contains(gid) ? ThisAdapter : "")
             + Counts("(" + CountPhrase(n.channels, "channel") + ", " + CountPhrase(n.adapters, "adapter") + ")"),
             new Vector2(-95 + indent, 0), 320 - indent);
-        Button(r, "Rename", new Vector2(115, 0), new Vector2(86, 34), () => { editing = "g:" + gid; Refresh(); });
-        Button(r, "Delete", new Vector2(205, 0), new Vector2(84, 34), () => DeleteGroup(gid));
+        if (MayChange)
+        {
+            Button(r, "Rename", new Vector2(115, 0), new Vector2(86, 34), () => { editing = "g:" + gid; Refresh(); });
+            Button(r, "Delete", new Vector2(205, 0), new Vector2(84, 34), () => DeleteGroup(gid));
+        }
         var open = expandedGroups.Contains(gid);
         AddArrow(b, r, "g:" + gid, open, () => ToggleGroup(gid));
         if (!open) return;
@@ -271,12 +299,14 @@ internal static partial class Menu
 
     static void DeleteGroup(string gid)
     {
+        if (Crewmate) { QuantumNetwork.Request("deletegroup", gid); expandedGroups.Remove(gid); return; }
         if (!QuantumNetwork.DeleteGroup(gid)) return;
         expandedGroups.Remove(gid); Refresh();
     }
 
     static void SaveGroupName(string gid, string name)
     {
+        if (Crewmate) { QuantumNetwork.Request("renamegroup", gid, name); editing = string.Empty; Refresh(); return; }
         if (!QuantumNetwork.RenameGroup(gid, name)) return;
         if (pendingNewGroup == gid) pendingNewGroup = null;
         editing = string.Empty; Refresh();
@@ -453,6 +483,12 @@ internal static partial class Menu
 
     static void Toggle(string channelId)
     {
+        if (Crewmate)
+        {
+            if (QuantumNetwork.ChannelFor(endpointId) == channelId) QuantumNetwork.Request("unassign", Id(endpointId));
+            else QuantumNetwork.Request("assign", Id(endpointId), channelId);
+            return;
+        }
         if (!Moon.IsAuthority) return;
         if (QuantumNetwork.ChannelFor(endpointId) == channelId) QuantumNetwork.UnassignEndpoint(endpointId);
         else QuantumNetwork.AssignEndpoint(endpointId, channelId);
@@ -460,6 +496,8 @@ internal static partial class Menu
     }
     static void NewChannel()
     {
+        // a crew-mate: the host makes it ("New Channel", under Unassigned); rename it once it shows
+        if (Crewmate) { QuantumNetwork.Request("create", string.Empty); unassignedExpanded = true; return; }
         if (!Moon.IsAuthority || !QuantumNetwork.CreateChannelIn(string.Empty, out var channelId)) return;
         pendingNewChannelWasUnassignedExpanded = unassignedExpanded;
         animateNextRefresh = true;
@@ -476,15 +514,17 @@ internal static partial class Menu
     }
     static void NewGroup()
     {
-        if (!Moon.IsAuthority) return;
+        if (!Moon.IsAuthority && !Crewmate) return;
         string parent = string.Empty;
         var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var g in QuantumNetwork.ChildGroups(parent)) names.Add(QuantumNetwork.GroupName(g));
         string name = "New Group"; int n = 2; while (names.Contains(name)) name = "New Group " + n++;
+        if (Crewmate) { QuantumNetwork.Request("newgroup", parent, name); return; }
         if (QuantumNetwork.CreateGroup(parent, name, out var gid)) { pendingNewGroup = gid; editing = "g:" + gid; animateNextRefresh = true; Refresh(); }
     }
     static void ToggleAutoGroup()
     {
+        if (Crewmate) { QuantumNetwork.Request("auto", QuantumNetwork.AutoGroupShown ? "0" : "1"); return; }
         if (!Moon.IsAuthority) return;
         QuantumNetwork.SetAutoGroup(!QuantumNetwork.AutoGroupOn);
         Refresh();

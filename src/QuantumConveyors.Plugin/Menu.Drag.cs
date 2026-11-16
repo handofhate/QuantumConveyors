@@ -88,6 +88,7 @@ internal static partial class Menu
 
     static void BeginDragCandidate(Vector2 position)
     {
+        if (!MayChange) return;                                        // a crew-mate without the host's leave
         var row = RowAt(position, false, out var overInteractive);
         if (overInteractive || row == null || (row.ChannelId == null && row.GroupId == null && row.Section == null)) return;
         dragCandidate = row; dragStart = position; dragging = false;
@@ -147,12 +148,14 @@ internal static partial class Menu
             var moved = false;
             if (!string.IsNullOrEmpty(dragCandidate.ChannelId))
             {
-                moved = QuantumNetwork.MoveChannel(dragCandidate.ChannelId, targetGroup);
+                moved = Crewmate ? Request("movechannel", dragCandidate.ChannelId, targetGroup)
+                    : QuantumNetwork.MoveChannel(dragCandidate.ChannelId, targetGroup);
                 if (moved) PrepareReveal(targetGroup, dragCandidate.ChannelId, null);
             }
             else if (!string.IsNullOrEmpty(dragCandidate.GroupId))
             {
-                moved = QuantumNetwork.MoveGroup(dragCandidate.GroupId, targetGroup);
+                moved = Crewmate ? Request("movegroup", dragCandidate.GroupId, targetGroup)
+                    : QuantumNetwork.MoveGroup(dragCandidate.GroupId, targetGroup);
                 if (moved) PrepareReveal(targetGroup, null, dragCandidate.GroupId);
             }
             if (moved)

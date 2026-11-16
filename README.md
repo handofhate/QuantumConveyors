@@ -39,9 +39,11 @@ E, Escape, or right-click closes the menu. The adapter's light: green ready or w
 no adapter on the other side or the receiving belt is full, red when it's waiting for a channel or its belt is missing.
 
 Settings (`BepInEx/config/tylerun.moonsweepers.quantumconveyors.cfg`): Adapter Price, Diagnostics, Brain Fart Naming
-(This swaps the names of the adapters. Proper semantics is now optional.).
+(This swaps the names of the adapters. Proper semantics is now optional.), and Crew changes (below).
 
-In a crew the host moves the capsules; channel changes made by the host reach everyone.
+In a crew the host moves the capsules. Crew-mates see the host's channels in their E menu, and can change them when the
+host allows it: **Crew Changes** at the bottom of the host's menu is Off (the default: crew-mates only see), Ask (the host
+allows or denies each change) or Auto.
 
 ## How it works
 
@@ -83,6 +85,7 @@ Source: `src/QuantumConveyors.Plugin/`
 | `Plugin.cs` | settings, the two buildings, the per-frame driver |
 | `Assets.cs` | unpacks the embedded model and pictures to `BepInEx/cache/QuantumConveyors/<version>/` |
 | `Network.cs` | channels, moving capsules, crew messages, the public API |
+| `CrewChannels.cs` | crew games: the host's channels sent to crew-mates, and crew-mates' changes (Crew Changes: Off, Ask, Auto) |
 | `Groups.cs`, `NameSplit.cs` | channel groups, and reading groups out of names |
 | `Machines.cs` | the two adapters |
 | `Indicators.cs` | indicator lights |

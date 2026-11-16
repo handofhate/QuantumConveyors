@@ -41,6 +41,7 @@ MoonFramework changes, that patch is skipped, the log says so, and the adapters 
 | `Plugin.cs` | settings, the two buildings, the per-frame driver, the hot lifecycle |
 | `Assets.cs` | unpacks the embedded model and pictures to `BepInEx/cache/QuantumConveyors/<version>/` |
 | `Network.cs` | channels, moving capsules, crew messages |
+| `CrewChannels.cs` | crew games: the host's channels sent to crew-mates, and crew-mates' changes (Crew Changes: Off, Ask, Auto) |
 | `Groups.cs`, `NameSplit.cs` | channel groups, and reading groups out of names |
 | `Machines.cs` | the two adapters |
 | `Indicators.cs` | indicator lights |

@@ -29,6 +29,7 @@ public sealed class Plugin : BasePlugin
 
     internal static ConfigEntry<int> adapterPrice;
     internal static ConfigEntry<bool> diagnostics, brainFart;
+    internal static ConfigEntry<string> crewChanges;
 
     internal static int AdapterPrice => Math.Max(1, adapterPrice?.Value ?? 5);
     internal static bool DiagnosticsEnabled => diagnostics?.Value ?? false;
@@ -84,6 +85,10 @@ public sealed class Conveyors
         Plugin.diagnostics = cfg.Bind("Quantum Conveyors", "Diagnostics", legacy.Value, "Enable verbose troubleshooting logs.");
         Plugin.brainFart = cfg.Bind("Quantum Conveyors", "Brain Fart Naming", false,
             "This swaps the names of the adapters. Proper semantics is now optional.");
+        Plugin.crewChanges = cfg.Bind("Crew", "Crew changes", "Off", new ConfigDescription(
+            "When you host: whether crew-mates may change channels from their E menu. Off: they only see them. Ask: you allow or "
+            + "deny each change (in your E menu). Auto: their changes are made at once. Crew-mates the game's crew limits stop "
+            + "from building are always refused.", new AcceptableValueList<string>("Off", "Ask", "Auto")));
     }
 
     // once, at game start: the two adapter buildings (their machines come from whichever copy is running, see Start)
