@@ -49,6 +49,7 @@ public static partial class QuantumNetwork
         Crew.On(RenameMsg, (_, d) => ApplyRename(d));
         Crew.On(DeleteMsg, (_, d) => ApplyDelete(d));
         Crew.On(GroupsMsg, (_, d) => ApplyGroups(d));
+        InitializeCrew();                                                              // CrewChannels.cs
     }
 
     internal static void Diagnostic(string message)

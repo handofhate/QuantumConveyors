@@ -1,3 +1,8 @@
+Unreleased
+
+- Crew-mates see the host's channels: their E menu was empty because only changes made after they joined reached them. Their game now asks the host for every channel, assignment and group when the world loads and when the menu opens.
+- Crew-mates can change channels when the host allows it: Crew Changes at the bottom of the host's E menu (or `[Crew] Crew changes`) is Off by default, Ask (the host allows or denies each change from their menu, with a notice in the crew feed) or Auto. Crew-mates the game's crew limits stop from building are always refused.
+
 Version 2.1.4
 
 - Fixed intermittent Quantum Conveyors menu interaction on Moon Sweepers 1.0.6 by using reliable IL2CPP casts for row dragging, player detection, and input freezing.

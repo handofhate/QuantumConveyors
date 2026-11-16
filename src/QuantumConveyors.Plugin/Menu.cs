@@ -66,6 +66,21 @@ internal static partial class Menu
         if (warned.Add(what)) QuantumNetwork.Log?.LogWarning("menu: " + what + " failed (only logged once): " + e.Message);
     }
 
+    // a crew-mate's game: the menu shows the host's channels (sent when it opens) and its changes go to the host as
+    // requests (QuantumNetwork.Request); the host's state comes back and the menu redraws
+    static bool Crewmate => Crew.IsCrewmate;
+    static string Id(int n) => n.ToString(System.Globalization.CultureInfo.InvariantCulture);
+    static bool Request(string op, params string[] args) { QuantumNetwork.Request(op, args); return false; }
+    static bool listening;
+    static UnityEngine.UI.Button newChannelButton, newGroupButton, crewButton;
+    // a crew-mate may change channels when the host allows it (Ask or Auto)
+    static bool MayChange => !Crewmate || QuantumNetwork.CrewChanges != "Off";
+    static void ListenForState()
+    {
+        if (listening) return; listening = true;
+        QuantumNetwork.StateArrived += () => { if (Open) Refresh(); };
+    }
+
     internal static bool Open => canvas != null;
 
     internal static void Update()
@@ -202,6 +217,7 @@ internal static partial class Menu
     static void OpenFor(int id)
     {
         endpointId = id; editing = string.Empty;
+        ListenForState(); QuantumNetwork.AskForState();                   // a crew-mate: the host's channels, fresh
         var ownGroup = QuantumNetwork.GroupOf(QuantumNetwork.ChannelFor(id));
         for (var group = ownGroup; !string.IsNullOrEmpty(group); group = QuantumNetwork.GroupParent(group)) expandedGroups.Add(group);
         EnsureVisualAssets();
@@ -212,8 +228,8 @@ internal static partial class Menu
         var win = Rect("Window", canvas.transform, new Vector2(640, 600), Vector2.zero, PanelColor); win.localScale = new Vector3(0.54f, 0.54f, 1f);
         win.gameObject.AddComponent<CanvasGroup>().blocksRaycasts = true;
         title = Label(win, "Quantum", new Vector2(0, 250), new Vector2(620, 42), 26, NameText, TextAnchor.MiddleCenter);
-        Button(win, "New Channel", new Vector2(-88, 168), new Vector2(160, 40), NewChannel, true);
-        Button(win, "New Group", new Vector2(88, 168), new Vector2(160, 40), NewGroup);
+        newChannelButton = Button(win, "New Channel", new Vector2(-88, 168), new Vector2(160, 40), NewChannel, true);
+        newGroupButton = Button(win, "New Group", new Vector2(88, 168), new Vector2(160, 40), NewGroup);
         Button(win, "×", new Vector2(287, 264), new Vector2(42, 42), Close);
         headerHelp = Rect("HeaderHelp", win, new Vector2(28, 28), new Vector2(180, 250), ButtonColor);
         headerHelp.GetComponent<Image>().sprite = circleSprite; headerHelp.GetComponent<Image>().type = Image.Type.Sliced;
@@ -231,7 +247,8 @@ internal static partial class Menu
             + "share a channel.\n\n"
             + "Channels and Groups below can be dragged and dropped to organize them as needed. Keep in mind that the list below is "
             + "not a list of individual adapters, but rather a list of the associated channels that multiple adapters may be "
-            + "assigned to. In multiplayer, only the host can control channels and transfers.",
+            + "assigned to. In multiplayer the host runs the transfers; crew-mates see the host's channels and can change them "
+            + "when the host allows it (Crew changes, at the bottom).",
             Vector2.zero, new Vector2(534, 226), 13, ChannelText, TextAnchor.UpperLeft);
         headerTooltipText.horizontalOverflow = HorizontalWrapMode.Wrap; headerTooltipText.verticalOverflow = VerticalWrapMode.Overflow;
         headerTooltip.SetAsLastSibling(); headerTooltipGroup.gameObject.SetActive(false);
@@ -247,13 +264,17 @@ internal static partial class Menu
         topFadeImage = AddFade(view, "TopFade", topFade, new Vector2(0, 159));
         bottomFadeImage = AddFade(view, "BottomFade", bottomFade, new Vector2(0, -159));
         var autoPanel = Rect("AutoGroupPanel", win, new Vector2(580, 60), new Vector2(0, -250), PanelColor);
-        Label(autoPanel, "Auto Group", new Vector2(-88, 10), new Vector2(160, 30), 18, NameText, TextAnchor.MiddleCenter);
-        autoHelp = Rect("AutoGroupHelp", autoPanel, new Vector2(28, 28), new Vector2(155, 10), ButtonColor);
+        Label(autoPanel, "Auto Group", new Vector2(-205, 10), new Vector2(140, 30), 18, NameText, TextAnchor.MiddleCenter);
+        autoHelp = Rect("AutoGroupHelp", autoPanel, new Vector2(28, 28), new Vector2(-30, 10), ButtonColor);
         autoHelp.GetComponent<Image>().sprite = circleSprite; autoHelp.GetComponent<Image>().type = Image.Type.Sliced;
         var helpText = Label(autoHelp, "?", Vector2.zero, new Vector2(24, 24), 16, ChannelText, TextAnchor.MiddleCenter);
         helpText.fontStyle = FontStyle.Bold;
-        autoGroupButton = Button(autoPanel, QuantumNetwork.AutoGroupOn ? "On" : "Off", new Vector2(88, 10), new Vector2(84, 34),
-            ToggleAutoGroup, QuantumNetwork.AutoGroupOn);
+        autoGroupButton = Button(autoPanel, QuantumNetwork.AutoGroupShown ? "On" : "Off", new Vector2(-88, 10), new Vector2(84, 34),
+            ToggleAutoGroup, QuantumNetwork.AutoGroupShown);
+        // crew changes (Off / Ask / Auto): the host sets it here; a crew-mate sees the host's choice
+        Label(autoPanel, "Crew Changes", new Vector2(85, 10), new Vector2(150, 30), 18, NameText, TextAnchor.MiddleCenter);
+        crewButton = Button(autoPanel, QuantumNetwork.CrewChanges, new Vector2(212, 10), new Vector2(84, 34),
+            () => { QuantumNetwork.NextCrewChanges(); Refresh(); }, QuantumNetwork.CrewChanges != "Off");
         autoTooltip = Rect("AutoGroupTooltip", win, new Vector2(540, 128), new Vector2(0, -145), RowColor);
         var tooltipImage = autoTooltip.GetComponent<Image>(); if (tooltipImage != null) tooltipImage.raycastTarget = false;
         autoTooltipGroup = autoTooltip.gameObject.AddComponent<CanvasGroup>(); autoTooltipGroup.blocksRaycasts = false; autoTooltipGroup.interactable = false;
@@ -292,6 +313,7 @@ internal static partial class Menu
         canvas = null; raycaster = null; content = null; editing = string.Empty;
         pendingNewChannel = pendingNewGroup = null; pendingNewChannelWasUnassignedExpanded = false;
         focusEditingChannel = string.Empty; pendingFocusField = null; autoGroupButton = null;
+        newChannelButton = newGroupButton = crewButton = null;
         viewport = null; transition = null; transitionGroup = null; topFadeImage = bottomFadeImage = null;
         autoHelp = autoTooltip = headerHelp = headerTooltip = null; autoTooltipGroup = headerTooltipGroup = null;
         rowAnimations.Clear(); arrowAnimations.Clear(); animatedArrows.Clear();
