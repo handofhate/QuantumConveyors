@@ -23,10 +23,6 @@ Conveyors Nexus Mods page.
    permission to upload to the Quantum Conveyors mod page. Never commit this
    key to the repository.
 
-The workflow uses Nexus mod-page ID `68` for Quantum Conveyors. This is separate
-from `NEXUSMODS_FILE_ID`: the file ID identifies the existing downloadable file,
-while `68` identifies the mod page used for changelog updates.
-
 ## Publishing a release
 
 1. Update `PluginVersion` in `src/QuantumConveyors.Plugin/Plugin.cs`.
@@ -37,7 +33,13 @@ while `68` identifies the mod page used for changelog updates.
 
 The `release-nexus.yml` workflow checks out the release tag, builds the plugin,
 creates the normal `BepInEx/plugins/QuantumConveyors` archive, and uploads it to
-Nexus. It also sends the matching changelog section to Nexus.
+Nexus. The same changelog section is used as the GitHub Release description.
+
+The Nexus upload action currently succeeds for the file upload but fails when it
+tries to append the changelog through Nexus's experimental API endpoint. The
+workflow therefore leaves the Nexus upload independent from that failing
+optional step; the release remains documented in `CHANGELOG.md` and in the
+GitHub Release description.
 
 The workflow can also be started manually from **Actions > Build and publish
 Quantum Conveyors > Run workflow**. Manual runs are useful for testing the
