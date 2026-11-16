@@ -23,6 +23,10 @@ Conveyors Nexus Mods page.
    permission to upload to the Quantum Conveyors mod page. Never commit this
    key to the repository.
 
+The workflow uses Nexus mod-page ID `68` for Quantum Conveyors. This is separate
+from `NEXUSMODS_FILE_ID`: the file ID identifies the existing downloadable file,
+while `68` identifies the mod page used for changelog updates.
+
 ## Publishing a release
 
 1. Update `PluginVersion` in `src/QuantumConveyors.Plugin/Plugin.cs`.

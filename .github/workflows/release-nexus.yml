@@ -93,6 +93,7 @@ jobs:
           filename: dist/QuantumConveyors-${{ steps.version.outputs.version }}.zip
           version: ${{ steps.version.outputs.version }}
           display_name: Quantum Conveyors ${{ steps.version.outputs.version }}
-          mod_id: ${{ vars.NEXUSMODS_MOD_ID }}
+          # This is the Nexus mod-page ID, not the file ID. The Quantum Conveyors page is /mods/68.
+          mod_id: '68'
           changelog: ${{ steps.changelog.outputs.text }}
           update_mod_version: true
